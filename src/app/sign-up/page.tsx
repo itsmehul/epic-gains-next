@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signUp } from "@/infrastructure/auth/client";
+import { APP_NAME, BRAND_ICON } from "@/shared/pwa/constants";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -52,11 +53,22 @@ export default function SignUpPage() {
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-16">
       <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Create account</CardTitle>
-          <CardDescription>
-            Get started with Scaffold.
-          </CardDescription>
+        <CardHeader className="space-y-3">
+          <div className="flex items-center gap-2.5">
+            <span className="grid size-8 place-items-center overflow-hidden rounded-[18.8%] bg-black">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={BRAND_ICON} alt="" className="h-full w-full" aria-hidden />
+            </span>
+            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-primary">
+              {APP_NAME}
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <CardTitle>Create account</CardTitle>
+            <CardDescription>
+              Get started with {APP_NAME}.
+            </CardDescription>
+          </div>
         </CardHeader>
         <form onSubmit={onSubmit}>
           <CardContent className="flex flex-col gap-4">

@@ -39,9 +39,9 @@ export function DashboardPageClient({ userName }: DashboardPageClientProps) {
             </Link>
             <Link
               className={cn(buttonVariants({ variant: "outline" }))}
-              href="/editor"
+              href="/workouts"
             >
-              Lexical editor
+              Workouts
             </Link>
           </CardContent>
         </Card>

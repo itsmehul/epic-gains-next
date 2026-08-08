@@ -2,6 +2,13 @@ import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
 
 import { QueryProvider } from "@/components/providers/query-provider";
+import {
+  APP_COLOR_SCHEME,
+  APP_DESCRIPTION,
+  APP_NAME,
+  APP_THEME_COLOR,
+  APPLE_SPLASH_SCREENS,
+} from "@/shared/pwa/constants";
 
 import "./globals.css";
 
@@ -16,21 +23,44 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Scaffold",
-  description: "App starter with auth, shell, workflows, and AI SDK",
-  manifest: "/manifest.webmanifest",
+  applicationName: APP_NAME,
+  title: {
+    default: APP_NAME,
+    template: `%s · ${APP_NAME}`,
+  },
+  description: APP_DESCRIPTION,
+  keywords: ["fitness", "health", "strength", "workout journal", "PWA"],
+  formatDetection: { telephone: false },
   appleWebApp: {
     capable: true,
-    title: "Scaffold",
+    statusBarStyle: "black-translucent",
+    title: APP_NAME,
   },
   icons: {
-    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
-    apple: [{ url: "/icons/icon-192.png" }],
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48" },
+      {
+        url: "/icons/icon512_rounded.png",
+        sizes: "512x512",
+        type: "image/png",
+      },
+    ],
+    apple: [
+      {
+        url: "/icons/icon512_rounded.png",
+        sizes: "512x512",
+        type: "image/png",
+      },
+    ],
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#292524",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: APP_THEME_COLOR,
+  colorScheme: APP_COLOR_SCHEME,
 };
 
 export default function RootLayout({
@@ -43,6 +73,16 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        {APPLE_SPLASH_SCREENS.map((splashScreen) => (
+          <link
+            key={`${splashScreen.href}-${splashScreen.media}`}
+            rel="apple-touch-startup-image"
+            media={splashScreen.media}
+            href={splashScreen.href}
+          />
+        ))}
+      </head>
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <QueryProvider>{children}</QueryProvider>
       </body>

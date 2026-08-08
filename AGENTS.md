@@ -1,4 +1,4 @@
-# Scaffold agent notes
+# Epic Gains agent notes
 
 - Stack: Next.js App Router, Better Auth, Drizzle/Postgres, pg-workflows, shadcn, TanStack Query.
 - Prefer **API routes + TanStack Query** over server actions for client data/mutations.

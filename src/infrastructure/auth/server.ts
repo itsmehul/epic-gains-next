@@ -9,7 +9,7 @@ const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim() ?? "";
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim() ?? "";
 
 export const auth = betterAuth({
-  appName: "Scaffold",
+  appName: "Epic Gains",
   database: drizzleAdapter(db, {
     provider: "pg",
     schema,

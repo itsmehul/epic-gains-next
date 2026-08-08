@@ -1,9 +1,9 @@
 "use client";
 
 import {
+  IconBarbell,
   IconLayoutDashboard,
   IconRoute,
-  IconPencil,
   IconX,
 } from "@tabler/icons-react";
 import Link from "next/link";
@@ -18,6 +18,7 @@ import {
   SheetContent,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { APP_NAME, BRAND_ICON } from "@/shared/pwa/constants";
 import { cn } from "@/shared/utils";
 
 export type AccountSidebarProfile = {
@@ -73,15 +74,21 @@ function SidebarNavItem({
 
 function SidebarBrand({ closeOnNavigate = false }: { closeOnNavigate?: boolean }) {
   const className = cn(
-    "flex min-w-0 flex-1 items-center rounded-xl px-1.5 py-1",
+    "flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-1.5 py-1",
     !closeOnNavigate &&
       "outline-none ring-sidebar-ring transition-colors hover:bg-sidebar-accent/60 focus-visible:ring-2",
   );
 
   const content = (
-    <span className="min-w-0 truncate text-[15px] font-semibold leading-none tracking-tight text-sidebar-foreground [font-family:var(--font-heading)]">
-      Scaffold
-    </span>
+    <>
+      <span className="grid size-7 shrink-0 place-items-center overflow-hidden rounded-full bg-black">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={BRAND_ICON} alt="" className="h-full w-full" aria-hidden />
+      </span>
+      <span className="min-w-0 truncate text-[15px] font-semibold leading-none tracking-tight text-sidebar-foreground [font-family:var(--font-heading)]">
+        {APP_NAME}
+      </span>
+    </>
   );
 
   if (closeOnNavigate) {
@@ -139,12 +146,12 @@ function AppSidebarContent({
           Workflows
         </SidebarNavItem>
         <SidebarNavItem
-          active={pathname.startsWith("/editor")}
+          active={pathname.startsWith("/workouts")}
           closeOnNavigate={showCloseButton}
-          href="/editor"
+          href="/workouts"
         >
-          <IconPencil className="size-4 shrink-0" />
-          Editor
+          <IconBarbell className="size-4 shrink-0" />
+          Workouts
         </SidebarNavItem>
       </div>
 

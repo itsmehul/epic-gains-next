@@ -25,7 +25,7 @@ async function main() {
       type: "input",
       name: "appName",
       message: "App display name",
-      default: "Scaffold",
+      default: "Epic Gains",
     },
     {
       type: "confirm",
