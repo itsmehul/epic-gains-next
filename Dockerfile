@@ -12,10 +12,14 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 # Placeholders for Next.js page-data collection; real values are injected at runtime.
-ENV DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
-ENV BETTER_AUTH_SECRET=build-time-placeholder-secret
-ENV BETTER_AUTH_URL=http://localhost:3000
-ENV NEXT_PUBLIC_APP_URL=http://localhost:3000
+ARG DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
+ARG BETTER_AUTH_SECRET=build-time-placeholder-secret
+ARG BETTER_AUTH_URL=http://localhost:3000
+ARG NEXT_PUBLIC_APP_URL=http://localhost:3000
+ENV DATABASE_URL=$DATABASE_URL \
+    BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET \
+    BETTER_AUTH_URL=$BETTER_AUTH_URL \
+    NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 RUN pnpm build
 
 FROM base AS runner
