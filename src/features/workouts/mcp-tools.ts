@@ -70,7 +70,8 @@ export function registerWorkoutMcpTools(server: McpServer) {
     "create_workout",
     {
       title: "Create workout",
-      description: "Create a workout for the authenticated user.",
+      description:
+        "Create a workout shell for the authenticated user. For video/follow-along imports, name it after the source video, then create one exercise per move with exact timestamps and associate each via add_exercise_to_workout. Do not stop at section-level placeholders.",
       inputSchema: createWorkoutSchema,
     },
     async (args) => {
@@ -155,7 +156,8 @@ export function registerWorkoutMcpTools(server: McpServer) {
     "create_exercise",
     {
       title: "Create exercise",
-      description: "Create an exercise in the shared catalog.",
+      description:
+        "Create one granular exercise in the shared catalog. When importing a follow-along video: (1) procure an exercise-by-exercise breakdown with exact timestamps (not section summaries), (2) create a separate exercise for every named move, (3) set videoUrl to the canonical watch URL, (4) set metaData.videoStartTime/videoEndTime in seconds from the timestamp links (e.g. t=64 → 64), (5) tag by section (warmup, upper-body, lower-body, core, hiit). Prefer chapter markers, timed descriptions, or transcript cues over coarse ~5-minute section buckets.",
       inputSchema: createExerciseSchema,
     },
     async (args) => {
@@ -176,7 +178,8 @@ export function registerWorkoutMcpTools(server: McpServer) {
     "update_exercise",
     {
       title: "Update exercise",
-      description: "Update an exercise in the shared catalog.",
+      description:
+        "Update an exercise in the shared catalog. Use this to correct names or replace approximate section timings with exact per-move videoStartTime/videoEndTime seconds.",
       inputSchema: z
         .object({
           exerciseId: z.string().min(1),
@@ -233,7 +236,7 @@ export function registerWorkoutMcpTools(server: McpServer) {
     {
       title: "Add exercise to workout",
       description:
-        "Associate a shared exercise with a workout owned by the authenticated user.",
+        "Associate a shared exercise with a workout owned by the authenticated user. After creating timestamped exercises from a video, add every exercise in workout order (warm-up through finisher).",
       inputSchema: z.object({
         workoutId: z.string().min(1),
         exerciseId: z.string().min(1),
