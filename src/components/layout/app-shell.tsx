@@ -5,7 +5,10 @@ import Link from "next/link";
 import {
   createContext,
   useContext,
+  useEffect,
+  useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from "react";
 
@@ -81,12 +84,85 @@ export function AppShellScroll({ children, className }: AppShellScrollProps) {
   );
 }
 
+type AppShellBodyProps = {
+  children: ReactNode;
+  className?: string;
+};
+
+export function AppShellBody({ children, className }: AppShellBodyProps) {
+  return (
+    <div
+      className={cn(
+        "mx-auto flex w-full max-w-screen-md flex-1 flex-col",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 type AppShellHeaderProps = {
   actions?: ReactNode;
   backHref?: string;
   onBack?: () => void;
   title: ReactNode;
 };
+
+function AutoMarqueeTitle({ children }: { children: string }) {
+  const containerRef = useRef<HTMLHeadingElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const [overflowPx, setOverflowPx] = useState(0);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const text = textRef.current;
+    if (!container || !text) {
+      return;
+    }
+
+    const measure = () => {
+      const next = Math.max(0, text.scrollWidth - container.clientWidth);
+      setOverflowPx((current) => (current === next ? current : next));
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(container);
+    observer.observe(text);
+    return () => observer.disconnect();
+  }, [children]);
+
+  const isOverflowing = overflowPx > 0;
+  // ~32px/s scroll + pause padding so longer titles take longer.
+  const durationSeconds = Math.max(6, overflowPx / 32 + 3);
+
+  return (
+    <h1
+      ref={containerRef}
+      className="overflow-hidden rounded-full py-0 pr-4 text-base font-semibold tracking-tight md:py-1"
+      title={children}
+    >
+      <span
+        ref={textRef}
+        className={cn(
+          "inline-block max-w-none whitespace-nowrap will-change-transform",
+          isOverflowing && "motion-safe:animate-marquee-title",
+        )}
+        style={
+          isOverflowing
+            ? ({
+                "--marquee-distance": `-${overflowPx}px`,
+                "--marquee-duration": `${durationSeconds}s`,
+              } as CSSProperties)
+            : undefined
+        }
+      >
+        {children}
+      </span>
+    </h1>
+  );
+}
 
 export function AppShellHeader({
   actions,
@@ -97,7 +173,7 @@ export function AppShellHeader({
   const { sidebarOpen, toggleSidebar } = useAppShell();
 
   return (
-    <header className="sticky top-0 z-20 w-full shrink-0 bg-content-panel shadow-[0_4px_8px_-4px_oklch(0_0_0/0.1)] dark:shadow-[0_4px_8px_-4px_oklch(0_0_0/0.4)]">
+    <header className="sticky top-0 z-40 w-full shrink-0 bg-content-panel shadow-[0_4px_8px_-4px_oklch(0_0_0/0.1)] dark:shadow-[0_4px_8px_-4px_oklch(0_0_0/0.4)]">
       <div className="flex h-12 items-center gap-2 px-3 md:h-14 md:px-6">
         {onBack ? (
           <Button
@@ -136,20 +212,16 @@ export function AppShellHeader({
         )}
         <div className="min-w-0 flex-1">
           {typeof title === "string" ? (
-            <h1 className="truncate rounded-full py-0 pr-4 text-base font-semibold tracking-tight md:py-1">
-              {title}
-            </h1>
+            <AutoMarqueeTitle>{title}</AutoMarqueeTitle>
           ) : (
             title
           )}
         </div>
-        <div className="flex flex-1 items-center justify-end">
-          {actions ? (
-            <div className="ml-2 flex shrink-0 items-center gap-2">
-              {actions}
-            </div>
-          ) : null}
-        </div>
+        {actions ? (
+          <div className="ml-2 flex shrink-0 items-center justify-end gap-2">
+            {actions}
+          </div>
+        ) : null}
       </div>
     </header>
   );

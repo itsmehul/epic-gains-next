@@ -155,7 +155,10 @@ function AppSidebarContent({
         </SidebarNavItem>
       </div>
 
-      <SidebarAccountFooter accountProfile={accountProfile} />
+      <SidebarAccountFooter
+        accountProfile={accountProfile}
+        closeOnNavigate={showCloseButton}
+      />
     </div>
   );
 }

@@ -7,6 +7,8 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   BETTER_AUTH_SECRET: z.string().min(16, "BETTER_AUTH_SECRET is required"),
   BETTER_AUTH_URL: z.string().url().default("http://localhost:3000"),
+  /** Public app origin (use ngrok HTTPS URL when testing MCP OAuth). */
+  NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
   GOOGLE_CLIENT_ID: z.string().optional().default(""),
   GOOGLE_CLIENT_SECRET: z.string().optional().default(""),
   OPENROUTER_API_KEY: z.string().optional().default(""),
@@ -32,6 +34,7 @@ export function getEnv(): Env {
     DATABASE_URL: process.env.DATABASE_URL,
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
     OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
@@ -58,4 +61,9 @@ export function getEnv(): Env {
 export function hasGoogleOAuth() {
   const env = getEnv();
   return Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);
+}
+
+/** Public site origin for MCP resource URLs and OAuth. */
+export function getAppUrl() {
+  return getEnv().NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
 }

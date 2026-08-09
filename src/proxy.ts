@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
-const protectedPrefixes = ["/dashboard", "/workflows", "/workouts"];
+const protectedPrefixes = [
+  "/dashboard",
+  "/workflows",
+  "/workouts",
+  "/integrations",
+  "/oauth/consent",
+];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -16,7 +22,7 @@ export function proxy(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
   if (!sessionCookie) {
     const signIn = new URL("/sign-in", request.url);
-    signIn.searchParams.set("next", pathname);
+    signIn.searchParams.set("next", pathname + request.nextUrl.search);
     return NextResponse.redirect(signIn);
   }
 
@@ -24,5 +30,11 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/workflows/:path*", "/workouts/:path*"],
+  matcher: [
+    "/dashboard/:path*",
+    "/workflows/:path*",
+    "/workouts/:path*",
+    "/integrations/:path*",
+    "/oauth/consent",
+  ],
 };

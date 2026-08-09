@@ -14,6 +14,6 @@ export const helloWorkflow = workflow(
     inputSchema: z.object({
       name: z.string().min(1).default("World"),
     }),
-    schedule: "*/30 * * * * *",
+    // schedule: "*/30 * * * * *",
   },
 );

@@ -1,16 +1,24 @@
 "use client";
 
-import { IconLoader2, IconLogout } from "@tabler/icons-react";
-import { useRouter } from "next/navigation";
+import {
+  IconLoader2,
+  IconLogout,
+  IconPlugConnected,
+} from "@tabler/icons-react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
 import type { AccountSidebarProfile } from "@/components/layout/app-sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { SheetClose } from "@/components/ui/sheet";
 import { signOut } from "@/infrastructure/auth/client";
+import { cn } from "@/shared/utils";
 
 type SidebarAccountFooterProps = {
   accountProfile: AccountSidebarProfile;
+  closeOnNavigate?: boolean;
 };
 
 function getInitials(name: string) {
@@ -24,9 +32,12 @@ function getInitials(name: string) {
 
 export function SidebarAccountFooter({
   accountProfile,
+  closeOnNavigate = false,
 }: SidebarAccountFooterProps) {
+  const pathname = usePathname();
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const integrationsActive = pathname.startsWith("/integrations");
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -39,6 +50,28 @@ export function SidebarAccountFooter({
       setIsSigningOut(false);
     }
   };
+
+  const integrationsClassName = cn(
+    buttonVariants({ size: "sm", variant: "ghost" }),
+    "w-full justify-start gap-2",
+    integrationsActive
+      ? "bg-sidebar-accent/70 font-medium text-sidebar-foreground"
+      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+  );
+
+  const integrationsLink = closeOnNavigate ? (
+    <SheetClose
+      render={<Link className={integrationsClassName} href="/integrations" />}
+    >
+      <IconPlugConnected className="size-3.5" />
+      Integrations
+    </SheetClose>
+  ) : (
+    <Link className={integrationsClassName} href="/integrations">
+      <IconPlugConnected className="size-3.5" />
+      Integrations
+    </Link>
+  );
 
   return (
     <div className="mt-auto shrink-0 p-3">
@@ -63,7 +96,8 @@ export function SidebarAccountFooter({
           </span>
         </div>
 
-        <div className="border-t border-sidebar-border/45 px-3 py-2">
+        <div className="space-y-0.5 border-t border-sidebar-border/45 px-3 py-2">
+          {integrationsLink}
           <Button
             className="w-full justify-start gap-2 text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
             disabled={isSigningOut}

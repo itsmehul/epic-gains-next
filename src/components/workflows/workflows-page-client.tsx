@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { AppShellHeader } from "@/components/layout/app-shell";
+import { AppShellBody, AppShellHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -62,7 +62,7 @@ export function WorkflowsPageClient({
   return (
     <>
       <AppShellHeader title="Workflows" />
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:p-6">
+      <AppShellBody className="gap-6 p-4 md:p-6">
         <Card>
           <CardHeader>
             <CardTitle>{hello?.label ?? "Hello workflow"}</CardTitle>
@@ -181,7 +181,7 @@ export function WorkflowsPageClient({
             </CardContent>
           </Card>
         </div>
-      </div>
+      </AppShellBody>
     </>
   );
 }

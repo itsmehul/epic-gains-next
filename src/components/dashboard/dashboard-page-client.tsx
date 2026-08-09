@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { AppShellHeader } from "@/components/layout/app-shell";
+import { AppShellBody, AppShellHeader } from "@/components/layout/app-shell";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -21,7 +21,7 @@ export function DashboardPageClient({ userName }: DashboardPageClientProps) {
   return (
     <>
       <AppShellHeader title="Dashboard" />
-      <div className="flex flex-col gap-6 p-4 md:p-6">
+      <AppShellBody className="gap-6 p-4 md:p-6">
         <Card>
           <CardHeader>
             <CardTitle>Welcome, {userName}</CardTitle>
@@ -45,7 +45,7 @@ export function DashboardPageClient({ userName }: DashboardPageClientProps) {
             </Link>
           </CardContent>
         </Card>
-      </div>
+      </AppShellBody>
     </>
   );
 }
