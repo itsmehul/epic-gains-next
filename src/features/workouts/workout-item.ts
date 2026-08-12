@@ -1,6 +1,9 @@
 import { normalizeExerciseName } from "@/features/workouts/exercise-name";
 import type { WorkoutExercise } from "@/features/workouts/types";
 
+export const CANONICAL_REST_NAME = "Rest";
+export const REST_TAG = "rest";
+
 const REST_NAMES = new Set([
   "rest",
   "rest period",
@@ -13,10 +16,18 @@ export function isRestWorkoutItem(item: {
   name: string;
   tags?: string[] | null;
 }): boolean {
-  if ((item.tags ?? []).some((tag) => normalizeExerciseName(tag) === "rest")) {
+  if ((item.tags ?? []).some((tag) => normalizeExerciseName(tag) === REST_TAG)) {
     return true;
   }
   return REST_NAMES.has(normalizeExerciseName(item.name));
+}
+
+export function withRestTag(tags: string[] | null | undefined): string[] {
+  const next = [...(tags ?? [])];
+  if (!next.some((tag) => normalizeExerciseName(tag) === REST_TAG)) {
+    next.push(REST_TAG);
+  }
+  return next;
 }
 
 export function getItemDurationSeconds(

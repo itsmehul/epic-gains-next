@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatDurationSeconds,
   isRestWorkoutItem,
+  withRestTag,
 } from "@/features/workouts/workout-item";
 
 describe("isRestWorkoutItem", () => {
@@ -19,6 +20,18 @@ describe("isRestWorkoutItem", () => {
   it("does not treat real exercises as rest", () => {
     expect(isRestWorkoutItem({ name: "Lunges" })).toBe(false);
     expect(isRestWorkoutItem({ name: "Rest pause squat" })).toBe(false);
+  });
+});
+
+describe("withRestTag", () => {
+  it("adds a rest tag when missing", () => {
+    expect(withRestTag([])).toEqual(["rest"]);
+    expect(withRestTag(["warmup"])).toEqual(["warmup", "rest"]);
+  });
+
+  it("does not duplicate an existing rest tag", () => {
+    expect(withRestTag(["rest"])).toEqual(["rest"]);
+    expect(withRestTag(["Rest"])).toEqual(["Rest"]);
   });
 });
 

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { getExerciseByIdForUser } from "@/db/repositories/exercise.repository";
+import {
+  ensureCanonicalRestExerciseForUser,
+  getExerciseByIdForUser,
+} from "@/db/repositories/exercise.repository";
 import { getVisibleWorkoutById } from "@/db/repositories/feed.repository";
 import {
   createWorkoutExercise,
@@ -8,6 +11,7 @@ import {
 } from "@/db/repositories/workout-exercise.repository";
 import { getWorkoutByIdForUser } from "@/db/repositories/workout.repository";
 import { createWorkoutExerciseSchema } from "@/features/workouts/schemas";
+import { isRestWorkoutItem, withRestTag } from "@/features/workouts/workout-item";
 import {
   apiError,
   requireApiSession,
@@ -29,6 +33,11 @@ export async function GET(req: Request) {
       const workout = await getVisibleWorkoutById(session.user.id, workoutId);
       if (!workout) {
         return apiError("Workout not found", 404);
+      }
+      if (workout.userId === session.user.id) {
+        await ensureCanonicalRestExerciseForUser(session.user.id, {
+          createIfMissing: false,
+        });
       }
     }
 
@@ -89,23 +98,36 @@ export async function POST(req: Request) {
       return apiError("Workout not found", 404);
     }
 
-    const exercise = await getExerciseByIdForUser(
-      parsed.data.exerciseId,
-      session.user.id,
-    );
-    if (!exercise) {
+    const isRest = isRestWorkoutItem({
+      name: parsed.data.name,
+      tags: parsed.data.tags,
+    });
+    const exerciseId = isRest
+      ? await ensureCanonicalRestExerciseForUser(session.user.id)
+      : parsed.data.exerciseId;
+    if (!exerciseId) {
       return apiError("Exercise not found", 404);
+    }
+
+    if (!isRest) {
+      const ownedExercise = await getExerciseByIdForUser(
+        exerciseId,
+        session.user.id,
+      );
+      if (!ownedExercise) {
+        return apiError("Exercise not found", 404);
+      }
     }
 
     const item = await createWorkoutExercise({
       id: crypto.randomUUID(),
       workoutId: parsed.data.workoutId,
-      exerciseId: parsed.data.exerciseId,
+      exerciseId,
       name: parsed.data.name,
       videoUrl: parsed.data.videoUrl ?? null,
       imageUrl: parsed.data.imageUrl ?? null,
       metaData: parsed.data.metaData ?? null,
-      tags: parsed.data.tags ?? [],
+      tags: isRest ? withRestTag(parsed.data.tags) : (parsed.data.tags ?? []),
     });
     return NextResponse.json(item, { status: 201 });
   } catch (error) {

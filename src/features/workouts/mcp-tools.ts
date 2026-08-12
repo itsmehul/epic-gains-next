@@ -9,6 +9,7 @@ import {
   deleteExerciseForUser,
   getExerciseByIdForUser,
   listExercisesForUser,
+  resolveCanonicalRestExercise,
 } from "@/db/repositories/exercise.repository";
 import {
   deleteWorkoutExercise,
@@ -24,7 +25,7 @@ import {
 } from "@/db/repositories/workout.repository";
 import { exercise, workout, workoutExercise } from "@/db/schema";
 import { normalizeExerciseName } from "@/features/workouts/exercise-name";
-import { isRestWorkoutItem } from "@/features/workouts/workout-item";
+import { isRestWorkoutItem, withRestTag } from "@/features/workouts/workout-item";
 import {
   exerciseMetaDataSchema,
   importFullWorkoutSchema,
@@ -73,7 +74,7 @@ export function registerWorkoutMcpTools(server: McpServer) {
     {
       title: "Import full workout",
       description:
-        "Import a full follow-along video workout. Include rest periods as items named Rest with timestamps — they are timeline markers, not exercises, and are not merged or logged. Reuses an existing exercise when the name already exists for this user (canonical name or prior workout alias); otherwise creates one. The same exercise may appear more than once in the workout. Provide exact timestamps for each move.",
+        "Import a full follow-along video workout. Include rest periods as items named Rest with timestamps — they are timeline markers, not logged exercises. All rests share one Rest exercise per user. Reuses an existing exercise when the name already exists for this user (canonical name or prior workout alias); otherwise creates one. The same exercise may appear more than once in the workout. Provide exact timestamps for each move.",
       inputSchema: importFullWorkoutSchema,
     },
     async (args) => {
@@ -129,20 +130,16 @@ export function registerWorkoutMcpTools(server: McpServer) {
             }
           }
 
-          for (const ex of args.exercises) {
-            const tags = [...(ex.tags ?? [])];
-            const isRest = isRestWorkoutItem({ name: ex.name, tags });
+          const hasRest = args.exercises.some((ex) =>
+            isRestWorkoutItem({ name: ex.name, tags: ex.tags }),
+          );
+          const restExerciseId = hasRest
+            ? await resolveCanonicalRestExercise(tx, userId)
+            : null;
 
-            if (isRest) {
-              if (!tags.some((tag) => normalizeExerciseName(tag) === "rest")) {
-                tags.push("rest");
-              }
-              const restExerciseId = crypto.randomUUID();
-              await tx.insert(exercise).values({
-                id: restExerciseId,
-                userId,
-                name: ex.name,
-              });
+          for (const ex of args.exercises) {
+            if (isRestWorkoutItem({ name: ex.name, tags: ex.tags })) {
+              if (!restExerciseId) continue;
               await tx.insert(workoutExercise).values({
                 id: crypto.randomUUID(),
                 workoutId,
@@ -153,7 +150,7 @@ export function registerWorkoutMcpTools(server: McpServer) {
                   videoStartTime: ex.videoStartTime,
                   videoEndTime: ex.videoEndTime,
                 },
-                tags,
+                tags: withRestTag(ex.tags),
               });
               continue;
             }
@@ -181,7 +178,7 @@ export function registerWorkoutMcpTools(server: McpServer) {
                 videoStartTime: ex.videoStartTime,
                 videoEndTime: ex.videoEndTime,
               },
-              tags,
+              tags: ex.tags ?? [],
             });
           }
 
