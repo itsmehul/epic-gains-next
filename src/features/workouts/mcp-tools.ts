@@ -1,7 +1,6 @@
 import "server-only";
 
 import type { McpServer } from "@modelcontextprotocol/server";
-import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
@@ -89,36 +88,13 @@ export function registerWorkoutMcpTools(server: McpServer) {
             })
             .returning();
 
-          const usedExerciseIds = new Set<string>();
-
           for (const ex of args.exercises) {
-            const [existing] = await tx
-              .select({
-                exerciseId: workoutExercise.exerciseId,
-              })
-              .from(workoutExercise)
-              .innerJoin(exercise, eq(exercise.id, workoutExercise.exerciseId))
-              .where(
-                and(
-                  eq(exercise.userId, userId),
-                  eq(workoutExercise.name, ex.name),
-                  eq(workoutExercise.videoUrl, args.sourceVideoUrl),
-                  sql`${workoutExercise.metaData}->>'videoStartTime' = ${ex.videoStartTime.toString()}`,
-                ),
-              )
-              .limit(1);
-
-            let exerciseId = existing?.exerciseId;
-
-            if (!exerciseId || usedExerciseIds.has(exerciseId)) {
-              exerciseId = crypto.randomUUID();
-              await tx.insert(exercise).values({
-                id: exerciseId,
-                userId,
-                name: ex.name,
-              });
-            }
-            usedExerciseIds.add(exerciseId);
+            const exerciseId = crypto.randomUUID();
+            await tx.insert(exercise).values({
+              id: exerciseId,
+              userId,
+              name: ex.name,
+            });
 
             await tx.insert(workoutExercise).values({
               workoutId,
