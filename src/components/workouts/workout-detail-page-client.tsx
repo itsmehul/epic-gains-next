@@ -1,6 +1,6 @@
 "use client";
 
-import { IconLoader2 } from "@tabler/icons-react";
+import { IconChevronRight, IconLoader2 } from "@tabler/icons-react";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -207,11 +207,12 @@ export function WorkoutDetailPageClient() {
                 />
                 <div className="overflow-x-auto overscroll-x-contain px-4 scrollbar-none md:px-0">
                   <div className="flex w-max items-stretch gap-3">
-                    {workoutExercises.map((item) => {
+                    {workoutExercises.map((item, index) => {
                       const exercise = exerciseById.get(item.exerciseId);
                       const isActive = selectedExerciseId === item.exerciseId;
                       const setCount =
                         setsByExerciseId.get(item.exerciseId)?.length ?? 0;
+                      const hasNext = index < workoutExercises.length - 1;
 
                       return (
                         <button
@@ -245,6 +246,17 @@ export function WorkoutDetailPageClient() {
                             >
                               {setCount}
                             </Badge>
+                          ) : null}
+                          {hasNext ? (
+                            <IconChevronRight
+                              aria-hidden
+                              className={cn(
+                                "size-3.5 shrink-0 opacity-50",
+                                isActive
+                                  ? "text-primary"
+                                  : "text-muted-foreground group-hover:text-foreground",
+                              )}
+                            />
                           ) : null}
                         </button>
                       );
