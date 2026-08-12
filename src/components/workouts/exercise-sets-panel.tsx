@@ -18,15 +18,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { ExerciseResolveCard } from "@/components/workouts/exercise-resolve-card";
 import {
   useCreateSet,
   useDeleteSet,
   useSimilarExercises,
   useUpdateSet,
-  useUpdateWorkoutExercise,
-  useDeleteWorkoutExercise,
 } from "@/features/workouts/hooks";
 import type { Set } from "@/features/workouts/types";
 import { cn } from "@/shared/utils";
@@ -221,31 +218,27 @@ const EXTRA_FIELDS: FieldDef[] = [
 type ExerciseSetsPanelProps = {
   workoutId: string;
   exerciseId: string;
-  localName: string;
+  workoutExerciseId: string;
   sets: Set[];
-  onExerciseResolved?: (targetExerciseId: string) => void;
+  onExerciseResolved?: (workoutExerciseId: string) => void;
 };
 
 export function ExerciseSetsPanel({
   workoutId,
   exerciseId,
-  localName,
+  workoutExerciseId,
   sets,
   onExerciseResolved,
 }: ExerciseSetsPanelProps) {
   const createSet = useCreateSet();
   const updateSet = useUpdateSet();
   const deleteSet = useDeleteSet();
-  const updateWorkoutExercise = useUpdateWorkoutExercise();
-  const deleteWorkoutExercise = useDeleteWorkoutExercise();
   const showResolve = sets.length === 0;
   const similarQuery = useSimilarExercises(exerciseId, {
     workoutId,
+    workoutExerciseId,
     enabled: showResolve,
   });
-
-  const [nameDraft, setNameDraft] = useState(localName);
-  const [nameBusy, setNameBusy] = useState(false);
 
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
   const [savedValues, setSavedValues] = useState<Record<string, RowValues>>(
@@ -266,10 +259,6 @@ export function ExerciseSetsPanel({
   useEffect(() => {
     savedValuesRef.current = savedValues;
   }, [savedValues]);
-
-  useEffect(() => {
-    setNameDraft(localName);
-  }, [localName, exerciseId]);
 
   useEffect(() => {
     setSavedValues((prev) => {
@@ -313,42 +302,6 @@ export function ExerciseSetsPanel({
       },
     ]);
     setExpandedId(id);
-  }
-
-  async function handleDeleteExercise() {
-    setError(null);
-    setNameBusy(true);
-    try {
-      await deleteWorkoutExercise.mutateAsync({
-        workoutId,
-        exerciseId,
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete exercise");
-      setNameBusy(false);
-    }
-  }
-
-  async function persistLocalName() {
-    const next = nameDraft.trim();
-    if (!next || next === localName) {
-      setNameDraft(localName);
-      return;
-    }
-    setNameBusy(true);
-    setError(null);
-    try {
-      await updateWorkoutExercise.mutateAsync({
-        workoutId,
-        exerciseId,
-        name: next,
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update name");
-      setNameDraft(localName);
-    } finally {
-      setNameBusy(false);
-    }
   }
 
   async function persistSaved(setId: string) {
@@ -689,53 +642,6 @@ export function ExerciseSetsPanel({
 
   return (
     <div>
-      <div className="mx-2 mb-2 flex items-center gap-2">
-        <div className="flex-1">
-          <label className="sr-only" htmlFor={`${baseId}-local-name`}>
-            Exercise name in this workout
-          </label>
-          <Input
-            id={`${baseId}-local-name`}
-            value={nameDraft}
-            disabled={nameBusy}
-            onChange={(event) => setNameDraft(event.target.value)}
-            onBlur={() => {
-              void persistLocalName();
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.currentTarget.blur();
-              }
-            }}
-            className="h-9 border-transparent bg-transparent px-1 text-base font-medium shadow-none focus-visible:border-ring focus-visible:bg-background"
-            placeholder="Exercise name"
-          />
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          disabled={nameBusy}
-          className="text-muted-foreground hover:text-destructive size-8 shrink-0"
-          onClick={() => {
-            if (
-              window.confirm(
-                "Are you sure you want to remove this exercise from the workout?",
-              )
-            ) {
-              void handleDeleteExercise();
-            }
-          }}
-          aria-label="Remove exercise"
-        >
-          {nameBusy && deleteWorkoutExercise.isPending ? (
-            <IconLoader2 className="animate-spin size-4" />
-          ) : (
-            <IconTrash className="size-4" />
-          )}
-        </Button>
-      </div>
-
       <LayoutGroup>
         <ul className="divide-border/60 mx-2 divide-y overflow-hidden rounded-xl bg-muted/20">
           <AnimatePresence initial={false} mode="popLayout">
@@ -938,9 +844,10 @@ export function ExerciseSetsPanel({
                 <ExerciseResolveCard
                   workoutId={workoutId}
                   exerciseId={exerciseId}
+                  workoutExerciseId={workoutExerciseId}
                   candidates={similarQuery.data?.items ?? []}
-                  onResolved={(targetId) => {
-                    onExerciseResolved?.(targetId);
+                  onResolved={(id) => {
+                    onExerciseResolved?.(id);
                   }}
                 />
               </CardContent>

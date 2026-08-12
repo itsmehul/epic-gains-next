@@ -4,7 +4,10 @@ import {
   findSimilarExercisesForUser,
   getExerciseByIdForUser,
 } from "@/db/repositories/exercise.repository";
-import { getWorkoutExercise } from "@/db/repositories/workout-exercise.repository";
+import {
+  getWorkoutExercise,
+  getWorkoutExerciseById,
+} from "@/db/repositories/workout-exercise.repository";
 import { similarExercisesQuerySchema } from "@/features/workouts/schemas";
 import {
   apiError,
@@ -35,15 +38,19 @@ export async function GET(
     const { searchParams } = new URL(req.url);
     const parsed = similarExercisesQuerySchema.safeParse({
       limit: searchParams.get("limit") ?? undefined,
+      workoutId: searchParams.get("workoutId") ?? undefined,
+      workoutExerciseId: searchParams.get("workoutExerciseId") ?? undefined,
     });
     if (!parsed.success) {
       return apiError("Invalid query", 400);
     }
 
-    const workoutId = searchParams.get("workoutId");
     let queryName = exercise.name;
-    if (workoutId) {
-      const link = await getWorkoutExercise(workoutId, id);
+    if (parsed.data.workoutExerciseId) {
+      const link = await getWorkoutExerciseById(parsed.data.workoutExerciseId);
+      if (link?.name && link.exerciseId === id) queryName = link.name;
+    } else if (parsed.data.workoutId) {
+      const link = await getWorkoutExercise(parsed.data.workoutId, id);
       if (link?.name) queryName = link.name;
     }
 

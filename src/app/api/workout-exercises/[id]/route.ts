@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getExerciseByIdForUser } from "@/db/repositories/exercise.repository";
 import {
   deleteWorkoutExercise,
-  getWorkoutExercise,
+  getWorkoutExerciseById,
   updateWorkoutExercise,
 } from "@/db/repositories/workout-exercise.repository";
 import { getWorkoutByIdForUser } from "@/db/repositories/workout.repository";
@@ -15,8 +15,7 @@ import {
 } from "@/infrastructure/auth/api";
 
 type RouteParams = {
-  workoutId: string;
-  exerciseId: string;
+  id: string;
 };
 
 async function assertOwnsWorkout(workoutId: string, userId: string) {
@@ -33,16 +32,17 @@ export async function GET(
   }
 
   try {
-    const { workoutId, exerciseId } = await params;
-    const workout = await assertOwnsWorkout(workoutId, session.user.id);
+    const { id } = await params;
+    const item = await getWorkoutExerciseById(id);
+    if (!item) {
+      return apiError("Workout exercise not found", 404);
+    }
+
+    const workout = await assertOwnsWorkout(item.workoutId, session.user.id);
     if (!workout) {
       return apiError("Workout not found", 404);
     }
 
-    const item = await getWorkoutExercise(workoutId, exerciseId);
-    if (!item) {
-      return apiError("Workout exercise not found", 404);
-    }
     return NextResponse.json(item);
   } catch (error) {
     const message =
@@ -63,8 +63,16 @@ export async function PATCH(
   }
 
   try {
-    const { workoutId, exerciseId } = await params;
-    const workout = await assertOwnsWorkout(workoutId, session.user.id);
+    const { id } = await params;
+    const existing = await getWorkoutExerciseById(id);
+    if (!existing) {
+      return apiError("Workout exercise not found", 404);
+    }
+
+    const workout = await assertOwnsWorkout(
+      existing.workoutId,
+      session.user.id,
+    );
     if (!workout) {
       return apiError("Workout not found", 404);
     }
@@ -95,7 +103,7 @@ export async function PATCH(
       }
     }
 
-    const item = await updateWorkoutExercise(workoutId, exerciseId, {
+    const item = await updateWorkoutExercise(id, {
       workoutId: parsed.data.workoutId,
       exerciseId: parsed.data.exerciseId,
       name: parsed.data.name,
@@ -127,13 +135,21 @@ export async function DELETE(
   }
 
   try {
-    const { workoutId, exerciseId } = await params;
-    const workout = await assertOwnsWorkout(workoutId, session.user.id);
+    const { id } = await params;
+    const existing = await getWorkoutExerciseById(id);
+    if (!existing) {
+      return apiError("Workout exercise not found", 404);
+    }
+
+    const workout = await assertOwnsWorkout(
+      existing.workoutId,
+      session.user.id,
+    );
     if (!workout) {
       return apiError("Workout not found", 404);
     }
 
-    const item = await deleteWorkoutExercise(workoutId, exerciseId);
+    const item = await deleteWorkoutExercise(id);
     if (!item) {
       return apiError("Workout exercise not found", 404);
     }

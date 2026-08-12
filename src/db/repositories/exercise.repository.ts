@@ -8,15 +8,17 @@ import {
   SIMILAR_EXERCISE_THRESHOLD,
   exerciseNameSimilarity,
 } from "@/features/workouts/exercise-name";
+import { isRestWorkoutItem } from "@/features/workouts/workout-item";
 
 export type ExerciseInsert = typeof exercise.$inferInsert;
 
 export async function listExercisesForUser(userId: string) {
-  return db
+  const items = await db
     .select()
     .from(exercise)
     .where(eq(exercise.userId, userId))
     .orderBy(asc(exercise.name));
+  return items.filter((item) => !isRestWorkoutItem(item));
 }
 
 export async function getExerciseById(id: string) {
@@ -134,6 +136,7 @@ export async function findSimilarExercisesForUser(options: {
     let matchedAlias: string | null = null;
 
     for (const alias of aliasesByExercise.get(item.id) ?? []) {
+      if (isRestWorkoutItem({ name: alias })) continue;
       const score = exerciseNameSimilarity(query, alias);
       if (score > bestScore) {
         bestScore = score;
@@ -217,14 +220,16 @@ export async function getMergeExerciseImpact(options: {
 }
 
 /**
- * Global merge of source → target within a user (best-effort on PK collisions).
- * Keeps the initiating workout's local presentation fields when possible.
+ * Global merge of source → target within a user.
+ * Retargets every source appearance in place so the same exercise can occupy
+ * multiple positions in a workout. Local name/video/timestamps stay on each row.
  */
 export async function mergeExerciseInto(options: {
   userId: string;
   sourceExerciseId: string;
   targetExerciseId: string;
   workoutId: string;
+  workoutExerciseId?: string;
 }) {
   const impact = await getMergeExerciseImpact(options);
   if (!impact) {
@@ -247,9 +252,13 @@ export async function mergeExerciseInto(options: {
       .where(eq(workoutExercise.exerciseId, sourceId));
 
     const initiatingLink =
-      sourceLinks.find((row) => row.workoutId === initiatingWorkoutId) ?? null;
+      (options.workoutExerciseId
+        ? sourceLinks.find((row) => row.id === options.workoutExerciseId)
+        : null) ??
+      sourceLinks.find((row) => row.workoutId === initiatingWorkoutId) ??
+      null;
 
-    if (!initiatingLink) {
+    if (!initiatingLink || initiatingLink.workoutId !== initiatingWorkoutId) {
       throw new Error("Workout exercise not found");
     }
 
@@ -258,66 +267,10 @@ export async function mergeExerciseInto(options: {
       .set({ exerciseId: targetId })
       .where(eq(workoutSet.exerciseId, sourceId));
 
-    for (const link of sourceLinks) {
-      const [existingTarget] = await tx
-        .select()
-        .from(workoutExercise)
-        .where(
-          and(
-            eq(workoutExercise.workoutId, link.workoutId),
-            eq(workoutExercise.exerciseId, targetId),
-          ),
-        )
-        .limit(1);
-
-      if (existingTarget) {
-        if (link.workoutId === initiatingWorkoutId) {
-          await tx
-            .update(workoutExercise)
-            .set({
-              name: link.name,
-              videoUrl: link.videoUrl,
-              imageUrl: link.imageUrl,
-              metaData: link.metaData,
-              tags: link.tags,
-            })
-            .where(
-              and(
-                eq(workoutExercise.workoutId, link.workoutId),
-                eq(workoutExercise.exerciseId, targetId),
-              ),
-            );
-        }
-        await tx
-          .delete(workoutExercise)
-          .where(
-            and(
-              eq(workoutExercise.workoutId, link.workoutId),
-              eq(workoutExercise.exerciseId, sourceId),
-            ),
-          );
-        continue;
-      }
-
-      await tx
-        .delete(workoutExercise)
-        .where(
-          and(
-            eq(workoutExercise.workoutId, link.workoutId),
-            eq(workoutExercise.exerciseId, sourceId),
-          ),
-        );
-
-      await tx.insert(workoutExercise).values({
-        workoutId: link.workoutId,
-        exerciseId: targetId,
-        name: link.name,
-        videoUrl: link.videoUrl,
-        imageUrl: link.imageUrl,
-        metaData: link.metaData,
-        tags: link.tags,
-      });
-    }
+    await tx
+      .update(workoutExercise)
+      .set({ exerciseId: targetId })
+      .where(eq(workoutExercise.exerciseId, sourceId));
 
     const [remainingLinks] = await tx
       .select({ n: count() })
@@ -329,22 +282,22 @@ export async function mergeExerciseInto(options: {
       .where(eq(workoutSet.exerciseId, sourceId));
 
     let deletedSource = false;
-    if (Number(remainingLinks?.n ?? 0) === 0 && Number(remainingSets?.n ?? 0) === 0) {
+    if (
+      Number(remainingLinks?.n ?? 0) === 0 &&
+      Number(remainingSets?.n ?? 0) === 0
+    ) {
       await tx
         .delete(exercise)
-        .where(and(eq(exercise.id, sourceId), eq(exercise.userId, options.userId)));
+        .where(
+          and(eq(exercise.id, sourceId), eq(exercise.userId, options.userId)),
+        );
       deletedSource = true;
     }
 
     const [workoutExerciseRow] = await tx
       .select()
       .from(workoutExercise)
-      .where(
-        and(
-          eq(workoutExercise.workoutId, initiatingWorkoutId),
-          eq(workoutExercise.exerciseId, targetId),
-        ),
-      )
+      .where(eq(workoutExercise.id, initiatingLink.id))
       .limit(1);
 
     return {
@@ -418,6 +371,7 @@ export async function searchExercisesForUser(options: {
     let bestScore = exerciseNameSimilarity(q, item.name);
     let matchedAlias: string | null = null;
     for (const alias of aliasesByExercise.get(item.id) ?? []) {
+      if (isRestWorkoutItem({ name: alias })) continue;
       const score = exerciseNameSimilarity(q, alias);
       if (score > bestScore) {
         bestScore = score;

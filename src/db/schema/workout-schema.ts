@@ -6,7 +6,6 @@ import {
   integer,
   jsonb,
   pgTable,
-  primaryKey,
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
@@ -48,9 +47,13 @@ export const exercise = pgTable(
   (table) => [index("exercise_userId_idx").on(table.userId)],
 );
 
+/** One appearance of an exercise in a workout. The same exercise may appear more than once. */
 export const workoutExercise = pgTable(
   "workout_exercise",
   {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
     workoutId: text("workout_id").notNull(),
     exerciseId: text("exercise_id").notNull(),
     /** Local display name / alias for this workout appearance. */
@@ -61,7 +64,6 @@ export const workoutExercise = pgTable(
     tags: text("tags").array().notNull().default([]),
   },
   (table) => [
-    primaryKey({ columns: [table.workoutId, table.exerciseId] }),
     foreignKey({
       columns: [table.workoutId],
       foreignColumns: [workout.id],

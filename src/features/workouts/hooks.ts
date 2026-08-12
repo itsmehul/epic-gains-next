@@ -42,8 +42,14 @@ export const exerciseKeys = {
   list: (params?: { q?: string; excludeId?: string }) =>
     [...exerciseKeys.lists(), params ?? {}] as const,
   detail: (id: string) => [...exerciseKeys.all, "detail", id] as const,
-  similar: (id: string, workoutId?: string) =>
-    [...exerciseKeys.all, "similar", id, workoutId ?? ""] as const,
+  similar: (id: string, workoutId?: string, workoutExerciseId?: string) =>
+    [
+      ...exerciseKeys.all,
+      "similar",
+      id,
+      workoutId ?? "",
+      workoutExerciseId ?? "",
+    ] as const,
   mergeImpact: (id: string, targetExerciseId: string, workoutId: string) =>
     [
       ...exerciseKeys.all,
@@ -58,8 +64,7 @@ export const workoutExerciseKeys = {
   all: ["workout-exercises"] as const,
   lists: (params?: { workoutId?: string; exerciseId?: string }) =>
     [...workoutExerciseKeys.all, "list", params ?? {}] as const,
-  detail: (workoutId: string, exerciseId: string) =>
-    [...workoutExerciseKeys.all, "detail", workoutId, exerciseId] as const,
+  detail: (id: string) => [...workoutExerciseKeys.all, "detail", id] as const,
 };
 
 export const setKeys = {
@@ -164,16 +169,26 @@ export function useExercise(id: string | null) {
 
 export function useSimilarExercises(
   exerciseId: string | null,
-  options?: { workoutId?: string; enabled?: boolean },
+  options?: {
+    workoutId?: string;
+    workoutExerciseId?: string;
+    enabled?: boolean;
+  },
 ) {
   const workoutId = options?.workoutId;
+  const workoutExerciseId = options?.workoutExerciseId;
   return useQuery({
-    queryKey: exerciseKeys.similar(exerciseId ?? "", workoutId),
+    queryKey: exerciseKeys.similar(
+      exerciseId ?? "",
+      workoutId,
+      workoutExerciseId,
+    ),
     enabled: Boolean(exerciseId) && (options?.enabled ?? true),
     queryFn: () => {
       const params = new URLSearchParams();
       params.set("limit", "3");
       if (workoutId) params.set("workoutId", workoutId);
+      if (workoutExerciseId) params.set("workoutExerciseId", workoutExerciseId);
       return apiFetch<ListSimilarExercisesResult>(
         `/api/exercises/${exerciseId}/similar?${params}`,
       );
@@ -270,17 +285,11 @@ export function useWorkoutExercises(options?: {
   });
 }
 
-export function useWorkoutExercise(
-  workoutId: string | null,
-  exerciseId: string | null,
-) {
+export function useWorkoutExercise(id: string | null) {
   return useQuery({
-    queryKey: workoutExerciseKeys.detail(workoutId ?? "", exerciseId ?? ""),
-    enabled: Boolean(workoutId && exerciseId),
-    queryFn: () =>
-      apiFetch<WorkoutExercise>(
-        `/api/workout-exercises/${workoutId}/${exerciseId}`,
-      ),
+    queryKey: workoutExerciseKeys.detail(id ?? ""),
+    enabled: Boolean(id),
+    queryFn: () => apiFetch<WorkoutExercise>(`/api/workout-exercises/${id}`),
   });
 }
 
@@ -305,20 +314,15 @@ export function useUpdateWorkoutExercise() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({
-      workoutId,
-      exerciseId,
+      id,
       ...input
     }: UpdateWorkoutExerciseInput & {
-      workoutId: string;
-      exerciseId: string;
+      id: string;
     }) =>
-      apiFetch<WorkoutExercise>(
-        `/api/workout-exercises/${workoutId}/${exerciseId}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify(input),
-        },
-      ),
+      apiFetch<WorkoutExercise>(`/api/workout-exercises/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: workoutExerciseKeys.all,
@@ -331,17 +335,10 @@ export function useUpdateWorkoutExercise() {
 export function useDeleteWorkoutExercise() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      workoutId,
-      exerciseId,
-    }: {
-      workoutId: string;
-      exerciseId: string;
-    }) =>
-      apiFetch<WorkoutExercise>(
-        `/api/workout-exercises/${workoutId}/${exerciseId}`,
-        { method: "DELETE" },
-      ),
+    mutationFn: (id: string) =>
+      apiFetch<WorkoutExercise>(`/api/workout-exercises/${id}`, {
+        method: "DELETE",
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: workoutExerciseKeys.all,

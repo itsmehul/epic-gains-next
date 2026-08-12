@@ -4,6 +4,7 @@ import { and, count, countDistinct, desc, eq, ilike, inArray, max, sql } from "d
 
 import { db } from "@/db";
 import { set as workoutSet, workout, workoutExercise } from "@/db/schema";
+import { isRestWorkoutItem } from "@/features/workouts/workout-item";
 
 export type WorkoutInsert = typeof workout.$inferInsert;
 export type WorkoutUpdate = Partial<Pick<WorkoutInsert, "name" | "author">>;
@@ -38,11 +39,11 @@ export async function listWorkoutsForUser(
     db
       .select({
         workoutId: workoutExercise.workoutId,
-        exerciseCount: count(),
+        name: workoutExercise.name,
+        tags: workoutExercise.tags,
       })
       .from(workoutExercise)
-      .where(inArray(workoutExercise.workoutId, ids))
-      .groupBy(workoutExercise.workoutId),
+      .where(inArray(workoutExercise.workoutId, ids)),
     db
       .select({
         workoutId: workoutSet.workoutId,
@@ -62,9 +63,14 @@ export async function listWorkoutsForUser(
       .groupBy(workoutSet.workoutId),
   ]);
 
-  const exerciseByWorkout = new Map(
-    exerciseRows.map((row) => [row.workoutId, Number(row.exerciseCount)]),
-  );
+  const exerciseByWorkout = new Map<string, number>();
+  for (const row of exerciseRows) {
+    if (isRestWorkoutItem(row)) continue;
+    exerciseByWorkout.set(
+      row.workoutId,
+      (exerciseByWorkout.get(row.workoutId) ?? 0) + 1,
+    );
+  }
   const setByWorkout = new Map(
     setRows.map((row) => [
       row.workoutId,

@@ -89,6 +89,7 @@ export async function POST(
       sourceExerciseId: id,
       targetExerciseId: parsed.data.targetExerciseId,
       workoutId: parsed.data.workoutId,
+      workoutExerciseId: parsed.data.workoutExerciseId,
     });
 
     return NextResponse.json(result);

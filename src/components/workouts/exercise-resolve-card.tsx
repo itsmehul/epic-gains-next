@@ -67,9 +67,10 @@ function CandidateButton({
 type ResolveDrawerContextValue = {
   workoutId: string;
   exerciseId: string;
+  workoutExerciseId: string;
   pendingTargetId: string | null;
   setPendingTargetId: (id: string | null) => void;
-  onResolved: (targetExerciseId: string) => void;
+  onResolved: (workoutExerciseId: string) => void;
   setOpen: (open: boolean) => void;
   error: string | null;
   setError: (error: string | null) => void;
@@ -152,10 +153,11 @@ function ConfirmView() {
         sourceExerciseId: ctx.exerciseId,
         targetExerciseId: ctx.pendingTargetId,
         workoutId: ctx.workoutId,
+        workoutExerciseId: ctx.workoutExerciseId,
       });
       ctx.setOpen(false);
       ctx.setPendingTargetId(null);
-      ctx.onResolved(result.targetExerciseId);
+      ctx.onResolved(result.workoutExercise?.id ?? ctx.workoutExerciseId);
     } catch (err) {
       ctx.setError(err instanceof Error ? err.message : "Failed to resolve");
     }
@@ -169,8 +171,8 @@ function ConfirmView() {
       />
       <FamilyDrawerBody className="space-y-3 pt-2">
         <p className="text-muted-foreground text-sm">
-          Merges all logs for this exercise into the target. This workout keeps
-          its local name and video.
+          Merges all logs for this exercise into the target. This slot keeps
+          its local name, video, and place in the workout.
         </p>
         {impact.isLoading ? (
           <p className="text-muted-foreground text-xs">Checking impact…</p>
@@ -225,13 +227,15 @@ function ConfirmView() {
 type ExerciseResolveCardProps = {
   workoutId: string;
   exerciseId: string;
+  workoutExerciseId: string;
   candidates: SimilarExerciseCandidate[];
-  onResolved: (targetExerciseId: string) => void;
+  onResolved: (workoutExerciseId: string) => void;
 };
 
 export function ExerciseResolveCard({
   workoutId,
   exerciseId,
+  workoutExerciseId,
   candidates,
   onResolved,
 }: ExerciseResolveCardProps) {
@@ -244,6 +248,7 @@ export function ExerciseResolveCard({
     () => ({
       workoutId,
       exerciseId,
+      workoutExerciseId,
       pendingTargetId,
       setPendingTargetId,
       onResolved,
@@ -251,7 +256,7 @@ export function ExerciseResolveCard({
       error,
       setError,
     }),
-    [workoutId, exerciseId, pendingTargetId, onResolved, error],
+    [workoutId, exerciseId, workoutExerciseId, pendingTargetId, onResolved, error],
   );
 
   function openConfirm(targetId: string) {

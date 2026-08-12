@@ -12,6 +12,7 @@ import {
 } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { ExerciseSetsPanel } from "@/components/workouts/exercise-sets-panel";
+import { RestDetailsPanel } from "@/components/workouts/rest-details-panel";
 import {
   WorkoutVideoPreview,
   type WorkoutVideoPreviewHandle,
@@ -23,6 +24,11 @@ import {
   useWorkoutExercises,
 } from "@/features/workouts/hooks";
 import type { Set, WorkoutExercise } from "@/features/workouts/types";
+import {
+  formatDurationSeconds,
+  getItemDurationSeconds,
+  isRestWorkoutItem,
+} from "@/features/workouts/workout-item";
 import { getYouTubeVideoId } from "@/features/workouts/youtube";
 import { cn } from "@/shared/utils";
 
@@ -54,7 +60,7 @@ function sortWorkoutExercisesByTimestamp(
   });
 }
 
-function findExerciseIdAtTime(
+function findWorkoutExerciseIdAtTime(
   items: WorkoutExercise[],
   seconds: number,
 ): string | null {
@@ -64,7 +70,7 @@ function findExerciseIdAtTime(
     const start = getItemStartTime(item);
     if (start == null) continue;
     if (start > seconds) break;
-    matchId = item.exerciseId;
+    matchId = item.id;
   }
 
   return matchId;
@@ -75,7 +81,9 @@ export function WorkoutDetailPageClient() {
   const workoutId = params.id;
   const videoRef = useRef<WorkoutVideoPreviewHandle>(null);
   const activeChipRef = useRef<HTMLButtonElement | null>(null);
-  const [activeExerciseId, setActiveExerciseId] = useState<string | null>(null);
+  const [activeWorkoutExerciseId, setActiveWorkoutExerciseId] = useState<
+    string | null
+  >(null);
 
   const workoutQuery = useWorkout(workoutId);
   const workoutExercisesQuery = useWorkoutExercises({ workoutId });
@@ -110,16 +118,34 @@ export function WorkoutDetailPageClient() {
   }
 
   const selectedItem =
-    workoutExercises.find((item) => item.exerciseId === activeExerciseId) ??
+    workoutExercises.find((item) => item.id === activeWorkoutExerciseId) ??
     workoutExercises[0] ??
     null;
-  const selectedExerciseId = selectedItem?.exerciseId ?? null;
-  const selectedSets = selectedExerciseId
-    ? (setsByExerciseId.get(selectedExerciseId) ?? [])
+  const selectedSets = selectedItem
+    ? (setsByExerciseId.get(selectedItem.exerciseId) ?? [])
     : [];
+  const selectedIndex = selectedItem
+    ? workoutExercises.findIndex((item) => item.id === selectedItem.id)
+    : -1;
+  const nextTimelineItem =
+    selectedIndex >= 0 ? (workoutExercises[selectedIndex + 1] ?? null) : null;
+  const nextExerciseItem =
+    selectedIndex >= 0
+      ? (workoutExercises
+          .slice(selectedIndex + 1)
+          .find((item) => !isRestWorkoutItem(item)) ?? null)
+      : null;
+
+  function itemLabel(item: WorkoutExercise) {
+    return (
+      item.name ||
+      exerciseById.get(item.exerciseId)?.name ||
+      (isRestWorkoutItem(item) ? "Rest" : "Unknown exercise")
+    );
+  }
 
   function selectExercise(item: WorkoutExercise) {
-    setActiveExerciseId(item.exerciseId);
+    setActiveWorkoutExerciseId(item.id);
 
     const start = item.metaData?.videoStartTime;
     if (start != null && item.videoUrl) {
@@ -128,9 +154,9 @@ export function WorkoutDetailPageClient() {
   }
 
   function handleVideoTimeUpdate(seconds: number) {
-    const nextId = findExerciseIdAtTime(workoutExercises, seconds);
-    if (!nextId || nextId === activeExerciseId) return;
-    setActiveExerciseId(nextId);
+    const nextId = findWorkoutExerciseIdAtTime(workoutExercises, seconds);
+    if (!nextId || nextId === activeWorkoutExerciseId) return;
+    setActiveWorkoutExerciseId(nextId);
   }
 
   useEffect(() => {
@@ -139,7 +165,7 @@ export function WorkoutDetailPageClient() {
       block: "nearest",
       inline: "center",
     });
-  }, [selectedExerciseId]);
+  }, [selectedItem?.id]);
 
   const showVideo =
     !isLoading && !workoutQuery.isError && Boolean(workoutQuery.data && videoUrl);
@@ -176,7 +202,7 @@ export function WorkoutDetailPageClient() {
               <div
                 className="relative"
                 role="navigation"
-                aria-label="Exercises"
+                aria-label="Workout timeline"
               >
                 <div
                   aria-hidden
@@ -189,32 +215,23 @@ export function WorkoutDetailPageClient() {
                 <div className="overflow-x-auto overscroll-x-contain px-4 scrollbar-none md:px-0">
                   <div className="flex w-max items-stretch gap-3">
                     {workoutExercises.map((item, index) => {
-                      const isActive = selectedExerciseId === item.exerciseId;
-                      const setCount =
-                        setsByExerciseId.get(item.exerciseId)?.length ?? 0;
+                      const isActive = selectedItem?.id === item.id;
+                      const isRest = isRestWorkoutItem(item);
+                      const setCount = isRest
+                        ? 0
+                        : (setsByExerciseId.get(item.exerciseId)?.length ?? 0);
                       const hasNext = index < workoutExercises.length - 1;
-                      const label =
-                        item.name ||
-                        exerciseById.get(item.exerciseId)?.name ||
-                        "Unknown exercise";
+                      const label = itemLabel(item);
 
-                      const durationSeconds =
-                        item.metaData?.videoEndTime != null &&
-                        item.metaData?.videoStartTime != null
-                          ? item.metaData.videoEndTime - item.metaData.videoStartTime
-                          : null;
+                      const durationSeconds = getItemDurationSeconds(item);
                       const durationStr =
-                        durationSeconds != null && durationSeconds > 0
-                          ? durationSeconds < 60
-                            ? `${Math.round(durationSeconds)}s`
-                            : `${Math.floor(durationSeconds / 60)}:${String(
-                                Math.round(durationSeconds % 60),
-                              ).padStart(2, "0")}`
+                        durationSeconds != null
+                          ? formatDurationSeconds(durationSeconds)
                           : null;
 
                       return (
                         <button
-                          key={`nav-${item.workoutId}-${item.exerciseId}`}
+                          key={item.id}
                           ref={isActive ? activeChipRef : undefined}
                           type="button"
                           aria-current={isActive ? "true" : undefined}
@@ -278,18 +295,36 @@ export function WorkoutDetailPageClient() {
               </div>
 
               <div
-                key={`${selectedItem.workoutId}-${selectedItem.exerciseId}`}
+                key={selectedItem.id}
                 className="flex flex-col gap-2"
               >
-                <ExerciseSetsPanel
-                  workoutId={workoutId}
-                  exerciseId={selectedItem.exerciseId}
-                  localName={selectedItem.name}
-                  sets={selectedSets}
-                  onExerciseResolved={(targetId) => {
-                    setActiveExerciseId(targetId);
-                  }}
-                />
+                {isRestWorkoutItem(selectedItem) ? (
+                  <RestDetailsPanel
+                    workoutExerciseId={selectedItem.id}
+                    name={itemLabel(selectedItem)}
+                    durationSeconds={getItemDurationSeconds(selectedItem)}
+                    nextExerciseName={
+                      nextExerciseItem ? itemLabel(nextExerciseItem) : null
+                    }
+                    onSkipToNext={
+                      nextTimelineItem
+                        ? () => {
+                            selectExercise(nextTimelineItem);
+                          }
+                        : undefined
+                    }
+                  />
+                ) : (
+                  <ExerciseSetsPanel
+                    workoutId={workoutId}
+                    exerciseId={selectedItem.exerciseId}
+                    workoutExerciseId={selectedItem.id}
+                    sets={selectedSets}
+                    onExerciseResolved={(id) => {
+                      setActiveWorkoutExerciseId(id);
+                    }}
+                  />
+                )}
               </div>
             </div>
           ) : null}

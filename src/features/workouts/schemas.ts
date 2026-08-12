@@ -66,11 +66,14 @@ export const listExercisesQuerySchema = z.object({
 
 export const similarExercisesQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(10).optional(),
+  workoutId: z.string().min(1).optional(),
+  workoutExerciseId: z.string().min(1).optional(),
 });
 
 export const mergeExerciseSchema = z.object({
   targetExerciseId: z.string().min(1),
   workoutId: z.string().min(1),
+  workoutExerciseId: z.string().min(1).optional(),
 });
 
 export const importFullWorkoutSchema = z.object({
@@ -101,7 +104,7 @@ export const importFullWorkoutSchema = z.object({
           .trim()
           .min(1)
           .max(200)
-          .describe("Exact exercise name from the video/chapter list."),
+          .describe("Exact exercise name from the video/chapter list. Use Rest for recovery gaps between moves — those are timeline markers, not exercises."),
         videoStartTime: z
           .number()
           .nonnegative()
@@ -119,7 +122,7 @@ export const importFullWorkoutSchema = z.object({
       }),
     )
     .min(1)
-    .describe("List of exercises in the order they appear in the video."),
+    .describe("List of moves and rest periods in the order they appear in the video."),
 });
 
 export const createWorkoutExerciseSchema = z.object({

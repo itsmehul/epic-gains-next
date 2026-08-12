@@ -98,6 +98,7 @@ export async function POST(req: Request) {
     }
 
     const item = await createWorkoutExercise({
+      id: crypto.randomUUID(),
       workoutId: parsed.data.workoutId,
       exerciseId: parsed.data.exerciseId,
       name: parsed.data.name,
