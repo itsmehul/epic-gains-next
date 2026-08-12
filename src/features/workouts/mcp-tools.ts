@@ -3,28 +3,26 @@ import "server-only";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
+import { db } from "@/db";
+import { exercise, workout, workoutExercise } from "@/db/schema";
 import {
-  createExercise,
   deleteExercise,
   getExerciseById,
   listExercises,
   updateExercise,
 } from "@/db/repositories/exercise.repository";
 import {
-  createWorkoutExercise,
   deleteWorkoutExercise,
   listWorkoutExercises,
 } from "@/db/repositories/workout-exercise.repository";
 import {
-  createWorkout,
   deleteWorkoutForUser,
   getWorkoutByIdForUser,
   listWorkoutsForUser,
   updateWorkoutForUser,
 } from "@/db/repositories/workout.repository";
 import {
-  createExerciseSchema,
-  createWorkoutSchema,
+  importFullWorkoutSchema,
   updateExerciseSchema,
   updateWorkoutSchema,
 } from "@/features/workouts/schemas";
@@ -33,6 +31,7 @@ import {
   mcpErrorResult,
   mcpTextResult,
 } from "@/infrastructure/mcp/tool-helpers";
+import { and, eq, sql } from "drizzle-orm";
 
 export function registerWorkoutMcpTools(server: McpServer) {
   server.registerTool(
@@ -67,21 +66,75 @@ export function registerWorkoutMcpTools(server: McpServer) {
   );
 
   server.registerTool(
-    "create_workout",
+    "import_full_workout",
     {
-      title: "Create workout",
+      title: "Import full workout",
       description:
-        "Create a workout shell for the authenticated user. For video/follow-along imports, name it after the source video, then create one exercise per move with exact timestamps and associate each via add_exercise_to_workout. Do not stop at section-level placeholders.",
-      inputSchema: createWorkoutSchema,
+        "Import a full follow-along video workout. Extracts all exercises and associates them with a new workout in a single transaction. Provide exact timestamps for each move.",
+      inputSchema: importFullWorkoutSchema,
     },
     async (args) => {
       const { userId } = getMcpAuth();
-      const item = await createWorkout({
-        id: crypto.randomUUID(),
-        name: args.name,
-        userId,
-      });
-      return mcpTextResult(item);
+
+      try {
+        const result = await db.transaction(async (tx) => {
+          // 1. Create the workout shell
+          const workoutId = crypto.randomUUID();
+          const [newWorkout] = await tx
+            .insert(workout)
+            .values({
+              id: workoutId,
+              name: args.workoutName,
+              userId,
+            })
+            .returning();
+
+          // 2. Loop over exercises
+          for (const ex of args.exercises) {
+            // Check for duplicates
+            const [existing] = await tx
+              .select()
+              .from(exercise)
+              .where(
+                and(
+                  eq(exercise.name, ex.name),
+                  eq(exercise.videoUrl, args.sourceVideoUrl),
+                  sql`${exercise.metaData}->>'videoStartTime' = ${ex.videoStartTime.toString()}`
+                )
+              )
+              .limit(1);
+
+            if (existing) {
+              throw new Error(`Exercise already exists: ${ex.name} at ${ex.videoStartTime}s`);
+            }
+
+            // Create exercise
+            const exerciseId = crypto.randomUUID();
+            await tx.insert(exercise).values({
+              id: exerciseId,
+              name: ex.name,
+              videoUrl: args.sourceVideoUrl,
+              metaData: {
+                videoStartTime: ex.videoStartTime,
+                videoEndTime: ex.videoEndTime,
+              },
+              tags: ex.tags ?? [],
+            });
+
+            // Associate with workout
+            await tx.insert(workoutExercise).values({
+              workoutId,
+              exerciseId,
+            });
+          }
+
+          return newWorkout;
+        });
+
+        return mcpTextResult(result);
+      } catch (error) {
+        return mcpErrorResult(error instanceof Error ? error.message : "Failed to import workout");
+      }
     },
   );
 
@@ -153,28 +206,6 @@ export function registerWorkoutMcpTools(server: McpServer) {
   );
 
   server.registerTool(
-    "create_exercise",
-    {
-      title: "Create exercise",
-      description:
-        "Create one granular exercise in the shared catalog. When importing a follow-along video: (1) procure an exercise-by-exercise breakdown with exact timestamps (not section summaries), (2) create a separate exercise for every named move, (3) set videoUrl to the canonical watch URL, (4) set metaData.videoStartTime/videoEndTime in seconds from the timestamp links (e.g. t=64 → 64), (5) tag by section (warmup, upper-body, lower-body, core, hiit). Prefer chapter markers, timed descriptions, or transcript cues over coarse ~5-minute section buckets.",
-      inputSchema: createExerciseSchema,
-    },
-    async (args) => {
-      getMcpAuth();
-      const item = await createExercise({
-        id: crypto.randomUUID(),
-        name: args.name,
-        videoUrl: args.videoUrl ?? null,
-        imageUrl: args.imageUrl ?? null,
-        metaData: args.metaData ?? null,
-        tags: args.tags ?? [],
-      });
-      return mcpTextResult(item);
-    },
-  );
-
-  server.registerTool(
     "update_exercise",
     {
       title: "Update exercise",
@@ -228,28 +259,6 @@ export function registerWorkoutMcpTools(server: McpServer) {
       if (!workout) return mcpErrorResult("Workout not found");
       const items = await listWorkoutExercises({ workoutId });
       return mcpTextResult({ items });
-    },
-  );
-
-  server.registerTool(
-    "add_exercise_to_workout",
-    {
-      title: "Add exercise to workout",
-      description:
-        "Associate a shared exercise with a workout owned by the authenticated user. After creating timestamped exercises from a video, add every exercise in workout order (warm-up through finisher).",
-      inputSchema: z.object({
-        workoutId: z.string().min(1),
-        exerciseId: z.string().min(1),
-      }),
-    },
-    async ({ workoutId, exerciseId }) => {
-      const { userId } = getMcpAuth();
-      const workout = await getWorkoutByIdForUser(workoutId, userId);
-      if (!workout) return mcpErrorResult("Workout not found");
-      const exercise = await getExerciseById(exerciseId);
-      if (!exercise) return mcpErrorResult("Exercise not found");
-      const item = await createWorkoutExercise({ workoutId, exerciseId });
-      return mcpTextResult(item);
     },
   );
 

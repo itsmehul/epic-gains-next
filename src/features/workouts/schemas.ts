@@ -67,6 +67,46 @@ export const createExerciseSchema = z.object({
 
 export const updateExerciseSchema = createExerciseSchema.partial();
 
+export const importFullWorkoutSchema = z.object({
+  workoutName: z
+    .string()
+    .trim()
+    .min(1)
+    .max(200)
+    .describe("Workout title. For follow-along videos, use the exact video title."),
+  sourceVideoUrl: z
+    .string()
+    .url()
+    .describe("Canonical source video URL (e.g. YouTube watch URL)."),
+  exercises: z
+    .array(
+      z.object({
+        name: z
+          .string()
+          .trim()
+          .min(1)
+          .max(200)
+          .describe("Exact exercise name from the video/chapter list."),
+        videoStartTime: z
+          .number()
+          .nonnegative()
+          .describe("Exercise start time in the source video, in seconds."),
+        videoEndTime: z
+          .number()
+          .nonnegative()
+          .optional()
+          .describe("Exercise end time in the source video, in seconds."),
+        tags: z
+          .array(z.string().trim().min(1).max(64))
+          .max(50)
+          .optional()
+          .describe("Section/muscle tags such as warmup, upper-body, lower-body, core, hiit."),
+      })
+    )
+    .min(1)
+    .describe("List of exercises in the order they appear in the video."),
+});
+
 export const createWorkoutExerciseSchema = z.object({
   workoutId: z.string().min(1),
   exerciseId: z.string().min(1),
@@ -102,5 +142,6 @@ export type CreateWorkoutExerciseInput = z.infer<
 export type UpdateWorkoutExerciseInput = z.infer<
   typeof updateWorkoutExerciseSchema
 >;
+export type ImportFullWorkoutInput = z.infer<typeof importFullWorkoutSchema>;
 export type CreateSetInput = z.infer<typeof createSetSchema>;
 export type UpdateSetInput = z.infer<typeof updateSetSchema>;

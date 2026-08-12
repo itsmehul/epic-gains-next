@@ -37,14 +37,12 @@ const mcpHandler = createMcpHandler(
       version: "1.0.0",
     },
     instructions: [
-      "Epic Gains MCP manages user workouts and a shared exercise catalog.",
-      "When importing a follow-along video workout, procure granular exercise-by-exercise data before writing:",
+        "Epic Gains MCP manages user workouts and a shared exercise catalog.",
+      "When importing a follow-along video workout, use the 'import_full_workout' tool to create the workout and all its exercises in a single transaction.",
+      "You must procure granular exercise-by-exercise data before calling the tool:",
       "1) Resolve the canonical video URL and title.",
       "2) Obtain a timed move list (chapters, timed description, or transcript) with exact start times per exercise — never only coarse section ranges like Warm-Up 0:00–5:00.",
-      "3) create_workout with the video title.",
-      "4) create_exercise once per named move with videoUrl plus metaData.videoStartTime/videoEndTime in seconds; tag by section (warmup, upper-body, lower-body, core, hiit).",
-      "5) add_exercise_to_workout for each exercise in order.",
-      "Prefer exact timestamps from links like youtube.com/watch?v=...&t=64 (64 seconds). Set videoEndTime to the next move's start when known.",
+      "3) Call import_full_workout, providing the sourceVideoUrl at the root, and the exact timestamps (videoStartTime in seconds) for each move in the exercises array.",
     ].join("\n"),
   },
 );
