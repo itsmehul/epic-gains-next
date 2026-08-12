@@ -198,6 +198,20 @@ export function WorkoutDetailPageClient() {
                         exerciseById.get(item.exerciseId)?.name ||
                         "Unknown exercise";
 
+                      const durationSeconds =
+                        item.metaData?.videoEndTime != null &&
+                        item.metaData?.videoStartTime != null
+                          ? item.metaData.videoEndTime - item.metaData.videoStartTime
+                          : null;
+                      const durationStr =
+                        durationSeconds != null && durationSeconds > 0
+                          ? durationSeconds < 60
+                            ? `${Math.round(durationSeconds)}s`
+                            : `${Math.floor(durationSeconds / 60)}:${String(
+                                Math.round(durationSeconds % 60),
+                              ).padStart(2, "0")}`
+                          : null;
+
                       return (
                         <button
                           key={`nav-${item.workoutId}-${item.exerciseId}`}
@@ -218,6 +232,20 @@ export function WorkoutDetailPageClient() {
                           <span className="whitespace-nowrap text-sm font-medium leading-snug">
                             {label}
                           </span>
+                          {durationStr ? (
+                            <Badge
+                              variant="outline"
+                              aria-label={`Duration ${durationStr}`}
+                              className={cn(
+                                "h-4 shrink-0 justify-center px-1.5 text-[10px] tabular-nums",
+                                isActive
+                                  ? "border-primary/50 text-primary"
+                                  : "border-muted-foreground/30 text-muted-foreground group-hover:border-foreground/30 group-hover:text-foreground",
+                              )}
+                            >
+                              {durationStr}
+                            </Badge>
+                          ) : null}
                           {setCount > 0 ? (
                             <Badge
                               variant={isActive ? "default" : "secondary"}
