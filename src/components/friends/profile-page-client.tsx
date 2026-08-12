@@ -126,7 +126,7 @@ export function ProfilePageClient() {
                     </div>
                   ) : workoutsQuery.isLoading ? (
                     <AppShellLoading
-                      className="py-10"
+                      className="min-h-0 py-10"
                       label="Loading workouts…"
                     />
                   ) : (workoutsQuery.data?.items.length ?? 0) === 0 ? (
@@ -158,7 +158,10 @@ export function ProfilePageClient() {
 
                 <TabsContent className="mt-4" value="followers">
                   {followersQuery.isLoading ? (
-                    <AppShellLoading className="py-10" label="Loading followers…" />
+                    <AppShellLoading
+                      className="min-h-0 py-10"
+                      label="Loading followers…"
+                    />
                   ) : (
                     <ul className="flex flex-col">
                       {followersQuery.data?.items.map((user) => (
@@ -172,7 +175,10 @@ export function ProfilePageClient() {
 
                 <TabsContent className="mt-4" value="following">
                   {followingQuery.isLoading ? (
-                    <AppShellLoading className="py-10" label="Loading following…" />
+                    <AppShellLoading
+                      className="min-h-0 py-10"
+                      label="Loading following…"
+                    />
                   ) : (
                     <ul className="flex flex-col">
                       {followingQuery.data?.items.map((user) => (

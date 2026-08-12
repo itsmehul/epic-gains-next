@@ -14,6 +14,7 @@ import {
   type AccountSidebarProfile,
 } from "@/components/layout/app-sidebar";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/shared/utils";
 
 type AppShellContextValue = {
@@ -95,6 +96,31 @@ export function AppShellBody({ children, className }: AppShellBodyProps) {
       )}
     >
       {children}
+    </div>
+  );
+}
+
+type AppShellLoadingProps = {
+  className?: string;
+  label?: string;
+};
+
+export function AppShellLoading({
+  className,
+  label = "Loading…",
+}: AppShellLoadingProps) {
+  return (
+    <div
+      aria-busy="true"
+      aria-live="polite"
+      className={cn(
+        "text-muted-foreground flex min-h-[min(20rem,50dvh)] flex-1 flex-col items-center justify-center gap-3 px-4 text-center",
+        className,
+      )}
+      role="status"
+    >
+      <Spinner className="size-6" />
+      {label ? <p className="text-sm tracking-tight">{label}</p> : null}
     </div>
   );
 }

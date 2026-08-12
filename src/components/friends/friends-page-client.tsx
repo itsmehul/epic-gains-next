@@ -185,7 +185,7 @@ export function FriendsPageClient() {
 }
 
 function LoadingRow({ label }: { label: string }) {
-  return <AppShellLoading className="py-10" label={label} />;
+  return <AppShellLoading className="min-h-0 py-10" label={label} />;
 }
 
 function ErrorText({ error }: { error: unknown }) {
