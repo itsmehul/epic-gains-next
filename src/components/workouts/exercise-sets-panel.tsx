@@ -26,6 +26,7 @@ import {
   useSimilarExercises,
   useUpdateSet,
   useUpdateWorkoutExercise,
+  useDeleteWorkoutExercise,
 } from "@/features/workouts/hooks";
 import type { Set } from "@/features/workouts/types";
 import { cn } from "@/shared/utils";
@@ -236,6 +237,7 @@ export function ExerciseSetsPanel({
   const updateSet = useUpdateSet();
   const deleteSet = useDeleteSet();
   const updateWorkoutExercise = useUpdateWorkoutExercise();
+  const deleteWorkoutExercise = useDeleteWorkoutExercise();
   const showResolve = sets.length === 0;
   const similarQuery = useSimilarExercises(exerciseId, {
     workoutId,
@@ -311,6 +313,20 @@ export function ExerciseSetsPanel({
       },
     ]);
     setExpandedId(id);
+  }
+
+  async function handleDeleteExercise() {
+    setError(null);
+    setNameBusy(true);
+    try {
+      await deleteWorkoutExercise.mutateAsync({
+        workoutId,
+        exerciseId,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete exercise");
+      setNameBusy(false);
+    }
   }
 
   async function persistLocalName() {
@@ -673,26 +689,51 @@ export function ExerciseSetsPanel({
 
   return (
     <div>
-      <div className="mx-2 mb-2">
-        <label className="sr-only" htmlFor={`${baseId}-local-name`}>
-          Exercise name in this workout
-        </label>
-        <Input
-          id={`${baseId}-local-name`}
-          value={nameDraft}
+      <div className="mx-2 mb-2 flex items-center gap-2">
+        <div className="flex-1">
+          <label className="sr-only" htmlFor={`${baseId}-local-name`}>
+            Exercise name in this workout
+          </label>
+          <Input
+            id={`${baseId}-local-name`}
+            value={nameDraft}
+            disabled={nameBusy}
+            onChange={(event) => setNameDraft(event.target.value)}
+            onBlur={() => {
+              void persistLocalName();
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur();
+              }
+            }}
+            className="h-9 border-transparent bg-transparent px-1 text-base font-medium shadow-none focus-visible:border-ring focus-visible:bg-background"
+            placeholder="Exercise name"
+          />
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
           disabled={nameBusy}
-          onChange={(event) => setNameDraft(event.target.value)}
-          onBlur={() => {
-            void persistLocalName();
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.currentTarget.blur();
+          className="text-muted-foreground hover:text-destructive size-8 shrink-0"
+          onClick={() => {
+            if (
+              window.confirm(
+                "Are you sure you want to remove this exercise from the workout?",
+              )
+            ) {
+              void handleDeleteExercise();
             }
           }}
-          className="h-9 border-transparent bg-transparent px-1 text-base font-medium shadow-none focus-visible:border-ring focus-visible:bg-background"
-          placeholder="Exercise name"
-        />
+          aria-label="Remove exercise"
+        >
+          {nameBusy && deleteWorkoutExercise.isPending ? (
+            <IconLoader2 className="animate-spin size-4" />
+          ) : (
+            <IconTrash className="size-4" />
+          )}
+        </Button>
       </div>
 
       <LayoutGroup>

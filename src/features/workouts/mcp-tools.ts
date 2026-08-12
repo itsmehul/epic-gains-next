@@ -89,6 +89,8 @@ export function registerWorkoutMcpTools(server: McpServer) {
             })
             .returning();
 
+          const usedExerciseIds = new Set<string>();
+
           for (const ex of args.exercises) {
             const [existing] = await tx
               .select({
@@ -106,18 +108,17 @@ export function registerWorkoutMcpTools(server: McpServer) {
               )
               .limit(1);
 
-            if (existing) {
-              throw new Error(
-                `Exercise already exists: ${ex.name} at ${ex.videoStartTime}s`,
-              );
-            }
+            let exerciseId = existing?.exerciseId;
 
-            const exerciseId = crypto.randomUUID();
-            await tx.insert(exercise).values({
-              id: exerciseId,
-              userId,
-              name: ex.name,
-            });
+            if (!exerciseId || usedExerciseIds.has(exerciseId)) {
+              exerciseId = crypto.randomUUID();
+              await tx.insert(exercise).values({
+                id: exerciseId,
+                userId,
+                name: ex.name,
+              });
+            }
+            usedExerciseIds.add(exerciseId);
 
             await tx.insert(workoutExercise).values({
               workoutId,
