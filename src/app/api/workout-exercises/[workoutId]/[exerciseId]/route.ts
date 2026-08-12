@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getExerciseById } from "@/db/repositories/exercise.repository";
+import { getExerciseByIdForUser } from "@/db/repositories/exercise.repository";
 import {
   deleteWorkoutExercise,
   getWorkoutExercise,
@@ -86,17 +86,24 @@ export async function PATCH(
     }
 
     if (parsed.data.exerciseId) {
-      const exercise = await getExerciseById(parsed.data.exerciseId);
+      const exercise = await getExerciseByIdForUser(
+        parsed.data.exerciseId,
+        session.user.id,
+      );
       if (!exercise) {
         return apiError("Exercise not found", 404);
       }
     }
 
-    const item = await updateWorkoutExercise(
-      workoutId,
-      exerciseId,
-      parsed.data,
-    );
+    const item = await updateWorkoutExercise(workoutId, exerciseId, {
+      workoutId: parsed.data.workoutId,
+      exerciseId: parsed.data.exerciseId,
+      name: parsed.data.name,
+      videoUrl: parsed.data.videoUrl,
+      imageUrl: parsed.data.imageUrl,
+      metaData: parsed.data.metaData,
+      tags: parsed.data.tags,
+    });
     if (!item) {
       return apiError("Workout exercise not found", 404);
     }

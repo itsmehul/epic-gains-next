@@ -1,12 +1,13 @@
 "use client";
 
-import { IconChevronRight, IconLoader2 } from "@tabler/icons-react";
+import { IconChevronRight } from "@tabler/icons-react";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import {
   AppShellBody,
   AppShellHeader,
+  AppShellLoading,
   AppShellScroll,
 } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
@@ -21,31 +22,30 @@ import {
   useWorkout,
   useWorkoutExercises,
 } from "@/features/workouts/hooks";
-import type { Exercise, Set, WorkoutExercise } from "@/features/workouts/types";
+import type { Set, WorkoutExercise } from "@/features/workouts/types";
 import { getYouTubeVideoId } from "@/features/workouts/youtube";
 import { cn } from "@/shared/utils";
 
-function resolveWorkoutVideoUrl(exercises: Exercise[]): string | null {
-  for (const exercise of exercises) {
-    if (exercise.videoUrl && getYouTubeVideoId(exercise.videoUrl)) {
-      return exercise.videoUrl;
+function resolveWorkoutVideoUrl(items: WorkoutExercise[]): string | null {
+  for (const item of items) {
+    if (item.videoUrl && getYouTubeVideoId(item.videoUrl)) {
+      return item.videoUrl;
     }
   }
   return null;
 }
 
-function getExerciseStartTime(exercise: Exercise | undefined): number | null {
-  const start = exercise?.metaData?.videoStartTime;
+function getItemStartTime(item: WorkoutExercise | undefined): number | null {
+  const start = item?.metaData?.videoStartTime;
   return typeof start === "number" ? start : null;
 }
 
 function sortWorkoutExercisesByTimestamp(
   items: WorkoutExercise[],
-  exerciseById: Map<string, Exercise>,
 ): WorkoutExercise[] {
   return [...items].sort((a, b) => {
-    const aTime = getExerciseStartTime(exerciseById.get(a.exerciseId));
-    const bTime = getExerciseStartTime(exerciseById.get(b.exerciseId));
+    const aTime = getItemStartTime(a);
+    const bTime = getItemStartTime(b);
 
     if (aTime == null && bTime == null) return 0;
     if (aTime == null) return 1;
@@ -56,14 +56,12 @@ function sortWorkoutExercisesByTimestamp(
 
 function findExerciseIdAtTime(
   items: WorkoutExercise[],
-  exerciseById: Map<string, Exercise>,
   seconds: number,
 ): string | null {
   let matchId: string | null = null;
 
   for (const item of items) {
-    const exercise = exerciseById.get(item.exerciseId);
-    const start = getExerciseStartTime(exercise);
+    const start = getItemStartTime(item);
     if (start == null) continue;
     if (start > seconds) break;
     matchId = item.exerciseId;
@@ -99,15 +97,10 @@ export function WorkoutDetailPageClient() {
 
   const workoutExercises = sortWorkoutExercisesByTimestamp(
     workoutExercisesQuery.data?.items ?? [],
-    exerciseById,
   );
   const sets = setsQuery.data?.items ?? [];
 
-  const exercisesInWorkout = workoutExercises
-    .map((item) => exerciseById.get(item.exerciseId))
-    .filter((exercise): exercise is Exercise => Boolean(exercise));
-
-  const videoUrl = resolveWorkoutVideoUrl(exercisesInWorkout);
+  const videoUrl = resolveWorkoutVideoUrl(workoutExercises);
 
   const setsByExerciseId = new Map<string, Set[]>();
   for (const set of sets) {
@@ -121,33 +114,21 @@ export function WorkoutDetailPageClient() {
     workoutExercises[0] ??
     null;
   const selectedExerciseId = selectedItem?.exerciseId ?? null;
-  const selectedExercise = selectedExerciseId
-    ? exerciseById.get(selectedExerciseId)
-    : undefined;
   const selectedSets = selectedExerciseId
     ? (setsByExerciseId.get(selectedExerciseId) ?? [])
     : [];
-  const selectedStartTime = getExerciseStartTime(selectedExercise);
-  const canScrubSelected =
-    Boolean(videoUrl) &&
-    Boolean(selectedExercise?.videoUrl) &&
-    selectedStartTime != null;
 
-  function selectExercise(exercise: Exercise) {
-    setActiveExerciseId(exercise.id);
+  function selectExercise(item: WorkoutExercise) {
+    setActiveExerciseId(item.exerciseId);
 
-    const start = exercise.metaData?.videoStartTime;
-    if (start != null && exercise.videoUrl) {
+    const start = item.metaData?.videoStartTime;
+    if (start != null && item.videoUrl) {
       videoRef.current?.seekTo(start);
     }
   }
 
   function handleVideoTimeUpdate(seconds: number) {
-    const nextId = findExerciseIdAtTime(
-      workoutExercises,
-      exerciseById,
-      seconds,
-    );
+    const nextId = findExerciseIdAtTime(workoutExercises, seconds);
     if (!nextId || nextId === activeExerciseId) return;
     setActiveExerciseId(nextId);
   }
@@ -208,11 +189,14 @@ export function WorkoutDetailPageClient() {
                 <div className="overflow-x-auto overscroll-x-contain px-4 scrollbar-none md:px-0">
                   <div className="flex w-max items-stretch gap-3">
                     {workoutExercises.map((item, index) => {
-                      const exercise = exerciseById.get(item.exerciseId);
                       const isActive = selectedExerciseId === item.exerciseId;
                       const setCount =
                         setsByExerciseId.get(item.exerciseId)?.length ?? 0;
                       const hasNext = index < workoutExercises.length - 1;
+                      const label =
+                        item.name ||
+                        exerciseById.get(item.exerciseId)?.name ||
+                        "Unknown exercise";
 
                       return (
                         <button
@@ -228,11 +212,11 @@ export function WorkoutDetailPageClient() {
                               : "text-muted-foreground hover:text-foreground",
                           )}
                           onClick={() => {
-                            if (exercise) selectExercise(exercise);
+                            selectExercise(item);
                           }}
                         >
                           <span className="whitespace-nowrap text-sm font-medium leading-snug">
-                            {exercise?.name ?? "Unknown exercise"}
+                            {label}
                           </span>
                           {setCount > 0 ? (
                             <Badge
@@ -241,7 +225,7 @@ export function WorkoutDetailPageClient() {
                               className={cn(
                                 "h-4 min-w-4 shrink-0 justify-center px-1.5 text-[10px] tabular-nums",
                                 !isActive &&
-                                "bg-muted text-muted-foreground group-hover:bg-muted/80",
+                                  "bg-muted text-muted-foreground group-hover:bg-muted/80",
                               )}
                             >
                               {setCount}
@@ -272,7 +256,11 @@ export function WorkoutDetailPageClient() {
                 <ExerciseSetsPanel
                   workoutId={workoutId}
                   exerciseId={selectedItem.exerciseId}
+                  localName={selectedItem.name}
                   sets={selectedSets}
+                  onExerciseResolved={(targetId) => {
+                    setActiveExerciseId(targetId);
+                  }}
                 />
               </div>
             </div>
@@ -281,37 +269,34 @@ export function WorkoutDetailPageClient() {
           {(isLoading ||
             workoutQuery.isError ||
             (!showExercises && Boolean(workoutQuery.data))) && (
-              <div
-                className={cn(
-                  "flex flex-col gap-6 px-4 md:px-0",
-                  showVideo && "py-4 md:py-0",
-                )}
-              >
-                {isLoading ? (
-                  <div className="text-muted-foreground flex items-center gap-2 text-sm">
-                    <IconLoader2 className="size-4 animate-spin" />
-                    Loading details…
-                  </div>
-                ) : null}
+            <div
+              className={cn(
+                "flex flex-col gap-6 px-4 md:px-0",
+                showVideo && "py-4 md:py-0",
+              )}
+            >
+              {isLoading ? (
+                <AppShellLoading label="Loading details…" />
+              ) : null}
 
-                {workoutQuery.isError ? (
-                  <p className="text-destructive text-sm" role="alert">
-                    {workoutQuery.error instanceof Error
-                      ? workoutQuery.error.message
-                      : "Failed to load workout"}
-                  </p>
-                ) : null}
+              {workoutQuery.isError ? (
+                <p className="text-destructive text-sm" role="alert">
+                  {workoutQuery.error instanceof Error
+                    ? workoutQuery.error.message
+                    : "Failed to load workout"}
+                </p>
+              ) : null}
 
-                {!isLoading &&
-                  !workoutQuery.isError &&
-                  workoutQuery.data &&
-                  workoutExercises.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">
-                    No exercises in this workout yet.
-                  </p>
-                ) : null}
-              </div>
-            )}
+              {!isLoading &&
+              !workoutQuery.isError &&
+              workoutQuery.data &&
+              workoutExercises.length === 0 ? (
+                <p className="text-muted-foreground text-sm">
+                  No exercises in this workout yet.
+                </p>
+              ) : null}
+            </div>
+          )}
         </div>
       </AppShellBody>
     </AppShellScroll>

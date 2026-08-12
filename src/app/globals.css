@@ -5,7 +5,6 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --animate-marquee-title: marquee-title var(--marquee-duration, 8s) ease-in-out infinite;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
@@ -134,22 +133,5 @@
   html {
     @apply font-sans;
     font-size: calc(100% * var(--ui-scale));
-  }
-}
-
-@keyframes marquee-title {
-  0%,
-  12% {
-    transform: translateX(0);
-  }
-
-  45%,
-  55% {
-    transform: translateX(var(--marquee-distance, 0));
-  }
-
-  88%,
-  100% {
-    transform: translateX(0);
   }
 }

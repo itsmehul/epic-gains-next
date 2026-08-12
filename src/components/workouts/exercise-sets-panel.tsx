@@ -12,15 +12,20 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { ExerciseResolveCard } from "@/components/workouts/exercise-resolve-card";
 import {
   useCreateSet,
   useDeleteSet,
+  useSimilarExercises,
   useUpdateSet,
+  useUpdateWorkoutExercise,
 } from "@/features/workouts/hooks";
 import type { Set } from "@/features/workouts/types";
 import { cn } from "@/shared/utils";
@@ -215,17 +220,30 @@ const EXTRA_FIELDS: FieldDef[] = [
 type ExerciseSetsPanelProps = {
   workoutId: string;
   exerciseId: string;
+  localName: string;
   sets: Set[];
+  onExerciseResolved?: (targetExerciseId: string) => void;
 };
 
 export function ExerciseSetsPanel({
   workoutId,
   exerciseId,
+  localName,
   sets,
+  onExerciseResolved,
 }: ExerciseSetsPanelProps) {
   const createSet = useCreateSet();
   const updateSet = useUpdateSet();
   const deleteSet = useDeleteSet();
+  const updateWorkoutExercise = useUpdateWorkoutExercise();
+  const showResolve = sets.length === 0;
+  const similarQuery = useSimilarExercises(exerciseId, {
+    workoutId,
+    enabled: showResolve,
+  });
+
+  const [nameDraft, setNameDraft] = useState(localName);
+  const [nameBusy, setNameBusy] = useState(false);
 
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
   const [savedValues, setSavedValues] = useState<Record<string, RowValues>>(
@@ -246,6 +264,10 @@ export function ExerciseSetsPanel({
   useEffect(() => {
     savedValuesRef.current = savedValues;
   }, [savedValues]);
+
+  useEffect(() => {
+    setNameDraft(localName);
+  }, [localName, exerciseId]);
 
   useEffect(() => {
     setSavedValues((prev) => {
@@ -289,6 +311,28 @@ export function ExerciseSetsPanel({
       },
     ]);
     setExpandedId(id);
+  }
+
+  async function persistLocalName() {
+    const next = nameDraft.trim();
+    if (!next || next === localName) {
+      setNameDraft(localName);
+      return;
+    }
+    setNameBusy(true);
+    setError(null);
+    try {
+      await updateWorkoutExercise.mutateAsync({
+        workoutId,
+        exerciseId,
+        name: next,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update name");
+      setNameDraft(localName);
+    } finally {
+      setNameBusy(false);
+    }
   }
 
   async function persistSaved(setId: string) {
@@ -629,6 +673,28 @@ export function ExerciseSetsPanel({
 
   return (
     <div>
+      <div className="mx-2 mb-2">
+        <label className="sr-only" htmlFor={`${baseId}-local-name`}>
+          Exercise name in this workout
+        </label>
+        <Input
+          id={`${baseId}-local-name`}
+          value={nameDraft}
+          disabled={nameBusy}
+          onChange={(event) => setNameDraft(event.target.value)}
+          onBlur={() => {
+            void persistLocalName();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.currentTarget.blur();
+            }
+          }}
+          className="h-9 border-transparent bg-transparent px-1 text-base font-medium shadow-none focus-visible:border-ring focus-visible:bg-background"
+          placeholder="Exercise name"
+        />
+      </div>
+
       <LayoutGroup>
         <ul className="divide-border/60 mx-2 divide-y overflow-hidden rounded-xl bg-muted/20">
           <AnimatePresence initial={false} mode="popLayout">
@@ -823,9 +889,20 @@ export function ExerciseSetsPanel({
               <CardHeader>
                 <CardTitle>No sets yet</CardTitle>
                 <CardDescription>
-                  Add a set to start logging.
+                  Add a set to start logging, or link this move to an existing
+                  exercise to unify history.
                 </CardDescription>
               </CardHeader>
+              <CardContent>
+                <ExerciseResolveCard
+                  workoutId={workoutId}
+                  exerciseId={exerciseId}
+                  candidates={similarQuery.data?.items ?? []}
+                  onResolved={(targetId) => {
+                    onExerciseResolved?.(targetId);
+                  }}
+                />
+              </CardContent>
             </Card>
           </motion.div>
         ) : null}

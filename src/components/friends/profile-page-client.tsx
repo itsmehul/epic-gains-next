@@ -1,6 +1,6 @@
 "use client";
 
-import { IconChevronRight, IconLoader2, IconLock } from "@tabler/icons-react";
+import { IconChevronRight, IconLock } from "@tabler/icons-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
@@ -8,6 +8,7 @@ import { UserListRow } from "@/components/friends/user-list-row";
 import {
   AppShellBody,
   AppShellHeader,
+  AppShellLoading,
   AppShellScroll,
 } from "@/components/layout/app-shell";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -53,10 +54,7 @@ export function ProfilePageClient() {
       <AppShellBody>
         <div className="flex flex-col gap-6 px-4 py-4 md:p-6">
           {profileQuery.isLoading ? (
-            <div className="text-muted-foreground flex items-center gap-2 text-sm">
-              <IconLoader2 className="size-4 animate-spin" />
-              Loading profile…
-            </div>
+            <AppShellLoading label="Loading profile…" />
           ) : null}
 
           {profileQuery.isError ? (
@@ -127,10 +125,10 @@ export function ProfilePageClient() {
                       <p>Follow to see their workouts.</p>
                     </div>
                   ) : workoutsQuery.isLoading ? (
-                    <div className="text-muted-foreground flex items-center gap-2 text-sm">
-                      <IconLoader2 className="size-4 animate-spin" />
-                      Loading workouts…
-                    </div>
+                    <AppShellLoading
+                      className="py-10"
+                      label="Loading workouts…"
+                    />
                   ) : (workoutsQuery.data?.items.length ?? 0) === 0 ? (
                     <p className="text-muted-foreground text-sm">
                       No workouts yet.
@@ -160,7 +158,7 @@ export function ProfilePageClient() {
 
                 <TabsContent className="mt-4" value="followers">
                   {followersQuery.isLoading ? (
-                    <p className="text-muted-foreground text-sm">Loading…</p>
+                    <AppShellLoading className="py-10" label="Loading followers…" />
                   ) : (
                     <ul className="flex flex-col">
                       {followersQuery.data?.items.map((user) => (
@@ -174,7 +172,7 @@ export function ProfilePageClient() {
 
                 <TabsContent className="mt-4" value="following">
                   {followingQuery.isLoading ? (
-                    <p className="text-muted-foreground text-sm">Loading…</p>
+                    <AppShellLoading className="py-10" label="Loading following…" />
                   ) : (
                     <ul className="flex flex-col">
                       {followingQuery.data?.items.map((user) => (

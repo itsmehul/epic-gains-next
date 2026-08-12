@@ -1,19 +1,19 @@
 import "server-only";
 
 import type { McpServer } from "@modelcontextprotocol/server";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { exercise, workout, workoutExercise } from "@/db/schema";
 import {
-  deleteExercise,
-  getExerciseById,
-  listExercises,
-  updateExercise,
+  deleteExerciseForUser,
+  getExerciseByIdForUser,
+  listExercisesForUser,
 } from "@/db/repositories/exercise.repository";
 import {
   deleteWorkoutExercise,
   listWorkoutExercises,
+  updateWorkoutExercise,
 } from "@/db/repositories/workout-exercise.repository";
 import {
   deleteWorkoutForUser,
@@ -21,9 +21,10 @@ import {
   listWorkoutsForUser,
   updateWorkoutForUser,
 } from "@/db/repositories/workout.repository";
+import { exercise, workout, workoutExercise } from "@/db/schema";
 import {
+  exerciseMetaDataSchema,
   importFullWorkoutSchema,
-  updateExerciseSchema,
   updateWorkoutSchema,
 } from "@/features/workouts/schemas";
 import { getMcpAuth } from "@/infrastructure/mcp/context";
@@ -31,7 +32,6 @@ import {
   mcpErrorResult,
   mcpTextResult,
 } from "@/infrastructure/mcp/tool-helpers";
-import { and, eq, sql } from "drizzle-orm";
 
 export function registerWorkoutMcpTools(server: McpServer) {
   server.registerTool(
@@ -78,7 +78,6 @@ export function registerWorkoutMcpTools(server: McpServer) {
 
       try {
         const result = await db.transaction(async (tx) => {
-          // 1. Create the workout shell
           const workoutId = crypto.randomUUID();
           const [newWorkout] = await tx
             .insert(workout)
@@ -90,29 +89,39 @@ export function registerWorkoutMcpTools(server: McpServer) {
             })
             .returning();
 
-          // 2. Loop over exercises
           for (const ex of args.exercises) {
-            // Check for duplicates
             const [existing] = await tx
-              .select()
-              .from(exercise)
+              .select({
+                exerciseId: workoutExercise.exerciseId,
+              })
+              .from(workoutExercise)
+              .innerJoin(exercise, eq(exercise.id, workoutExercise.exerciseId))
               .where(
                 and(
-                  eq(exercise.name, ex.name),
-                  eq(exercise.videoUrl, args.sourceVideoUrl),
-                  sql`${exercise.metaData}->>'videoStartTime' = ${ex.videoStartTime.toString()}`
-                )
+                  eq(exercise.userId, userId),
+                  eq(workoutExercise.name, ex.name),
+                  eq(workoutExercise.videoUrl, args.sourceVideoUrl),
+                  sql`${workoutExercise.metaData}->>'videoStartTime' = ${ex.videoStartTime.toString()}`,
+                ),
               )
               .limit(1);
 
             if (existing) {
-              throw new Error(`Exercise already exists: ${ex.name} at ${ex.videoStartTime}s`);
+              throw new Error(
+                `Exercise already exists: ${ex.name} at ${ex.videoStartTime}s`,
+              );
             }
 
-            // Create exercise
             const exerciseId = crypto.randomUUID();
             await tx.insert(exercise).values({
               id: exerciseId,
+              userId,
+              name: ex.name,
+            });
+
+            await tx.insert(workoutExercise).values({
+              workoutId,
+              exerciseId,
               name: ex.name,
               videoUrl: args.sourceVideoUrl,
               metaData: {
@@ -121,12 +130,6 @@ export function registerWorkoutMcpTools(server: McpServer) {
               },
               tags: ex.tags ?? [],
             });
-
-            // Associate with workout
-            await tx.insert(workoutExercise).values({
-              workoutId,
-              exerciseId,
-            });
           }
 
           return newWorkout;
@@ -134,7 +137,9 @@ export function registerWorkoutMcpTools(server: McpServer) {
 
         return mcpTextResult(result);
       } catch (error) {
-        return mcpErrorResult(error instanceof Error ? error.message : "Failed to import workout");
+        return mcpErrorResult(
+          error instanceof Error ? error.message : "Failed to import workout",
+        );
       }
     },
   );
@@ -185,12 +190,12 @@ export function registerWorkoutMcpTools(server: McpServer) {
     "list_exercises",
     {
       title: "List exercises",
-      description: "List the shared exercise catalog.",
+      description: "List exercises owned by the authenticated user.",
       inputSchema: z.object({}),
     },
     async () => {
-      getMcpAuth();
-      const items = await listExercises();
+      const { userId } = getMcpAuth();
+      const items = await listExercisesForUser(userId);
       return mcpTextResult({ items });
     },
   );
@@ -199,35 +204,41 @@ export function registerWorkoutMcpTools(server: McpServer) {
     "get_exercise",
     {
       title: "Get exercise",
-      description: "Get an exercise from the shared catalog by id.",
+      description: "Get an exercise owned by the authenticated user by id.",
       inputSchema: z.object({
         exerciseId: z.string().min(1),
       }),
     },
     async ({ exerciseId }) => {
-      getMcpAuth();
-      const item = await getExerciseById(exerciseId);
+      const { userId } = getMcpAuth();
+      const item = await getExerciseByIdForUser(exerciseId, userId);
       if (!item) return mcpErrorResult("Exercise not found");
       return mcpTextResult(item);
     },
   );
 
   server.registerTool(
-    "update_exercise",
+    "update_workout_exercise",
     {
-      title: "Update exercise",
+      title: "Update workout exercise",
       description:
-        "Update an exercise in the shared catalog. Use this to correct names or replace approximate section timings with exact per-move videoStartTime/videoEndTime seconds.",
-      inputSchema: z
-        .object({
-          exerciseId: z.string().min(1),
-        })
-        .merge(updateExerciseSchema),
+        "Update a workout exercise appearance (local name, video URL, timings, tags). Canonical exercise names cannot be renamed — merge instead.",
+      inputSchema: z.object({
+        workoutId: z.string().min(1),
+        exerciseId: z.string().min(1),
+        name: z.string().trim().min(1).max(200).optional(),
+        videoUrl: z.string().url().nullable().optional(),
+        imageUrl: z.string().url().nullable().optional(),
+        metaData: exerciseMetaDataSchema.nullable().optional(),
+        tags: z.array(z.string().trim().min(1).max(64)).max(50).optional(),
+      }),
     },
-    async ({ exerciseId, ...data }) => {
-      getMcpAuth();
-      const item = await updateExercise(exerciseId, data);
-      if (!item) return mcpErrorResult("Exercise not found");
+    async ({ workoutId, exerciseId, ...data }) => {
+      const { userId } = getMcpAuth();
+      const owned = await getWorkoutByIdForUser(workoutId, userId);
+      if (!owned) return mcpErrorResult("Workout not found");
+      const item = await updateWorkoutExercise(workoutId, exerciseId, data);
+      if (!item) return mcpErrorResult("Workout exercise not found");
       return mcpTextResult(item);
     },
   );
@@ -237,14 +248,14 @@ export function registerWorkoutMcpTools(server: McpServer) {
     {
       title: "Delete exercise",
       description:
-        "Delete an exercise from the shared catalog (removes associations).",
+        "Delete an exercise owned by the authenticated user (removes associations).",
       inputSchema: z.object({
         exerciseId: z.string().min(1),
       }),
     },
     async ({ exerciseId }) => {
-      getMcpAuth();
-      const item = await deleteExercise(exerciseId);
+      const { userId } = getMcpAuth();
+      const item = await deleteExerciseForUser(exerciseId, userId);
       if (!item) return mcpErrorResult("Exercise not found");
       return mcpTextResult(item);
     },
@@ -262,8 +273,8 @@ export function registerWorkoutMcpTools(server: McpServer) {
     },
     async ({ workoutId }) => {
       const { userId } = getMcpAuth();
-      const workout = await getWorkoutByIdForUser(workoutId, userId);
-      if (!workout) return mcpErrorResult("Workout not found");
+      const owned = await getWorkoutByIdForUser(workoutId, userId);
+      if (!owned) return mcpErrorResult("Workout not found");
       const items = await listWorkoutExercises({ workoutId });
       return mcpTextResult({ items });
     },
@@ -282,8 +293,8 @@ export function registerWorkoutMcpTools(server: McpServer) {
     },
     async ({ workoutId, exerciseId }) => {
       const { userId } = getMcpAuth();
-      const workout = await getWorkoutByIdForUser(workoutId, userId);
-      if (!workout) return mcpErrorResult("Workout not found");
+      const owned = await getWorkoutByIdForUser(workoutId, userId);
+      if (!owned) return mcpErrorResult("Workout not found");
       const item = await deleteWorkoutExercise(workoutId, exerciseId);
       if (!item) return mcpErrorResult("Workout exercise not found");
       return mcpTextResult(item);

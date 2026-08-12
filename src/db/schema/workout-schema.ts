@@ -35,20 +35,30 @@ export const workout = pgTable(
   ],
 );
 
-export const exercise = pgTable("exercise", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  videoUrl: text("video_url"),
-  imageUrl: text("image_url"),
-  metaData: jsonb("meta_data").$type<ExerciseMetaData>(),
-  tags: text("tags").array().notNull().default([]),
-});
+/** Canonical exercise identity (per-user). Presentation lives on workout_exercise. */
+export const exercise = pgTable(
+  "exercise",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+  },
+  (table) => [index("exercise_userId_idx").on(table.userId)],
+);
 
 export const workoutExercise = pgTable(
   "workout_exercise",
   {
     workoutId: text("workout_id").notNull(),
     exerciseId: text("exercise_id").notNull(),
+    /** Local display name / alias for this workout appearance. */
+    name: text("name").notNull(),
+    videoUrl: text("video_url"),
+    imageUrl: text("image_url"),
+    metaData: jsonb("meta_data").$type<ExerciseMetaData>(),
+    tags: text("tags").array().notNull().default([]),
   },
   (table) => [
     primaryKey({ columns: [table.workoutId, table.exerciseId] }),
@@ -77,6 +87,7 @@ export const set = pgTable(
     distance: doublePrecision("distance"),
     workoutId: text("workout_id").notNull(),
     exerciseId: text("exercise_id").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
     foreignKey({
@@ -92,6 +103,7 @@ export const set = pgTable(
     index("set_workoutId_idx").on(table.workoutId),
     index("set_exerciseId_idx").on(table.exerciseId),
     index("set_workoutId_exerciseId_idx").on(table.workoutId, table.exerciseId),
+    index("set_createdAt_idx").on(table.createdAt),
   ],
 );
 
@@ -104,7 +116,11 @@ export const workoutRelations = relations(workout, ({ one, many }) => ({
   sets: many(set),
 }));
 
-export const exerciseRelations = relations(exercise, ({ many }) => ({
+export const exerciseRelations = relations(exercise, ({ one, many }) => ({
+  user: one(user, {
+    fields: [exercise.userId],
+    references: [user.id],
+  }),
   workoutExercises: many(workoutExercise),
   sets: many(set),
 }));

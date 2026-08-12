@@ -1,12 +1,12 @@
 "use client";
 
-import { IconLoader2 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
 import {
   AppShellBody,
   AppShellHeader,
+  AppShellLoading,
   AppShellScroll,
 } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
@@ -56,10 +56,7 @@ export function FriendsSettingsPageClient() {
       <AppShellBody>
         <div className="flex flex-col gap-6 px-4 py-4 md:p-6">
           {meQuery.isLoading ? (
-            <div className="text-muted-foreground flex items-center gap-2 text-sm">
-              <IconLoader2 className="size-4 animate-spin" />
-              Loading…
-            </div>
+            <AppShellLoading />
           ) : (
             <form className="flex max-w-md flex-col gap-5" onSubmit={onSubmit}>
               <div className="space-y-2">

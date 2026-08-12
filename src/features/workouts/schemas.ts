@@ -46,6 +46,7 @@ export const createWorkoutSchema = z.object({
 
 export const updateWorkoutSchema = createWorkoutSchema.partial();
 
+/** Canonical exercise: identity + standardized name only. */
 export const createExerciseSchema = z.object({
   name: z
     .string()
@@ -55,31 +56,22 @@ export const createExerciseSchema = z.object({
     .describe(
       "Exact exercise name from the video/chapter list (one move per record, not a whole section).",
     ),
-  videoUrl: z
-    .string()
-    .url()
-    .nullable()
-    .optional()
-    .describe(
-      "Canonical source video URL (e.g. YouTube watch URL). Required when importing from a follow-along video.",
-    ),
-  imageUrl: z.string().url().nullable().optional(),
-  metaData: exerciseMetaDataSchema
-    .nullable()
-    .optional()
-    .describe(
-      "Per-exercise video timing. Always set videoStartTime and videoEndTime when a source video exists.",
-    ),
-  tags: z
-    .array(z.string().trim().min(1).max(64))
-    .max(50)
-    .optional()
-    .describe(
-      "Section/muscle tags such as warmup, upper-body, lower-body, core, hiit, plus source labels like no-equipment.",
-    ),
 });
 
-export const updateExerciseSchema = createExerciseSchema.partial();
+export const listExercisesQuerySchema = z.object({
+  q: z.string().trim().max(200).optional(),
+  excludeId: z.string().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
+
+export const similarExercisesQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(10).optional(),
+});
+
+export const mergeExerciseSchema = z.object({
+  targetExerciseId: z.string().min(1),
+  workoutId: z.string().min(1),
+});
 
 export const importFullWorkoutSchema = z.object({
   workoutName: z
@@ -124,7 +116,7 @@ export const importFullWorkoutSchema = z.object({
           .max(50)
           .optional()
           .describe("Section/muscle tags such as warmup, upper-body, lower-body, core, hiit."),
-      })
+      }),
     )
     .min(1)
     .describe("List of exercises in the order they appear in the video."),
@@ -133,16 +125,34 @@ export const importFullWorkoutSchema = z.object({
 export const createWorkoutExerciseSchema = z.object({
   workoutId: z.string().min(1),
   exerciseId: z.string().min(1),
+  name: z.string().trim().min(1).max(200),
+  videoUrl: z.string().url().nullable().optional(),
+  imageUrl: z.string().url().nullable().optional(),
+  metaData: exerciseMetaDataSchema.nullable().optional(),
+  tags: z.array(z.string().trim().min(1).max(64)).max(50).optional(),
 });
 
 export const updateWorkoutExerciseSchema = z
   .object({
     workoutId: z.string().min(1).optional(),
     exerciseId: z.string().min(1).optional(),
+    name: z.string().trim().min(1).max(200).optional(),
+    videoUrl: z.string().url().nullable().optional(),
+    imageUrl: z.string().url().nullable().optional(),
+    metaData: exerciseMetaDataSchema.nullable().optional(),
+    tags: z.array(z.string().trim().min(1).max(64)).max(50).optional(),
   })
-  .refine((value) => value.workoutId || value.exerciseId, {
-    message: "At least one field is required",
-  });
+  .refine(
+    (value) =>
+      value.workoutId ||
+      value.exerciseId ||
+      value.name ||
+      value.videoUrl !== undefined ||
+      value.imageUrl !== undefined ||
+      value.metaData !== undefined ||
+      value.tags !== undefined,
+    { message: "At least one field is required" },
+  );
 
 export const createSetSchema = z.object({
   reps: z.number().int().nonnegative().nullable().optional(),
@@ -159,7 +169,8 @@ export type CreateWorkoutInput = z.infer<typeof createWorkoutSchema>;
 export type ListWorkoutsQuery = z.infer<typeof listWorkoutsQuerySchema>;
 export type UpdateWorkoutInput = z.infer<typeof updateWorkoutSchema>;
 export type CreateExerciseInput = z.infer<typeof createExerciseSchema>;
-export type UpdateExerciseInput = z.infer<typeof updateExerciseSchema>;
+export type ListExercisesQuery = z.infer<typeof listExercisesQuerySchema>;
+export type MergeExerciseInput = z.infer<typeof mergeExerciseSchema>;
 export type CreateWorkoutExerciseInput = z.infer<
   typeof createWorkoutExerciseSchema
 >;

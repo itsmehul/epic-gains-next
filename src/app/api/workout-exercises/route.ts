@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getExerciseById } from "@/db/repositories/exercise.repository";
+import { getExerciseByIdForUser } from "@/db/repositories/exercise.repository";
 import { getVisibleWorkoutById } from "@/db/repositories/feed.repository";
 import {
   createWorkoutExercise,
@@ -89,12 +89,23 @@ export async function POST(req: Request) {
       return apiError("Workout not found", 404);
     }
 
-    const exercise = await getExerciseById(parsed.data.exerciseId);
+    const exercise = await getExerciseByIdForUser(
+      parsed.data.exerciseId,
+      session.user.id,
+    );
     if (!exercise) {
       return apiError("Exercise not found", 404);
     }
 
-    const item = await createWorkoutExercise(parsed.data);
+    const item = await createWorkoutExercise({
+      workoutId: parsed.data.workoutId,
+      exerciseId: parsed.data.exerciseId,
+      name: parsed.data.name,
+      videoUrl: parsed.data.videoUrl ?? null,
+      imageUrl: parsed.data.imageUrl ?? null,
+      metaData: parsed.data.metaData ?? null,
+      tags: parsed.data.tags ?? [],
+    });
     return NextResponse.json(item, { status: 201 });
   } catch (error) {
     const message =

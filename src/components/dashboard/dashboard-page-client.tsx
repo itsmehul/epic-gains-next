@@ -1,11 +1,12 @@
 "use client";
 
-import { IconChevronRight, IconLoader2 } from "@tabler/icons-react";
+import { IconChevronRight } from "@tabler/icons-react";
 import Link from "next/link";
 
 import {
   AppShellBody,
   AppShellHeader,
+  AppShellLoading,
   AppShellScroll,
 } from "@/components/layout/app-shell";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -48,10 +49,7 @@ export function DashboardPageClient({ userName }: DashboardPageClientProps) {
           </p>
 
           {feedQuery.isLoading ? (
-            <div className="text-muted-foreground flex items-center gap-2 text-sm">
-              <IconLoader2 className="size-4 animate-spin" />
-              Loading feed…
-            </div>
+            <AppShellLoading label="Loading feed…" />
           ) : null}
 
           {feedQuery.isError ? (

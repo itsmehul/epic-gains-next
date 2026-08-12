@@ -2,10 +2,13 @@
 
 import {
   IconBarbell,
-  IconChevronRight,
+  IconEye,
   IconPlus,
   IconRefresh,
   IconSearch,
+  IconTrash,
+  IconTrendingDown,
+  IconTrendingUp,
   IconX,
 } from "@tabler/icons-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -18,7 +21,15 @@ import {
   AppShellHeader,
   AppShellScroll,
 } from "@/components/layout/app-shell";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -30,7 +41,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
-import { useCreateWorkout, useWorkouts } from "@/features/workouts/hooks";
+import {
+  useCreateWorkout,
+  useDeleteWorkout,
+  useWorkouts,
+} from "@/features/workouts/hooks";
+import type { WorkoutListStats, WorkoutWithStats } from "@/features/workouts/types";
 import { cn } from "@/shared/utils";
 
 const springSoft = { type: "spring" as const, stiffness: 420, damping: 32 };
@@ -69,20 +85,196 @@ function formatWorkoutDate(value: Date | string) {
   });
 }
 
+function formatVolume(volume: number) {
+  if (volume <= 0) return null;
+  if (volume >= 1000) return `${(volume / 1000).toFixed(1)}k`;
+  return volume % 1 === 0 ? String(volume) : volume.toFixed(1);
+}
+
+function formatVolumeChange(pct: number) {
+  const rounded = Math.round(Math.abs(pct));
+  if (rounded === 0) return "Flat";
+  return `${pct > 0 ? "+" : "−"}${rounded}%`;
+}
+
+function WorkoutStatChips({ stats }: { stats: WorkoutListStats }) {
+  const lastLogged = stats.lastLoggedAt
+    ? formatWorkoutDate(stats.lastLoggedAt)
+    : null;
+  const volumeLabel = formatVolume(stats.volume);
+  const progressPct =
+    stats.exerciseCount > 0
+      ? Math.round((stats.loggedExerciseCount / stats.exerciseCount) * 100)
+      : null;
+  const volumeChange = stats.volumeChangePct;
+
+  const chips: { key: string; label: string; tone?: "up" | "down" | "flat" }[] =
+    [];
+
+  if (lastLogged) {
+    chips.push({ key: "logged", label: `Last ${lastLogged}` });
+  }
+  if (stats.exerciseCount > 0) {
+    chips.push({
+      key: "exercises",
+      label:
+        stats.loggedExerciseCount > 0
+          ? `${stats.loggedExerciseCount}/${stats.exerciseCount} exercises`
+          : `${stats.exerciseCount} ${stats.exerciseCount === 1 ? "exercise" : "exercises"}`,
+    });
+  }
+  if (stats.setCount > 0) {
+    chips.push({
+      key: "sets",
+      label: `${stats.setCount} ${stats.setCount === 1 ? "set" : "sets"}`,
+    });
+  }
+  if (volumeLabel) {
+    chips.push({ key: "volume", label: `${volumeLabel} vol` });
+  }
+  if (progressPct != null && stats.setCount > 0) {
+    chips.push({ key: "progress", label: `${progressPct}% logged` });
+  }
+  if (volumeChange != null) {
+    const tone =
+      Math.round(volumeChange) === 0
+        ? "flat"
+        : volumeChange > 0
+          ? "up"
+          : "down";
+    chips.push({
+      key: "trend",
+      label: formatVolumeChange(volumeChange),
+      tone,
+    });
+  }
+
+  if (chips.length === 0) return null;
+
+  return (
+    <p className="text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs">
+      {chips.map((chip, index) => (
+        <span key={chip.key} className="inline-flex items-center gap-1.5">
+          {index > 0 ? (
+            <span className="text-muted-foreground/40" aria-hidden>
+              ·
+            </span>
+          ) : null}
+          <span
+            className={cn(
+              "inline-flex items-center gap-0.5",
+              chip.tone === "up" && "text-emerald-600 dark:text-emerald-400",
+              chip.tone === "down" && "text-rose-600 dark:text-rose-400",
+            )}
+          >
+            {chip.tone === "up" ? (
+              <IconTrendingUp className="size-3" aria-hidden />
+            ) : null}
+            {chip.tone === "down" ? (
+              <IconTrendingDown className="size-3" aria-hidden />
+            ) : null}
+            {chip.label}
+          </span>
+        </span>
+      ))}
+    </p>
+  );
+}
+
 function WorkoutRowSkeleton({ index }: { index: number }) {
   return (
     <div
-      className="flex items-center gap-3 px-4 py-3.5 md:rounded-2xl md:px-3"
+      className="flex flex-col gap-4 rounded-4xl bg-card px-4 py-4 ring-1 ring-foreground/5"
       style={{ animationDelay: `${index * 60}ms` }}
     >
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
+      <div className="flex flex-col gap-2">
         <div
           className="bg-muted/80 h-4 animate-pulse rounded-md"
           style={{ width: `${58 + ((index * 17) % 28)}%` }}
         />
-        <div className="bg-muted/60 h-3 w-20 animate-pulse rounded-md" />
+        <div className="bg-muted/60 h-3 w-36 animate-pulse rounded-md" />
+        <div className="bg-muted/50 h-2.5 w-48 animate-pulse rounded-md" />
+      </div>
+      <div className="flex gap-2 border-t border-border/60 pt-3">
+        <div className="bg-muted/60 h-8 w-20 animate-pulse rounded-4xl" />
+        <div className="bg-muted/50 h-8 w-20 animate-pulse rounded-4xl" />
       </div>
     </div>
+  );
+}
+
+function DeleteWorkoutDialog({
+  workout,
+  open,
+  onOpenChange,
+}: {
+  workout: WorkoutWithStats | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const deleteWorkout = useDeleteWorkout();
+
+  async function onConfirm() {
+    if (!workout || deleteWorkout.isPending) return;
+    try {
+      await deleteWorkout.mutateAsync(workout.id);
+      onOpenChange(false);
+    } catch {
+      // Error surfaced via mutation state below.
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) deleteWorkout.reset();
+        onOpenChange(next);
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete workout?</DialogTitle>
+          <DialogDescription>
+            {workout
+              ? `“${workout.name}” and its sets will be permanently removed.`
+              : "This workout and its sets will be permanently removed."}
+          </DialogDescription>
+        </DialogHeader>
+        {deleteWorkout.isError ? (
+          <p className="text-destructive text-sm" role="alert">
+            {deleteWorkout.error instanceof Error
+              ? deleteWorkout.error.message
+              : "Could not delete workout"}
+          </p>
+        ) : null}
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={deleteWorkout.isPending}
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={deleteWorkout.isPending}
+            onClick={() => void onConfirm()}
+          >
+            {deleteWorkout.isPending ? (
+              <>
+                <Spinner className="size-4" />
+                Deleting…
+              </>
+            ) : (
+              "Delete"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -186,6 +378,9 @@ function CreateWorkoutDialog({
 export function WorkoutsPageClient() {
   const searchId = useId();
   const [createOpen, setCreateOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<WorkoutWithStats | null>(
+    null,
+  );
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
@@ -240,7 +435,7 @@ export function WorkoutsPageClient() {
 
           {workoutsQuery.isLoading ? (
             <div
-              className="flex flex-col"
+              className="flex flex-col gap-3 px-4 md:gap-4 md:px-0"
               aria-busy="true"
               aria-label="Loading workouts"
             >
@@ -329,13 +524,16 @@ export function WorkoutsPageClient() {
           {showList ? (
             <ul
               className={cn(
-                "flex flex-col transition-opacity duration-200",
+                "flex flex-col gap-3 px-4 transition-opacity duration-200 md:gap-4 md:px-0",
                 workoutsQuery.isFetching && "opacity-70",
               )}
             >
               <AnimatePresence initial={false}>
                 {items.map((workout, index) => {
-                  const dateLabel = formatWorkoutDate(workout.createdAt);
+                  const createdLabel = formatWorkoutDate(workout.createdAt);
+                  const hasStats =
+                    workout.stats.exerciseCount > 0 ||
+                    workout.stats.setCount > 0;
 
                   return (
                     <motion.li
@@ -347,26 +545,53 @@ export function WorkoutsPageClient() {
                         delay: Math.min(index * 0.035, 0.28),
                       }}
                     >
-                      <Link
-                        className={cn(
-                          "group flex items-center gap-3 px-4 py-3.5 transition-[background-color,transform] duration-200 md:rounded-2xl md:px-3",
-                          "hover:bg-muted/55 active:bg-muted/70",
-                          "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-content-panel focus-visible:outline-none",
-                        )}
-                        href={`/workouts/${workout.id}`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium leading-snug tracking-tight">
+                      <Card size="sm">
+                        <CardHeader>
+                          <CardTitle className="truncate leading-snug tracking-tight">
                             {workout.name}
-                          </p>
-                          {dateLabel ? (
-                            <p className="text-muted-foreground mt-0.5 text-xs">
-                              {dateLabel}
-                            </p>
+                          </CardTitle>
+                          {createdLabel ? (
+                            <CardDescription>
+                              Created {createdLabel}
+                            </CardDescription>
                           ) : null}
-                        </div>
-                        <IconChevronRight className="text-muted-foreground size-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-foreground" />
-                      </Link>
+                        </CardHeader>
+                        <CardContent>
+                          {hasStats || workout.stats.lastLoggedAt ? (
+                            <WorkoutStatChips stats={workout.stats} />
+                          ) : (
+                            <p className="text-muted-foreground/80 text-xs">
+                              No sets logged yet
+                            </p>
+                          )}
+                        </CardContent>
+                        <CardFooter className="gap-2 border-t border-border/60">
+                          <Link
+                            href={`/workouts/${workout.id}`}
+                            className={cn(
+                              buttonVariants({ variant: "outline", size: "sm" }),
+                            )}
+                          >
+                            <IconEye
+                              className="size-3.5"
+                              data-icon="inline-start"
+                            />
+                            View
+                          </Link>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => setDeleteTarget(workout)}
+                          >
+                            <IconTrash
+                              className="size-3.5"
+                              data-icon="inline-start"
+                            />
+                            Delete
+                          </Button>
+                        </CardFooter>
+                      </Card>
                     </motion.li>
                   );
                 })}
@@ -377,6 +602,13 @@ export function WorkoutsPageClient() {
       </AppShellBody>
 
       <CreateWorkoutDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <DeleteWorkoutDialog
+        workout={deleteTarget}
+        open={deleteTarget != null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      />
     </AppShellScroll>
   );
 }

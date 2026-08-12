@@ -2,23 +2,47 @@ import { NextResponse } from "next/server";
 
 import {
   createExercise,
-  listExercises,
+  listExercisesForUser,
+  searchExercisesForUser,
 } from "@/db/repositories/exercise.repository";
-import { createExerciseSchema } from "@/features/workouts/schemas";
+import {
+  createExerciseSchema,
+  listExercisesQuerySchema,
+} from "@/features/workouts/schemas";
 import {
   apiError,
   requireApiSession,
   unauthorizedResponse,
 } from "@/infrastructure/auth/api";
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await requireApiSession();
   if (!session) {
     return unauthorizedResponse();
   }
 
   try {
-    const items = await listExercises();
+    const { searchParams } = new URL(req.url);
+    const parsed = listExercisesQuerySchema.safeParse({
+      q: searchParams.get("q") ?? undefined,
+      excludeId: searchParams.get("excludeId") ?? undefined,
+      limit: searchParams.get("limit") ?? undefined,
+    });
+    if (!parsed.success) {
+      return apiError("Invalid query", 400);
+    }
+
+    if (parsed.data.q || parsed.data.excludeId) {
+      const items = await searchExercisesForUser({
+        userId: session.user.id,
+        q: parsed.data.q,
+        excludeExerciseId: parsed.data.excludeId,
+        limit: parsed.data.limit,
+      });
+      return NextResponse.json({ items });
+    }
+
+    const items = await listExercisesForUser(session.user.id);
     return NextResponse.json({ items });
   } catch (error) {
     const message =
@@ -42,11 +66,8 @@ export async function POST(req: Request) {
 
     const item = await createExercise({
       id: crypto.randomUUID(),
+      userId: session.user.id,
       name: parsed.data.name,
-      videoUrl: parsed.data.videoUrl ?? null,
-      imageUrl: parsed.data.imageUrl ?? null,
-      metaData: parsed.data.metaData ?? null,
-      tags: parsed.data.tags ?? [],
     });
 
     return NextResponse.json(item, { status: 201 });

@@ -5,10 +5,7 @@ import Link from "next/link";
 import {
   createContext,
   useContext,
-  useEffect,
-  useRef,
   useState,
-  type CSSProperties,
   type ReactNode,
 } from "react";
 
@@ -109,57 +106,13 @@ type AppShellHeaderProps = {
   title: ReactNode;
 };
 
-function AutoMarqueeTitle({ children }: { children: string }) {
-  const containerRef = useRef<HTMLHeadingElement>(null);
-  const textRef = useRef<HTMLSpanElement>(null);
-  const [overflowPx, setOverflowPx] = useState(0);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    const text = textRef.current;
-    if (!container || !text) {
-      return;
-    }
-
-    const measure = () => {
-      const next = Math.max(0, text.scrollWidth - container.clientWidth);
-      setOverflowPx((current) => (current === next ? current : next));
-    };
-
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(container);
-    observer.observe(text);
-    return () => observer.disconnect();
-  }, [children]);
-
-  const isOverflowing = overflowPx > 0;
-  // ~32px/s scroll + pause padding so longer titles take longer.
-  const durationSeconds = Math.max(6, overflowPx / 32 + 3);
-
+function ScrollableTitle({ children }: { children: string }) {
   return (
     <h1
-      ref={containerRef}
-      className="overflow-hidden rounded-full py-0 pr-4 text-base font-semibold tracking-tight md:py-1"
+      className="overflow-x-auto py-0 pr-4 text-base font-semibold tracking-tight whitespace-nowrap md:py-1"
       title={children}
     >
-      <span
-        ref={textRef}
-        className={cn(
-          "inline-block max-w-none whitespace-nowrap will-change-transform",
-          isOverflowing && "motion-safe:animate-marquee-title",
-        )}
-        style={
-          isOverflowing
-            ? ({
-              "--marquee-distance": `-${overflowPx}px`,
-              "--marquee-duration": `${durationSeconds}s`,
-            } as CSSProperties)
-            : undefined
-        }
-      >
-        {children}
-      </span>
+      {children}
     </h1>
   );
 }
@@ -212,7 +165,7 @@ export function AppShellHeader({
         )}
         <div className="min-w-0 flex-1">
           {typeof title === "string" ? (
-            <AutoMarqueeTitle>{title}</AutoMarqueeTitle>
+            <ScrollableTitle>{title}</ScrollableTitle>
           ) : (
             title
           )}

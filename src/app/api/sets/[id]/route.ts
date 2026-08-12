@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getExerciseById } from "@/db/repositories/exercise.repository";
+import { getExerciseByIdForUser } from "@/db/repositories/exercise.repository";
 import {
   deleteSet,
   getSetById,
@@ -92,7 +92,10 @@ export async function PATCH(
     }
 
     if (parsed.data.exerciseId) {
-      const exercise = await getExerciseById(nextExerciseId);
+      const exercise = await getExerciseByIdForUser(
+        nextExerciseId,
+        session.user.id,
+      );
       if (!exercise) {
         return apiError("Exercise not found", 404);
       }

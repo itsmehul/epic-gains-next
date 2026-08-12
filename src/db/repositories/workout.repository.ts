@@ -1,9 +1,9 @@
 import "server-only";
 
-import { and, desc, eq, ilike } from "drizzle-orm";
+import { and, count, countDistinct, desc, eq, ilike, inArray, max, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { workout } from "@/db/schema";
+import { set as workoutSet, workout, workoutExercise } from "@/db/schema";
 
 export type WorkoutInsert = typeof workout.$inferInsert;
 export type WorkoutUpdate = Partial<Pick<WorkoutInsert, "name" | "author">>;
@@ -24,11 +24,94 @@ export async function listWorkoutsForUser(
     conditions.push(ilike(workout.name, pattern));
   }
 
-  return db
+  const workouts = await db
     .select()
     .from(workout)
     .where(and(...conditions))
     .orderBy(desc(workout.createdAt));
+
+  if (workouts.length === 0) return [];
+
+  const ids = workouts.map((item) => item.id);
+
+  const [exerciseRows, setRows] = await Promise.all([
+    db
+      .select({
+        workoutId: workoutExercise.workoutId,
+        exerciseCount: count(),
+      })
+      .from(workoutExercise)
+      .where(inArray(workoutExercise.workoutId, ids))
+      .groupBy(workoutExercise.workoutId),
+    db
+      .select({
+        workoutId: workoutSet.workoutId,
+        setCount: count(),
+        loggedExerciseCount: countDistinct(workoutSet.exerciseId),
+        volume: sql<number>`coalesce(sum(
+          case
+            when ${workoutSet.weight} is not null and ${workoutSet.reps} is not null
+            then ${workoutSet.weight} * ${workoutSet.reps}
+            else 0
+          end
+        ), 0)`.mapWith(Number),
+        lastLoggedAt: max(workoutSet.createdAt),
+      })
+      .from(workoutSet)
+      .where(inArray(workoutSet.workoutId, ids))
+      .groupBy(workoutSet.workoutId),
+  ]);
+
+  const exerciseByWorkout = new Map(
+    exerciseRows.map((row) => [row.workoutId, Number(row.exerciseCount)]),
+  );
+  const setByWorkout = new Map(
+    setRows.map((row) => [
+      row.workoutId,
+      {
+        setCount: Number(row.setCount),
+        loggedExerciseCount: Number(row.loggedExerciseCount),
+        volume: Number(row.volume) || 0,
+        lastLoggedAt: row.lastLoggedAt ?? null,
+      },
+    ]),
+  );
+
+  // Chronological order (oldest → newest) for volume progression vs prior session.
+  const chronological = [...workouts].sort(
+    (a, b) =>
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
+  const volumeChangeById = new Map<string, number | null>();
+  let previousVolume: number | null = null;
+
+  for (const item of chronological) {
+    const volume = setByWorkout.get(item.id)?.volume ?? 0;
+    if (previousVolume != null && previousVolume > 0 && volume > 0) {
+      volumeChangeById.set(
+        item.id,
+        ((volume - previousVolume) / previousVolume) * 100,
+      );
+    } else {
+      volumeChangeById.set(item.id, null);
+    }
+    if (volume > 0) previousVolume = volume;
+  }
+
+  return workouts.map((item) => {
+    const setStats = setByWorkout.get(item.id);
+    return {
+      ...item,
+      stats: {
+        exerciseCount: exerciseByWorkout.get(item.id) ?? 0,
+        setCount: setStats?.setCount ?? 0,
+        loggedExerciseCount: setStats?.loggedExerciseCount ?? 0,
+        volume: setStats?.volume ?? 0,
+        lastLoggedAt: setStats?.lastLoggedAt ?? null,
+        volumeChangePct: volumeChangeById.get(item.id) ?? null,
+      },
+    };
+  });
 }
 
 export async function getWorkoutByIdForUser(id: string, userId: string) {

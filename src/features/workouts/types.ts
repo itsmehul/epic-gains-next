@@ -5,7 +5,50 @@ export type Exercise = typeof exercise.$inferSelect;
 export type WorkoutExercise = typeof workoutExercise.$inferSelect;
 export type Set = typeof set.$inferSelect;
 
-export type ListWorkoutsResult = { items: Workout[] };
+export type WorkoutListStats = {
+  exerciseCount: number;
+  setCount: number;
+  loggedExerciseCount: number;
+  volume: number;
+  lastLoggedAt: Date | string | null;
+  /** Volume change vs previous workout (by createdAt). Null when not comparable. */
+  volumeChangePct: number | null;
+};
+
+export type WorkoutWithStats = Workout & {
+  stats: WorkoutListStats;
+};
+
+export type SimilarExerciseCandidate = {
+  id: string;
+  name: string;
+  score: number;
+  matchedAlias: string | null;
+  setCount?: number;
+  workoutCount?: number;
+};
+
+export type MergeExerciseImpact = {
+  sourceExerciseId: string;
+  targetExerciseId: string;
+  setCount: number;
+  workoutCount: number;
+  localSetCount: number;
+  willDeleteSource: boolean;
+};
+
+export type MergeExerciseResult = {
+  impact: MergeExerciseImpact;
+  workoutExercise: WorkoutExercise | null;
+  targetExerciseId: string;
+};
+
+export type ListWorkoutsResult = { items: WorkoutWithStats[] };
 export type ListExercisesResult = { items: Exercise[] };
+export type ListExerciseSearchResult = { items: SimilarExerciseCandidate[] };
+export type ListSimilarExercisesResult = {
+  items: SimilarExerciseCandidate[];
+  query: string;
+};
 export type ListWorkoutExercisesResult = { items: WorkoutExercise[] };
 export type ListSetsResult = { items: Set[] };

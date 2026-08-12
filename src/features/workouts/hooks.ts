@@ -7,17 +7,21 @@ import type {
   CreateSetInput,
   CreateWorkoutExerciseInput,
   CreateWorkoutInput,
-  UpdateExerciseInput,
+  MergeExerciseInput,
   UpdateSetInput,
   UpdateWorkoutExerciseInput,
   UpdateWorkoutInput,
 } from "@/features/workouts/schemas";
 import type {
   Exercise,
+  ListExerciseSearchResult,
   ListExercisesResult,
   ListSetsResult,
+  ListSimilarExercisesResult,
   ListWorkoutExercisesResult,
   ListWorkoutsResult,
+  MergeExerciseImpact,
+  MergeExerciseResult,
   Set,
   Workout,
   WorkoutExercise,
@@ -35,7 +39,19 @@ export const workoutKeys = {
 export const exerciseKeys = {
   all: ["exercises"] as const,
   lists: () => [...exerciseKeys.all, "list"] as const,
+  list: (params?: { q?: string; excludeId?: string }) =>
+    [...exerciseKeys.lists(), params ?? {}] as const,
   detail: (id: string) => [...exerciseKeys.all, "detail", id] as const,
+  similar: (id: string, workoutId?: string) =>
+    [...exerciseKeys.all, "similar", id, workoutId ?? ""] as const,
+  mergeImpact: (id: string, targetExerciseId: string, workoutId: string) =>
+    [
+      ...exerciseKeys.all,
+      "merge-impact",
+      id,
+      targetExerciseId,
+      workoutId,
+    ] as const,
 };
 
 export const workoutExerciseKeys = {
@@ -120,10 +136,21 @@ export function useDeleteWorkout() {
   });
 }
 
-export function useExercises() {
+export function useExercises(options?: { q?: string; excludeId?: string }) {
+  const q = options?.q?.trim() ?? "";
+  const excludeId = options?.excludeId;
+
   return useQuery({
-    queryKey: exerciseKeys.lists(),
-    queryFn: () => apiFetch<ListExercisesResult>("/api/exercises"),
+    queryKey: exerciseKeys.list({ q, excludeId }),
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (q) params.set("q", q);
+      if (excludeId) params.set("excludeId", excludeId);
+      const query = params.toString();
+      return apiFetch<ListExercisesResult | ListExerciseSearchResult>(
+        `/api/exercises${query ? `?${query}` : ""}`,
+      );
+    },
   });
 }
 
@@ -132,6 +159,49 @@ export function useExercise(id: string | null) {
     queryKey: exerciseKeys.detail(id ?? ""),
     enabled: Boolean(id),
     queryFn: () => apiFetch<Exercise>(`/api/exercises/${id}`),
+  });
+}
+
+export function useSimilarExercises(
+  exerciseId: string | null,
+  options?: { workoutId?: string; enabled?: boolean },
+) {
+  const workoutId = options?.workoutId;
+  return useQuery({
+    queryKey: exerciseKeys.similar(exerciseId ?? "", workoutId),
+    enabled: Boolean(exerciseId) && (options?.enabled ?? true),
+    queryFn: () => {
+      const params = new URLSearchParams();
+      params.set("limit", "3");
+      if (workoutId) params.set("workoutId", workoutId);
+      return apiFetch<ListSimilarExercisesResult>(
+        `/api/exercises/${exerciseId}/similar?${params}`,
+      );
+    },
+  });
+}
+
+export function useMergeExerciseImpact(
+  sourceExerciseId: string | null,
+  targetExerciseId: string | null,
+  workoutId: string | null,
+) {
+  return useQuery({
+    queryKey: exerciseKeys.mergeImpact(
+      sourceExerciseId ?? "",
+      targetExerciseId ?? "",
+      workoutId ?? "",
+    ),
+    enabled: Boolean(sourceExerciseId && targetExerciseId && workoutId),
+    queryFn: () => {
+      const params = new URLSearchParams({
+        targetExerciseId: targetExerciseId!,
+        workoutId: workoutId!,
+      });
+      return apiFetch<MergeExerciseImpact>(
+        `/api/exercises/${sourceExerciseId}/merge?${params}`,
+      );
+    },
   });
 }
 
@@ -149,23 +219,6 @@ export function useCreateExercise() {
   });
 }
 
-export function useUpdateExercise() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, ...input }: UpdateExerciseInput & { id: string }) =>
-      apiFetch<Exercise>(`/api/exercises/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(input),
-      }),
-    onSuccess: (item) => {
-      void queryClient.invalidateQueries({ queryKey: exerciseKeys.all });
-      void queryClient.invalidateQueries({
-        queryKey: exerciseKeys.detail(item.id),
-      });
-    },
-  });
-}
-
 export function useDeleteExercise() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -173,6 +226,28 @@ export function useDeleteExercise() {
       apiFetch<Exercise>(`/api/exercises/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: exerciseKeys.all });
+    },
+  });
+}
+
+export function useMergeExercise() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      sourceExerciseId,
+      ...input
+    }: MergeExerciseInput & { sourceExerciseId: string }) =>
+      apiFetch<MergeExerciseResult>(`/api/exercises/${sourceExerciseId}/merge`, {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: exerciseKeys.all });
+      void queryClient.invalidateQueries({
+        queryKey: workoutExerciseKeys.all,
+      });
+      void queryClient.invalidateQueries({ queryKey: setKeys.all });
+      void queryClient.invalidateQueries({ queryKey: workoutKeys.lists() });
     },
   });
 }
@@ -221,6 +296,7 @@ export function useCreateWorkoutExercise() {
       void queryClient.invalidateQueries({
         queryKey: workoutExerciseKeys.all,
       });
+      void queryClient.invalidateQueries({ queryKey: workoutKeys.lists() });
     },
   });
 }
@@ -247,6 +323,7 @@ export function useUpdateWorkoutExercise() {
       void queryClient.invalidateQueries({
         queryKey: workoutExerciseKeys.all,
       });
+      void queryClient.invalidateQueries({ queryKey: exerciseKeys.all });
     },
   });
 }
@@ -269,6 +346,7 @@ export function useDeleteWorkoutExercise() {
       void queryClient.invalidateQueries({
         queryKey: workoutExerciseKeys.all,
       });
+      void queryClient.invalidateQueries({ queryKey: workoutKeys.lists() });
     },
   });
 }
@@ -307,6 +385,7 @@ export function useCreateSet() {
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: setKeys.all });
+      void queryClient.invalidateQueries({ queryKey: workoutKeys.lists() });
     },
   });
 }
@@ -322,6 +401,7 @@ export function useUpdateSet() {
     onSuccess: (item) => {
       void queryClient.invalidateQueries({ queryKey: setKeys.all });
       void queryClient.invalidateQueries({ queryKey: setKeys.detail(item.id) });
+      void queryClient.invalidateQueries({ queryKey: workoutKeys.lists() });
     },
   });
 }
@@ -333,6 +413,7 @@ export function useDeleteSet() {
       apiFetch<Set>(`/api/sets/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: setKeys.all });
+      void queryClient.invalidateQueries({ queryKey: workoutKeys.lists() });
     },
   });
 }

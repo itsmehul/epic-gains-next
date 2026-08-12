@@ -1,15 +1,13 @@
 "use client";
 
-import {
-  IconLoader2,
-  IconSearch,
-} from "@tabler/icons-react";
+import { IconSearch } from "@tabler/icons-react";
 import { useState } from "react";
 
 import { UserListRow } from "@/components/friends/user-list-row";
 import {
   AppShellBody,
   AppShellHeader,
+  AppShellLoading,
   AppShellScroll,
 } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
@@ -187,12 +185,7 @@ export function FriendsPageClient() {
 }
 
 function LoadingRow({ label }: { label: string }) {
-  return (
-    <div className="text-muted-foreground flex items-center gap-2 text-sm">
-      <IconLoader2 className="size-4 animate-spin" />
-      {label}
-    </div>
-  );
+  return <AppShellLoading className="py-10" label={label} />;
 }
 
 function ErrorText({ error }: { error: unknown }) {

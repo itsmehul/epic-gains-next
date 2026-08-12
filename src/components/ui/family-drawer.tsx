@@ -61,6 +61,7 @@ interface FamilyDrawerRootProps {
   open?: boolean
   defaultOpen?: boolean
   onOpenChange?: (open: boolean) => void
+  view?: string
   defaultView?: string
   onViewChange?: (view: string) => void
   views?: ViewsRegistry
@@ -71,22 +72,30 @@ function FamilyDrawerRoot({
   open: controlledOpen,
   defaultOpen = false,
   onOpenChange,
+  view: controlledView,
   defaultView = "default",
   onViewChange,
   views: customViews,
 }: FamilyDrawerRootProps) {
   const [internalOpen, setInternalOpen] = useState(defaultOpen)
-  const [view, setView] = useState(defaultView)
+  const [internalView, setInternalView] = useState(defaultView)
   const [elementRef, bounds] = useMeasure()
   const previousHeightRef = useRef(0)
   const [opacityDuration, setOpacityDuration] = useState(0.08)
 
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen
+  const view = controlledView !== undefined ? controlledView : internalView
+
+  const setView = (newView: string) => {
+    if (controlledView === undefined) {
+      setInternalView(newView)
+    }
+    onViewChange?.(newView)
+  }
 
   const setIsOpen = (nextOpen: boolean) => {
     if (!nextOpen) {
       setView(defaultView)
-      onViewChange?.(defaultView)
     }
 
     if (controlledOpen === undefined) {
@@ -120,11 +129,6 @@ function FamilyDrawerRoot({
     )
   }, [bounds.height])
 
-  const handleViewChange = (newView: string) => {
-    setView(newView)
-    onViewChange?.(newView)
-  }
-
   // Use custom views if provided, otherwise pass undefined
   const views =
     customViews && Object.keys(customViews).length > 0 ? customViews : undefined
@@ -132,7 +136,7 @@ function FamilyDrawerRoot({
   const contextValue: FamilyDrawerContextValue = {
     isOpen,
     view,
-    setView: handleViewChange,
+    setView,
     opacityDuration,
     elementRef,
     bounds,
