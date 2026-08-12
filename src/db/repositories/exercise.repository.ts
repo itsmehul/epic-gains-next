@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { exercise, set as workoutSet, workout, workoutExercise } from "@/db/schema";
 import {
   SIMILAR_EXERCISE_THRESHOLD,
+  exerciseNameLookupKeys,
   exerciseNameSimilarity,
   normalizeExerciseName,
 } from "@/features/workouts/exercise-name";
@@ -147,6 +148,113 @@ export async function ensureCanonicalRestExerciseForUser(
   );
 }
 
+export type ConsolidateDuplicateExercisesResult = {
+  groupsMerged: number;
+  exercisesDeleted: number;
+};
+
+/**
+ * Collapse per-user exercises that share the same normalized name into the
+ * most-used row (workout appearances, then sets, then stable id). Remaps
+ * workout_exercise + set refs, then deletes emptied duplicates.
+ */
+export async function consolidateDuplicateExercisesForUser(
+  userId: string,
+  tx?: DbTransaction,
+): Promise<ConsolidateDuplicateExercisesResult> {
+  const run = async (dbOrTx: DbTransaction | typeof db) => {
+    const exercises = await dbOrTx
+      .select()
+      .from(exercise)
+      .where(eq(exercise.userId, userId));
+
+    const candidates = exercises.filter((item) => !isRestWorkoutItem(item));
+    if (candidates.length < 2) {
+      return { groupsMerged: 0, exercisesDeleted: 0 };
+    }
+
+    const ids = candidates.map((item) => item.id);
+    const [linkCounts, setCounts] = await Promise.all([
+      dbOrTx
+        .select({
+          exerciseId: workoutExercise.exerciseId,
+          n: count(),
+        })
+        .from(workoutExercise)
+        .where(inArray(workoutExercise.exerciseId, ids))
+        .groupBy(workoutExercise.exerciseId),
+      dbOrTx
+        .select({
+          exerciseId: workoutSet.exerciseId,
+          n: count(),
+        })
+        .from(workoutSet)
+        .where(inArray(workoutSet.exerciseId, ids))
+        .groupBy(workoutSet.exerciseId),
+    ]);
+
+    const linkCountById = new Map(
+      linkCounts.map((row) => [row.exerciseId, Number(row.n)]),
+    );
+    const setCountById = new Map(
+      setCounts.map((row) => [row.exerciseId, Number(row.n)]),
+    );
+
+    const groups = new Map<string, typeof candidates>();
+    for (const item of candidates) {
+      const keys = exerciseNameLookupKeys(item.name);
+      const key = keys.slice().sort()[0];
+      if (!key) continue;
+      const list = groups.get(key) ?? [];
+      list.push(item);
+      groups.set(key, list);
+    }
+
+    let groupsMerged = 0;
+    let exercisesDeleted = 0;
+
+    for (const group of groups.values()) {
+      if (group.length < 2) continue;
+
+      group.sort((a, b) => {
+        const linkDiff =
+          (linkCountById.get(b.id) ?? 0) - (linkCountById.get(a.id) ?? 0);
+        if (linkDiff !== 0) return linkDiff;
+        const setDiff =
+          (setCountById.get(b.id) ?? 0) - (setCountById.get(a.id) ?? 0);
+        if (setDiff !== 0) return setDiff;
+        return a.id.localeCompare(b.id);
+      });
+
+      const canonical = group[0]!;
+      const duplicates = group.slice(1);
+      const duplicateIds = duplicates.map((item) => item.id);
+
+      await dbOrTx
+        .update(workoutExercise)
+        .set({ exerciseId: canonical.id })
+        .where(inArray(workoutExercise.exerciseId, duplicateIds));
+      await dbOrTx
+        .update(workoutSet)
+        .set({ exerciseId: canonical.id })
+        .where(inArray(workoutSet.exerciseId, duplicateIds));
+      await dbOrTx
+        .delete(exercise)
+        .where(
+          and(eq(exercise.userId, userId), inArray(exercise.id, duplicateIds)),
+        );
+
+      groupsMerged += 1;
+      exercisesDeleted += duplicateIds.length;
+    }
+
+    return { groupsMerged, exercisesDeleted };
+  };
+
+  if (tx) return run(tx);
+  return db.transaction((inner) => run(inner));
+}
+
 export async function deleteExercise(id: string) {
   const [row] = await db
     .delete(exercise)
@@ -259,8 +367,26 @@ export async function findSimilarExercisesForUser(options: {
     });
   }
 
-  scored.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
-  return scored.slice(0, limit);
+  scored.sort(
+    (a, b) =>
+      b.score - a.score ||
+      b.workoutCount - a.workoutCount ||
+      b.setCount - a.setCount ||
+      a.name.localeCompare(b.name),
+  );
+
+  // One candidate per singular/plural-folded name so orphan catalog dupes don't flood UI.
+  const seenNames = new Set<string>();
+  const deduped: SimilarExerciseCandidate[] = [];
+  for (const candidate of scored) {
+    const keys = exerciseNameLookupKeys(candidate.name);
+    const key = keys.slice().sort()[0];
+    if (!key || seenNames.has(key)) continue;
+    seenNames.add(key);
+    deduped.push(candidate);
+    if (deduped.length >= limit) break;
+  }
+  return deduped;
 }
 
 export type MergeExerciseImpact = {

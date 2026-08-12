@@ -1,11 +1,12 @@
 import "server-only";
 
 import type { McpServer } from "@modelcontextprotocol/server";
-import { eq, inArray } from "drizzle-orm";
+import { count, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
 import {
+  consolidateDuplicateExercisesForUser,
   deleteExerciseForUser,
   getExerciseByIdForUser,
   listExercisesForUser,
@@ -24,7 +25,7 @@ import {
   updateWorkoutForUser,
 } from "@/db/repositories/workout.repository";
 import { exercise, workout, workoutExercise } from "@/db/schema";
-import { normalizeExerciseName } from "@/features/workouts/exercise-name";
+import { exerciseNameLookupKeys } from "@/features/workouts/exercise-name";
 import { isRestWorkoutItem, withRestTag } from "@/features/workouts/workout-item";
 import {
   exerciseMetaDataSchema,
@@ -98,35 +99,56 @@ export function registerWorkoutMcpTools(server: McpServer) {
             .from(exercise)
             .where(eq(exercise.userId, userId));
 
+          const existingIds = existingExercises.map((item) => item.id);
+          const usageRows =
+            existingIds.length === 0
+              ? []
+              : await tx
+                  .select({
+                    exerciseId: workoutExercise.exerciseId,
+                    n: count(),
+                  })
+                  .from(workoutExercise)
+                  .where(inArray(workoutExercise.exerciseId, existingIds))
+                  .groupBy(workoutExercise.exerciseId);
+          const usageById = new Map(
+            usageRows.map((row) => [row.exerciseId, Number(row.n)]),
+          );
+
           const exerciseIdByName = new Map<string, string>();
-          for (const item of existingExercises) {
-            if (isRestWorkoutItem(item)) continue;
-            const key = normalizeExerciseName(item.name);
-            if (key && !exerciseIdByName.has(key)) {
-              exerciseIdByName.set(key, item.id);
+
+          function rememberExercise(name: string, exerciseId: string) {
+            const usage = usageById.get(exerciseId) ?? 0;
+            for (const key of exerciseNameLookupKeys(name)) {
+              const current = exerciseIdByName.get(key);
+              if (!current) {
+                exerciseIdByName.set(key, exerciseId);
+                continue;
+              }
+              const currentUsage = usageById.get(current) ?? 0;
+              if (usage > currentUsage) {
+                exerciseIdByName.set(key, exerciseId);
+              }
             }
           }
 
-          if (existingExercises.length > 0) {
+          for (const item of existingExercises) {
+            if (isRestWorkoutItem(item)) continue;
+            rememberExercise(item.name, item.id);
+          }
+
+          if (existingIds.length > 0) {
             const aliasRows = await tx
               .select({
                 exerciseId: workoutExercise.exerciseId,
                 name: workoutExercise.name,
               })
               .from(workoutExercise)
-              .where(
-                inArray(
-                  workoutExercise.exerciseId,
-                  existingExercises.map((item) => item.id),
-                ),
-              );
+              .where(inArray(workoutExercise.exerciseId, existingIds));
 
             for (const row of aliasRows) {
               if (isRestWorkoutItem(row)) continue;
-              const key = normalizeExerciseName(row.name);
-              if (key && !exerciseIdByName.has(key)) {
-                exerciseIdByName.set(key, row.exerciseId);
-              }
+              rememberExercise(row.name, row.exerciseId);
             }
           }
 
@@ -155,8 +177,10 @@ export function registerWorkoutMcpTools(server: McpServer) {
               continue;
             }
 
-            const key = normalizeExerciseName(ex.name);
-            let exerciseId = key ? exerciseIdByName.get(key) : undefined;
+            const keys = exerciseNameLookupKeys(ex.name);
+            let exerciseId = keys
+              .map((key) => exerciseIdByName.get(key))
+              .find((id): id is string => Boolean(id));
 
             if (!exerciseId) {
               exerciseId = crypto.randomUUID();
@@ -165,7 +189,8 @@ export function registerWorkoutMcpTools(server: McpServer) {
                 userId,
                 name: ex.name,
               });
-              if (key) exerciseIdByName.set(key, exerciseId);
+              usageById.set(exerciseId, 0);
+              rememberExercise(ex.name, exerciseId);
             }
 
             await tx.insert(workoutExercise).values({
@@ -180,7 +205,11 @@ export function registerWorkoutMcpTools(server: McpServer) {
               },
               tags: ex.tags ?? [],
             });
+            usageById.set(exerciseId, (usageById.get(exerciseId) ?? 0) + 1);
+            rememberExercise(ex.name, exerciseId);
           }
+
+          await consolidateDuplicateExercisesForUser(userId, tx);
 
           return newWorkout;
         });

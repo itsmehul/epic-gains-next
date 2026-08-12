@@ -7,6 +7,27 @@ export function normalizeExerciseName(value: string): string {
     .replace(/\s+/g, " ");
 }
 
+/**
+ * Lookup keys for catalog reuse. Includes a light singular/plural fold on the
+ * last token so "Back Extension" reuses "Back Extensions".
+ */
+export function exerciseNameLookupKeys(value: string): string[] {
+  const key = normalizeExerciseName(value);
+  if (!key) return [];
+
+  const keys = [key];
+  const parts = key.split(" ");
+  const last = parts.at(-1);
+  if (!last || last.length < 4) return keys;
+
+  const folded = last.endsWith("s") ? last.slice(0, -1) : `${last}s`;
+  if (folded === last) return keys;
+
+  const alt = [...parts.slice(0, -1), folded].join(" ");
+  if (alt && alt !== key) keys.push(alt);
+  return keys;
+}
+
 function levenshtein(a: string, b: string): number {
   if (a === b) return 0;
   if (a.length === 0) return b.length;
