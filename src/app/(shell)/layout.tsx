@@ -42,6 +42,11 @@ async function ShellLayoutContent({
     redirect("/sign-in");
   }
 
+  const { ensureUserSocialProfile } = await import(
+    "@/db/repositories/social.repository"
+  );
+  await ensureUserSocialProfile(session.user.id);
+
   const accountProfile: AccountSidebarProfile = {
     name: session.user.name || "Account",
     pictureUrl: session.user.image?.trim() || null,

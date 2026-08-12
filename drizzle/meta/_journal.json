@@ -22,6 +22,20 @@
       "when": 1786204889863,
       "tag": "0002_mcp_oauth_and_workout_user",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786517758510,
+      "tag": "0003_crazy_silver_samurai",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786518067168,
+      "tag": "0004_moaning_edwin_jarvis",
+      "breakpoints": true
     }
   ]
 }

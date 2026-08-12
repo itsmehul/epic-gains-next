@@ -8,6 +8,7 @@ import {
   pgTable,
   primaryKey,
   text,
+  timestamp,
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth-schema";
@@ -22,11 +23,16 @@ export const workout = pgTable(
   {
     id: text("id").primaryKey(),
     name: text("name").notNull(),
+    author: text("author"),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (table) => [index("workout_userId_idx").on(table.userId)],
+  (table) => [
+    index("workout_userId_idx").on(table.userId),
+    index("workout_createdAt_idx").on(table.createdAt),
+  ],
 );
 
 export const exercise = pgTable("exercise", {

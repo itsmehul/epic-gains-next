@@ -4,21 +4,34 @@ import {
   createWorkout,
   listWorkoutsForUser,
 } from "@/db/repositories/workout.repository";
-import { createWorkoutSchema } from "@/features/workouts/schemas";
+import {
+  createWorkoutSchema,
+  listWorkoutsQuerySchema,
+} from "@/features/workouts/schemas";
 import {
   apiError,
   requireApiSession,
   unauthorizedResponse,
 } from "@/infrastructure/auth/api";
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await requireApiSession();
   if (!session) {
     return unauthorizedResponse();
   }
 
   try {
-    const items = await listWorkoutsForUser(session.user.id);
+    const { searchParams } = new URL(req.url);
+    const parsed = listWorkoutsQuerySchema.safeParse({
+      q: searchParams.get("q") ?? undefined,
+    });
+    if (!parsed.success) {
+      return apiError("Invalid query", 400);
+    }
+
+    const items = await listWorkoutsForUser(session.user.id, {
+      q: parsed.data.q,
+    });
     return NextResponse.json({ items });
   } catch (error) {
     const message =
@@ -43,6 +56,7 @@ export async function POST(req: Request) {
     const item = await createWorkout({
       id: crypto.randomUUID(),
       name: parsed.data.name,
+      author: parsed.data.author ?? null,
       userId: session.user.id,
     });
 

@@ -81,6 +81,44 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  user: {
+    additionalFields: {
+      username: {
+        type: "string",
+        required: false,
+        unique: true,
+        input: false,
+      },
+      isPrivate: {
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        input: false,
+      },
+    },
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (userData) => {
+          const { allocateUniqueUsername } = await import(
+            "@/db/repositories/social.repository"
+          );
+          const username = await allocateUniqueUsername(
+            userData.name,
+            userData.email,
+          );
+          return {
+            data: {
+              ...userData,
+              username,
+              isPrivate: false,
+            },
+          };
+        },
+      },
+    },
+  },
   socialProviders: {
     ...(googleClientId && googleClientSecret
       ? {

@@ -85,6 +85,7 @@ export function registerWorkoutMcpTools(server: McpServer) {
             .values({
               id: workoutId,
               name: args.workoutName,
+              author: args.author ?? null,
               userId,
             })
             .returning();
@@ -146,12 +147,18 @@ export function registerWorkoutMcpTools(server: McpServer) {
       inputSchema: z.object({
         workoutId: z.string().min(1),
         name: updateWorkoutSchema.shape.name,
+        author: updateWorkoutSchema.shape.author,
       }),
     },
-    async ({ workoutId, name }) => {
+    async ({ workoutId, name, author }) => {
       const { userId } = getMcpAuth();
-      if (!name) return mcpErrorResult("name is required");
-      const item = await updateWorkoutForUser(workoutId, userId, { name });
+      if (name === undefined && author === undefined) {
+        return mcpErrorResult("At least one of name or author is required");
+      }
+      const item = await updateWorkoutForUser(workoutId, userId, {
+        ...(name !== undefined ? { name } : {}),
+        ...(author !== undefined ? { author } : {}),
+      });
       if (!item) return mcpErrorResult("Workout not found");
       return mcpTextResult(item);
     },

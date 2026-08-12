@@ -1,79 +1,382 @@
 "use client";
 
-import { IconChevronRight, IconLoader2 } from "@tabler/icons-react";
+import {
+  IconBarbell,
+  IconChevronRight,
+  IconPlus,
+  IconRefresh,
+  IconSearch,
+  IconX,
+} from "@tabler/icons-react";
+import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useId, useState, type FormEvent } from "react";
 
 import {
   AppShellBody,
   AppShellHeader,
   AppShellScroll,
 } from "@/components/layout/app-shell";
-import { useWorkouts } from "@/features/workouts/hooks";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
+import { useCreateWorkout, useWorkouts } from "@/features/workouts/hooks";
 import { cn } from "@/shared/utils";
 
-export function WorkoutsPageClient() {
-  const workoutsQuery = useWorkouts();
-  const items = workoutsQuery.data?.items ?? [];
+const springSoft = { type: "spring" as const, stiffness: 420, damping: 32 };
+const easeOut = [0.25, 1, 0.5, 1] as const;
+const SEARCH_DEBOUNCE_MS = 300;
 
+function formatWorkoutDate(value: Date | string) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const now = new Date();
+  const startOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  );
+  const startOfThatDay = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+  );
+  const dayDiff = Math.round(
+    (startOfToday.getTime() - startOfThatDay.getTime()) / 86_400_000,
+  );
+
+  if (dayDiff === 0) return "Today";
+  if (dayDiff === 1) return "Yesterday";
+  if (dayDiff > 1 && dayDiff < 7) {
+    return date.toLocaleDateString(undefined, { weekday: "long" });
+  }
+
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
+  });
+}
+
+function WorkoutRowSkeleton({ index }: { index: number }) {
+  return (
+    <div
+      className="flex items-center gap-3 px-4 py-3.5 md:rounded-2xl md:px-3"
+      style={{ animationDelay: `${index * 60}ms` }}
+    >
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <div
+          className="bg-muted/80 h-4 animate-pulse rounded-md"
+          style={{ width: `${58 + ((index * 17) % 28)}%` }}
+        />
+        <div className="bg-muted/60 h-3 w-20 animate-pulse rounded-md" />
+      </div>
+    </div>
+  );
+}
+
+function CreateWorkoutDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const router = useRouter();
+  const nameId = useId();
+  const createWorkout = useCreateWorkout();
+  const [name, setName] = useState("");
+
+  function reset() {
+    setName("");
+    createWorkout.reset();
+  }
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed || createWorkout.isPending) return;
+
+    try {
+      const workout = await createWorkout.mutateAsync({ name: trimmed });
+      reset();
+      onOpenChange(false);
+      router.push(`/workouts/${workout.id}`);
+    } catch {
+      // Error surfaced via mutation state below.
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) reset();
+        onOpenChange(next);
+      }}
+    >
+      <DialogContent>
+        <form className="grid gap-6" onSubmit={(event) => void onSubmit(event)}>
+          <DialogHeader>
+            <DialogTitle>New workout</DialogTitle>
+            <DialogDescription>
+              Name the session, then add exercises on the next screen.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-2">
+            <Label htmlFor={nameId}>Name</Label>
+            <Input
+              id={nameId}
+              autoFocus
+              maxLength={200}
+              placeholder="Push day · Upper strength · Video title…"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+            {createWorkout.isError ? (
+              <p className="text-destructive text-sm" role="alert">
+                {createWorkout.error instanceof Error
+                  ? createWorkout.error.message
+                  : "Could not create workout"}
+              </p>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={createWorkout.isPending}
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={!name.trim() || createWorkout.isPending}
+            >
+              {createWorkout.isPending ? (
+                <>
+                  <Spinner className="size-4" />
+                  Creating…
+                </>
+              ) : (
+                "Create"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function WorkoutsPageClient() {
+  const searchId = useId();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [searchInput]);
+
+  const workoutsQuery = useWorkouts({ q: debouncedSearch });
+  const items = workoutsQuery.data?.items ?? [];
+  const hasSearch = debouncedSearch.length > 0;
   const showList =
     !workoutsQuery.isLoading && !workoutsQuery.isError && items.length > 0;
+  const showEmpty =
+    !workoutsQuery.isLoading && !workoutsQuery.isError && items.length === 0;
 
   return (
     <AppShellScroll>
       <AppShellHeader title="Workouts" />
       <AppShellBody>
         <div className="flex flex-col gap-3 md:gap-6 md:p-6">
-          {showList ? (
-            <ul className="flex flex-col">
-              {items.map((workout) => (
-                <li key={workout.id}>
-                  <Link
-                    className={cn(
-                      "hover:bg-muted/50 flex items-center gap-3 px-4 py-3 transition-colors md:rounded-xl md:px-3",
-                      "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-content-panel focus-visible:outline-none",
-                    )}
-                    href={`/workouts/${workout.id}`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium leading-snug">{workout.name}</p>
-                    </div>
-                    <IconChevronRight className="text-muted-foreground size-4 shrink-0" />
-                  </Link>
-                </li>
+          <div className="relative px-4 md:px-0">
+            <IconSearch
+              aria-hidden
+              className="text-muted-foreground pointer-events-none absolute top-1/2 left-7 size-4 -translate-y-1/2 md:left-3"
+            />
+            <Input
+              id={searchId}
+              type="search"
+              value={searchInput}
+              maxLength={200}
+              placeholder="Search workouts…"
+              aria-label="Search workouts"
+              className="bg-muted/40 h-10 pr-10 pl-9"
+              onChange={(event) => setSearchInput(event.target.value)}
+            />
+            {searchInput ? (
+              <Button
+                type="button"
+                size="icon-xs"
+                variant="ghost"
+                aria-label="Clear search"
+                className="absolute top-1/2 right-6 -translate-y-1/2 md:right-2"
+                onClick={() => setSearchInput("")}
+              >
+                <IconX className="size-3.5" />
+              </Button>
+            ) : null}
+          </div>
+
+          {workoutsQuery.isLoading ? (
+            <div
+              className="flex flex-col"
+              aria-busy="true"
+              aria-label="Loading workouts"
+            >
+              {Array.from({ length: 5 }, (_, index) => (
+                <WorkoutRowSkeleton key={index} index={index} />
               ))}
-            </ul>
+            </div>
           ) : null}
 
-          {(workoutsQuery.isLoading ||
-            workoutsQuery.isError ||
-            (!showList && !workoutsQuery.isLoading)) && (
-            <div className="flex flex-col gap-6 px-4 py-4 md:px-0 md:py-0">
-              {workoutsQuery.isLoading ? (
-                <div className="text-muted-foreground flex items-center gap-2 text-sm">
-                  <IconLoader2 className="size-4 animate-spin" />
-                  Loading workouts…
-                </div>
-              ) : null}
-
-              {workoutsQuery.isError ? (
-                <p className="text-destructive text-sm" role="alert">
+          {workoutsQuery.isError ? (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.28, ease: easeOut }}
+              className="mx-4 flex flex-col items-start gap-4 rounded-3xl border border-destructive/20 bg-destructive/5 px-5 py-6 md:mx-0"
+              role="alert"
+            >
+              <div className="flex flex-col gap-1.5">
+                <p className="text-sm font-medium text-destructive">
+                  Couldn’t load workouts
+                </p>
+                <p className="text-muted-foreground text-sm">
                   {workoutsQuery.error instanceof Error
                     ? workoutsQuery.error.message
-                    : "Failed to load workouts"}
+                    : "Something went wrong. Try again."}
                 </p>
-              ) : null}
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void workoutsQuery.refetch()}
+              >
+                <IconRefresh className="size-3.5" data-icon="inline-start" />
+                Retry
+              </Button>
+            </motion.div>
+          ) : null}
 
-              {!workoutsQuery.isLoading &&
-              !workoutsQuery.isError &&
-              items.length === 0 ? (
-                <p className="text-muted-foreground text-sm">
-                  No workouts yet. Create one from the app or via MCP.
+          {showEmpty ? (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, ease: easeOut }}
+              className="relative mx-4 flex flex-col items-center gap-5 overflow-hidden rounded-3xl border border-dashed border-primary/25 bg-linear-to-b from-primary/8 to-transparent px-6 py-14 text-center md:mx-0"
+            >
+              <div
+                aria-hidden
+                className="absolute inset-0 bg-[radial-gradient(color-mix(in_oklch,var(--foreground)_12%,transparent)_1px,transparent_1px)] bg-size-[14px_14px] opacity-[0.35]"
+              />
+              <div className="relative flex size-14 items-center justify-center rounded-2xl bg-primary/15 text-primary ring-1 ring-primary/20">
+                <IconBarbell className="size-7" stroke={1.5} />
+              </div>
+              <div className="relative flex max-w-xs flex-col gap-2">
+                <p className="text-base font-semibold tracking-tight">
+                  {hasSearch ? "No matches" : "No sessions yet"}
                 </p>
-              ) : null}
-            </div>
-          )}
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  {hasSearch
+                    ? `Nothing matched “${debouncedSearch}”. Try a different name.`
+                    : "Start a workout to log sets, follow video timestamps, and keep your training history in one place."}
+                </p>
+              </div>
+              {hasSearch ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="relative"
+                  onClick={() => setSearchInput("")}
+                >
+                  Clear search
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  className="relative"
+                  onClick={() => setCreateOpen(true)}
+                >
+                  <IconPlus className="size-4" data-icon="inline-start" />
+                  New workout
+                </Button>
+              )}
+            </motion.div>
+          ) : null}
+
+          {showList ? (
+            <ul
+              className={cn(
+                "flex flex-col transition-opacity duration-200",
+                workoutsQuery.isFetching && "opacity-70",
+              )}
+            >
+              <AnimatePresence initial={false}>
+                {items.map((workout, index) => {
+                  const dateLabel = formatWorkoutDate(workout.createdAt);
+
+                  return (
+                    <motion.li
+                      key={workout.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{
+                        ...springSoft,
+                        delay: Math.min(index * 0.035, 0.28),
+                      }}
+                    >
+                      <Link
+                        className={cn(
+                          "group flex items-center gap-3 px-4 py-3.5 transition-[background-color,transform] duration-200 md:rounded-2xl md:px-3",
+                          "hover:bg-muted/55 active:bg-muted/70",
+                          "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-content-panel focus-visible:outline-none",
+                        )}
+                        href={`/workouts/${workout.id}`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium leading-snug tracking-tight">
+                            {workout.name}
+                          </p>
+                          {dateLabel ? (
+                            <p className="text-muted-foreground mt-0.5 text-xs">
+                              {dateLabel}
+                            </p>
+                          ) : null}
+                        </div>
+                        <IconChevronRight className="text-muted-foreground size-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-foreground" />
+                      </Link>
+                    </motion.li>
+                  );
+                })}
+              </AnimatePresence>
+            </ul>
+          ) : null}
         </div>
       </AppShellBody>
+
+      <CreateWorkoutDialog open={createOpen} onOpenChange={setCreateOpen} />
     </AppShellScroll>
   );
 }

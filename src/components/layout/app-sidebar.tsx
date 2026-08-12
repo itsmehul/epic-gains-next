@@ -3,6 +3,7 @@
 import {
   IconBarbell,
   IconLayoutDashboard,
+  IconUsers,
   IconX,
 } from "@tabler/icons-react";
 import Link from "next/link";
@@ -134,7 +135,7 @@ function AppSidebarContent({
           href="/dashboard"
         >
           <IconLayoutDashboard className="size-4 shrink-0" />
-          Dashboard
+          Home
         </SidebarNavItem>
         <SidebarNavItem
           active={pathname.startsWith("/workouts")}
@@ -143,6 +144,14 @@ function AppSidebarContent({
         >
           <IconBarbell className="size-4 shrink-0" />
           Workouts
+        </SidebarNavItem>
+        <SidebarNavItem
+          active={pathname.startsWith("/friends") || pathname.startsWith("/u/")}
+          closeOnNavigate={showCloseButton}
+          href="/friends"
+        >
+          <IconUsers className="size-4 shrink-0" />
+          Friends
         </SidebarNavItem>
       </div>
 

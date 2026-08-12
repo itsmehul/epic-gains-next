@@ -152,9 +152,9 @@ function AutoMarqueeTitle({ children }: { children: string }) {
         style={
           isOverflowing
             ? ({
-                "--marquee-distance": `-${overflowPx}px`,
-                "--marquee-duration": `${durationSeconds}s`,
-              } as CSSProperties)
+              "--marquee-distance": `-${overflowPx}px`,
+              "--marquee-duration": `${durationSeconds}s`,
+            } as CSSProperties)
             : undefined
         }
       >

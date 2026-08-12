@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getVisibleWorkoutById } from "@/db/repositories/feed.repository";
 import { getExerciseById } from "@/db/repositories/exercise.repository";
 import { createSet, listSets } from "@/db/repositories/set.repository";
 import { getWorkoutByIdForUser } from "@/db/repositories/workout.repository";
@@ -22,7 +23,7 @@ export async function GET(req: Request) {
     const exerciseId = searchParams.get("exerciseId") ?? undefined;
 
     if (workoutId) {
-      const workout = await getWorkoutByIdForUser(workoutId, session.user.id);
+      const workout = await getVisibleWorkoutById(session.user.id, workoutId);
       if (!workout) {
         return apiError("Workout not found", 404);
       }
@@ -31,15 +32,15 @@ export async function GET(req: Request) {
     const items = await listSets({ workoutId, exerciseId });
 
     if (!workoutId) {
-      const owned: typeof items = [];
+      const visible: typeof items = [];
       for (const item of items) {
-        const workout = await getWorkoutByIdForUser(
-          item.workoutId,
+        const workout = await getVisibleWorkoutById(
           session.user.id,
+          item.workoutId,
         );
-        if (workout) owned.push(item);
+        if (workout) visible.push(item);
       }
-      return NextResponse.json({ items: owned });
+      return NextResponse.json({ items: visible });
     }
 
     return NextResponse.json({ items });

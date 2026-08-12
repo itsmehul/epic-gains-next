@@ -5,6 +5,7 @@ import {
   touchMcpApiKeyLastUsed,
 } from "@/db/repositories/mcp.repository";
 import { registerWorkoutMcpTools } from "@/features/workouts/mcp-tools";
+import { registerSocialMcpTools } from "@/features/social/mcp-tools";
 import { auth } from "@/infrastructure/auth/server";
 import {
   extractBearerToken,
@@ -30,6 +31,7 @@ class McpAuthError extends Error {
 const mcpHandler = createMcpHandler(
   (server) => {
     registerWorkoutMcpTools(server);
+    registerSocialMcpTools(server);
   },
   {
     serverInfo: {
@@ -37,7 +39,9 @@ const mcpHandler = createMcpHandler(
       version: "1.0.0",
     },
     instructions: [
-        "Epic Gains MCP manages user workouts and a shared exercise catalog.",
+      "Epic Gains MCP manages user workouts, a shared exercise catalog, and Instagram-style follows.",
+      "Social tools: search_users, get_social_profile, follow_user/unfollow_user, list/accept/reject follow requests, list_following_feed, update_social_settings.",
+      "Private accounts require an accepted follow before workouts are visible.",
       "When importing a follow-along video workout, use the 'import_full_workout' tool to create the workout and all its exercises in a single transaction.",
       "You must procure granular exercise-by-exercise data before calling the tool:",
       "1) Resolve the canonical video URL and title.",

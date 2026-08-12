@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { getVisibleWorkoutById } from "@/db/repositories/feed.repository";
 import {
   deleteWorkoutForUser,
-  getWorkoutByIdForUser,
   updateWorkoutForUser,
 } from "@/db/repositories/workout.repository";
 import { updateWorkoutSchema } from "@/features/workouts/schemas";
@@ -27,11 +27,17 @@ export async function GET(
 
   try {
     const { id } = await params;
-    const item = await getWorkoutByIdForUser(id, session.user.id);
+    const item = await getVisibleWorkoutById(session.user.id, id);
     if (!item) {
       return apiError("Workout not found", 404);
     }
-    return NextResponse.json(item);
+    return NextResponse.json({
+      id: item.id,
+      name: item.name,
+      userId: item.userId,
+      createdAt: item.createdAt.toISOString(),
+      owner: item.owner,
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to fetch workout";

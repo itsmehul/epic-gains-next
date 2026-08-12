@@ -1,19 +1,34 @@
 import "server-only";
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, desc, eq, ilike } from "drizzle-orm";
 
 import { db } from "@/db";
 import { workout } from "@/db/schema";
 
 export type WorkoutInsert = typeof workout.$inferInsert;
-export type WorkoutUpdate = Partial<Pick<WorkoutInsert, "name">>;
+export type WorkoutUpdate = Partial<Pick<WorkoutInsert, "name" | "author">>;
 
-export async function listWorkoutsForUser(userId: string) {
+export type ListWorkoutsOptions = {
+  q?: string;
+};
+
+export async function listWorkoutsForUser(
+  userId: string,
+  options?: ListWorkoutsOptions,
+) {
+  const q = options?.q?.trim() ?? "";
+  const conditions = [eq(workout.userId, userId)];
+
+  if (q) {
+    const pattern = `%${q.replace(/[%_]/g, "\\$&")}%`;
+    conditions.push(ilike(workout.name, pattern));
+  }
+
   return db
     .select()
     .from(workout)
-    .where(eq(workout.userId, userId))
-    .orderBy(asc(workout.name));
+    .where(and(...conditions))
+    .orderBy(desc(workout.createdAt));
 }
 
 export async function getWorkoutByIdForUser(id: string, userId: string) {

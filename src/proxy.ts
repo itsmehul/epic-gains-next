@@ -6,6 +6,8 @@ const protectedPrefixes = [
   "/workflows",
   "/workouts",
   "/integrations",
+  "/friends",
+  "/u",
   "/oauth/consent",
 ];
 
@@ -31,10 +33,17 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/dashboard",
     "/dashboard/:path*",
+    "/workflows",
     "/workflows/:path*",
+    "/workouts",
     "/workouts/:path*",
+    "/integrations",
     "/integrations/:path*",
+    "/friends",
+    "/friends/:path*",
+    "/u/:path*",
     "/oauth/consent",
   ],
 };

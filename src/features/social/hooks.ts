@@ -1,0 +1,161 @@
+"use client";
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import type { UpdateSocialProfileInput } from "@/features/social/schemas";
+import type {
+  FollowRelationship,
+  ListFeedResult,
+  ListFollowRequestsResult,
+  ListProfileWorkoutsResult,
+  ListUsersResult,
+  SocialProfile,
+  SocialUser,
+} from "@/features/social/types";
+import { apiFetch } from "@/shared/api";
+
+export const socialKeys = {
+  all: ["social"] as const,
+  me: () => [...socialKeys.all, "me"] as const,
+  search: (q: string) => [...socialKeys.all, "search", q] as const,
+  profile: (username: string) => [...socialKeys.all, "profile", username] as const,
+  followers: (username: string) =>
+    [...socialKeys.all, "followers", username] as const,
+  following: (username: string) =>
+    [...socialKeys.all, "following", username] as const,
+  profileWorkouts: (username: string) =>
+    [...socialKeys.all, "profile-workouts", username] as const,
+  requests: () => [...socialKeys.all, "requests"] as const,
+  feed: () => [...socialKeys.all, "feed"] as const,
+};
+
+export type MeSocialProfile = SocialUser & { pendingRequestCount: number };
+
+export function useMeSocial() {
+  return useQuery({
+    queryKey: socialKeys.me(),
+    queryFn: () => apiFetch<MeSocialProfile>("/api/users/me"),
+  });
+}
+
+export function useUpdateMeSocial() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateSocialProfileInput) =>
+      apiFetch<SocialUser>("/api/users/me", {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: socialKeys.all });
+    },
+  });
+}
+
+export function useSearchUsers(q: string) {
+  return useQuery({
+    queryKey: socialKeys.search(q),
+    enabled: q.trim().length > 0,
+    queryFn: () =>
+      apiFetch<ListUsersResult>(
+        `/api/users/search?q=${encodeURIComponent(q.trim())}`,
+      ),
+  });
+}
+
+export function useSocialProfile(username: string) {
+  return useQuery({
+    queryKey: socialKeys.profile(username),
+    enabled: Boolean(username),
+    queryFn: () => apiFetch<SocialProfile>(`/api/users/${username}`),
+  });
+}
+
+export function useFollowers(username: string) {
+  return useQuery({
+    queryKey: socialKeys.followers(username),
+    enabled: Boolean(username),
+    queryFn: () =>
+      apiFetch<ListUsersResult>(`/api/users/${username}/followers`),
+  });
+}
+
+export function useFollowing(username: string) {
+  return useQuery({
+    queryKey: socialKeys.following(username),
+    enabled: Boolean(username),
+    queryFn: () =>
+      apiFetch<ListUsersResult>(`/api/users/${username}/following`),
+  });
+}
+
+export function useProfileWorkouts(username: string, enabled: boolean) {
+  return useQuery({
+    queryKey: socialKeys.profileWorkouts(username),
+    enabled: Boolean(username) && enabled,
+    queryFn: () =>
+      apiFetch<ListProfileWorkoutsResult>(`/api/users/${username}/workouts`),
+  });
+}
+
+export function useFollowRequests() {
+  return useQuery({
+    queryKey: socialKeys.requests(),
+    queryFn: () => apiFetch<ListFollowRequestsResult>("/api/follow-requests"),
+  });
+}
+
+export function useFollowingFeed() {
+  return useQuery({
+    queryKey: socialKeys.feed(),
+    queryFn: () => apiFetch<ListFeedResult>("/api/feed"),
+  });
+}
+
+export function useFollowUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (username: string) =>
+      apiFetch<{ relationship: FollowRelationship }>(
+        `/api/users/${username}/follow`,
+        { method: "POST" },
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: socialKeys.all });
+    },
+  });
+}
+
+export function useUnfollowUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (username: string) =>
+      apiFetch<{ relationship: FollowRelationship }>(
+        `/api/users/${username}/follow`,
+        { method: "DELETE" },
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: socialKeys.all });
+    },
+  });
+}
+
+export function useRespondFollowRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      action,
+    }: {
+      id: string;
+      action: "accept" | "reject";
+    }) =>
+      apiFetch<{ ok: true }>(
+        `/api/follow-requests/${id}?action=${action}`,
+        { method: "POST" },
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: socialKeys.all });
+    },
+  });
+}

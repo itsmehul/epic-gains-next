@@ -19,6 +19,10 @@ export const exerciseMetaDataSchema = z
   })
   .strict();
 
+export const listWorkoutsQuerySchema = z.object({
+  q: z.string().trim().max(200).optional(),
+});
+
 export const createWorkoutSchema = z.object({
   name: z
     .string()
@@ -27,6 +31,16 @@ export const createWorkoutSchema = z.object({
     .max(200)
     .describe(
       "Workout title. For follow-along videos, use the exact video title.",
+    ),
+  author: z
+    .string()
+    .trim()
+    .min(1)
+    .max(200)
+    .nullable()
+    .optional()
+    .describe(
+      "Optional YouTube channel / video author name (e.g. the creator credited on the video).",
     ),
 });
 
@@ -74,6 +88,15 @@ export const importFullWorkoutSchema = z.object({
     .min(1)
     .max(200)
     .describe("Workout title. For follow-along videos, use the exact video title."),
+  author: z
+    .string()
+    .trim()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe(
+      "Optional YouTube channel / video author name (e.g. the creator credited on the video).",
+    ),
   sourceVideoUrl: z
     .string()
     .url()
@@ -133,6 +156,7 @@ export const createSetSchema = z.object({
 export const updateSetSchema = createSetSchema.partial();
 
 export type CreateWorkoutInput = z.infer<typeof createWorkoutSchema>;
+export type ListWorkoutsQuery = z.infer<typeof listWorkoutsQuerySchema>;
 export type UpdateWorkoutInput = z.infer<typeof updateWorkoutSchema>;
 export type CreateExerciseInput = z.infer<typeof createExerciseSchema>;
 export type UpdateExerciseInput = z.infer<typeof updateExerciseSchema>;
