@@ -1,3 +1,4 @@
+import type { MetricProfile } from "@/db/schema/workout-schema";
 import type { ImportWorkoutStructureInput } from "@/features/workouts/schemas";
 
 export type ExpandedImportWorkout = {
@@ -9,6 +10,7 @@ export type ExpandedImportWorkout = {
     videoStartTime: number;
     videoEndTime: number;
     tags?: string[];
+    metricProfile?: MetricProfile;
   }>;
 };
 
@@ -123,6 +125,7 @@ export function expandImportStructure(
       videoStartTime: start,
       videoEndTime: workEnd,
       tags,
+      metricProfile: current.metric_profile ?? current.metricProfile,
     });
 
     if (workEnd < nextStart) {

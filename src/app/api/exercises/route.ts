@@ -68,6 +68,7 @@ export async function POST(req: Request) {
       id: crypto.randomUUID(),
       userId: session.user.id,
       name: parsed.data.name,
+      metricProfile: parsed.data.metric_profile ?? "CUSTOM",
     });
 
     return NextResponse.json(item, { status: 201 });

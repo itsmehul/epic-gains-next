@@ -19,16 +19,21 @@ import {
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ExerciseResolveCard } from "@/components/workouts/exercise-resolve-card";
+import type { MetricProfile } from "@/db/schema/workout-schema";
 import {
   useCreateSet,
   useDeleteSet,
   useSimilarExercises,
   useUpdateSet,
 } from "@/features/workouts/hooks";
+import {
+  fieldsForMetricProfile,
+  type SetFieldKey,
+} from "@/features/workouts/metric-profile";
 import type { Set } from "@/features/workouts/types";
 import { cn } from "@/shared/utils";
 
-type FieldKey = "reps" | "weight" | "time" | "distance";
+type FieldKey = SetFieldKey;
 
 type RowValues = Record<FieldKey, string>;
 
@@ -89,10 +94,6 @@ function toPayload(values: RowValues) {
     time: parseOptionalNumber(values.time),
     distance: parseOptionalNumber(values.distance),
   };
-}
-
-function hasAnyValue(values: RowValues) {
-  return Object.values(values).some((value) => value.trim() !== "");
 }
 
 function hasInvalidNumber(values: RowValues) {
@@ -181,7 +182,7 @@ type FieldDef = {
   step: string | number;
 };
 
-const PRIMARY_FIELDS: FieldDef[] = [
+const ALL_FIELDS: FieldDef[] = [
   {
     key: "weight",
     label: "Weight",
@@ -196,9 +197,6 @@ const PRIMARY_FIELDS: FieldDef[] = [
     inputMode: "numeric",
     step: 1,
   },
-];
-
-const EXTRA_FIELDS: FieldDef[] = [
   {
     key: "time",
     label: "Time",
@@ -215,10 +213,15 @@ const EXTRA_FIELDS: FieldDef[] = [
   },
 ];
 
+const FIELD_BY_KEY = Object.fromEntries(
+  ALL_FIELDS.map((field) => [field.key, field]),
+) as Record<FieldKey, FieldDef>;
+
 type ExerciseSetsPanelProps = {
   workoutId: string;
   exerciseId: string;
   workoutExerciseId: string;
+  metricProfile?: MetricProfile | null;
   sets: Set[];
   onExerciseResolved?: (workoutExerciseId: string) => void;
 };
@@ -227,6 +230,7 @@ export function ExerciseSetsPanel({
   workoutId,
   exerciseId,
   workoutExerciseId,
+  metricProfile,
   sets,
   onExerciseResolved,
 }: ExerciseSetsPanelProps) {
@@ -255,6 +259,10 @@ export function ExerciseSetsPanel({
   const [showExtras, setShowExtras] = useState(false);
   const focusedFieldRef = useRef<string | null>(null);
   const baseId = useId().replace(/:/g, "");
+  const profileFields = fieldsForMetricProfile(metricProfile);
+  const primaryFields = profileFields.primary.map((key) => FIELD_BY_KEY[key]);
+  const extraFields = profileFields.extra.map((key) => FIELD_BY_KEY[key]);
+  const firstPrimaryKey = primaryFields[0]?.key;
 
   useEffect(() => {
     savedValuesRef.current = savedValues;
@@ -281,13 +289,15 @@ export function ExerciseSetsPanel({
     });
   }, [sets]);
 
+  const extraKeys = profileFields.extra;
   const hasExtraValues =
-    sets.some((set) => set.time != null || set.distance != null) ||
-    drafts.some(
-      (draft) =>
-        draft.values.time.trim() !== "" || draft.values.distance.trim() !== "",
+    extraKeys.some((key) =>
+      sets.some((set) => set[key] != null),
+    ) ||
+    drafts.some((draft) =>
+      extraKeys.some((key) => draft.values[key].trim() !== ""),
     );
-  const extrasOpen = showExtras || hasExtraValues;
+  const extrasOpen = extraFields.length > 0 && (showExtras || hasExtraValues);
 
   function handleAddSet() {
     setError(null);
@@ -339,8 +349,10 @@ export function ExerciseSetsPanel({
     const draft = drafts.find((row) => row.id === draftId);
     if (!draft) return;
 
-    if (!hasAnyValue(draft.values)) {
-      setError("Enter weight or reps before completing the set");
+    if (
+      !profileFields.primary.some((key) => draft.values[key].trim() !== "")
+    ) {
+      setError("Enter a value before completing the set");
       return;
     }
     if (hasInvalidNumber(draft.values)) {
@@ -445,7 +457,7 @@ export function ExerciseSetsPanel({
       >
         <div className="space-y-3 px-3 pb-2 pt-1">
           <div className="grid grid-cols-2 gap-2">
-            {PRIMARY_FIELDS.map((field, fieldIndex) => (
+            {primaryFields.map((field, fieldIndex) => (
               <motion.div
                 key={field.key}
                 initial={{ opacity: 0, y: 6 }}
@@ -474,7 +486,7 @@ export function ExerciseSetsPanel({
                   step={field.step}
                   ariaLabel={field.label}
                   autoFocus={
-                    autoFocusWeight && field.key === "weight" && isDraft
+                    autoFocusWeight && field.key === firstPrimaryKey && isDraft
                   }
                   onFocus={() => {
                     focusedFieldRef.current = `${rowId}:${field.key}`;
@@ -513,7 +525,7 @@ export function ExerciseSetsPanel({
                 className="overflow-hidden"
               >
                 <div className="grid grid-cols-2 gap-2 pb-0.5">
-                  {EXTRA_FIELDS.map((field, fieldIndex) => (
+                  {extraFields.map((field, fieldIndex) => (
                     <motion.div
                       key={field.key}
                       initial={{ opacity: 0, y: 4 }}
@@ -572,7 +584,7 @@ export function ExerciseSetsPanel({
           </AnimatePresence>
 
           <div className="flex items-center justify-between gap-2 pt-0.5">
-            {!hasExtraValues ? (
+            {extraFields.length > 0 && !hasExtraValues ? (
               <Button
                 type="button"
                 variant="ghost"
@@ -587,7 +599,7 @@ export function ExerciseSetsPanel({
                 >
                   <IconChevronDown className="size-3.5" />
                 </motion.span>
-                {extrasOpen ? "Hide extras" : "Time / distance"}
+                {extrasOpen ? "Hide extras" : extraFields.map((f) => f.label).join(" / ")}
               </Button>
             ) : (
               <span />

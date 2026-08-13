@@ -57,6 +57,13 @@
       "when": 1786551358765,
       "tag": "0007_dashing_queen_noir",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786640212480,
+      "tag": "0008_wakeful_jimmy_woo",
+      "breakpoints": true
     }
   ]
 }

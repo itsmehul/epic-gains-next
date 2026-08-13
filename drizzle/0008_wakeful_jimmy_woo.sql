@@ -1,0 +1,2 @@
+CREATE TYPE "public"."metric_profile" AS ENUM('WEIGHT_REPS', 'BODYWEIGHT_REPS', 'WEIGHTED_REPS', 'TIMED_HOLD', 'CARDIO_DISTANCE', 'LOADED_CARRY', 'CUSTOM');--> statement-breakpoint
+ALTER TABLE "exercise" ADD COLUMN "metric_profile" "metric_profile" DEFAULT 'CUSTOM' NOT NULL;

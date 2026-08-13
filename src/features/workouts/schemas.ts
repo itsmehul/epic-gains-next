@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { METRIC_PROFILE_VALUES } from "@/db/schema/workout-schema";
+
 export const exerciseMetaDataSchema = z
   .object({
     videoStartTime: z
@@ -46,6 +48,8 @@ export const createWorkoutSchema = z.object({
 
 export const updateWorkoutSchema = createWorkoutSchema.partial();
 
+export const metricProfileEnum = z.enum(METRIC_PROFILE_VALUES);
+
 /** Canonical exercise: identity + standardized name only. */
 export const createExerciseSchema = z.object({
   name: z
@@ -56,6 +60,7 @@ export const createExerciseSchema = z.object({
     .describe(
       "Exact exercise name from the video/chapter list (one move per record, not a whole section).",
     ),
+  metric_profile: metricProfileEnum.optional(),
 });
 
 export const listExercisesQuerySchema = z.object({
@@ -123,6 +128,9 @@ export const importFullWorkoutSchema = z.object({
           .max(50)
           .optional()
           .describe("Section/muscle tags such as warmup, upper-body, lower-body, core, hiit."),
+        metric_profile: metricProfileEnum.optional().describe(
+          "Tracking profile that determines which set fields to show (weight, reps, time, distance).",
+        ),
       }),
     )
     .min(1)
@@ -156,6 +164,8 @@ export const importWorkoutStructureSchema = z.object({
             z.object({
               name: z.string().trim().min(1).max(200),
               timestamp: clockTimestampSchema,
+              metric_profile: metricProfileEnum.optional(),
+              metricProfile: metricProfileEnum.optional(),
             }),
           )
           .min(1),

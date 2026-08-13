@@ -5,6 +5,7 @@ import {
   index,
   integer,
   jsonb,
+  pgEnum,
   pgTable,
   text,
   timestamp,
@@ -16,6 +17,23 @@ export type ExerciseMetaData = {
   videoStartTime?: number;
   videoEndTime?: number;
 };
+
+export const METRIC_PROFILE_VALUES = [
+  "WEIGHT_REPS",
+  "BODYWEIGHT_REPS",
+  "WEIGHTED_REPS",
+  "TIMED_HOLD",
+  "CARDIO_DISTANCE",
+  "LOADED_CARRY",
+  "CUSTOM",
+] as const;
+
+export type MetricProfile = (typeof METRIC_PROFILE_VALUES)[number];
+
+export const metricProfileEnum = pgEnum(
+  "metric_profile",
+  METRIC_PROFILE_VALUES,
+);
 
 export const workout = pgTable(
   "workout",
@@ -43,6 +61,9 @@ export const exercise = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    metricProfile: metricProfileEnum("metric_profile")
+      .notNull()
+      .default("CUSTOM"),
   },
   (table) => [index("exercise_userId_idx").on(table.userId)],
 );

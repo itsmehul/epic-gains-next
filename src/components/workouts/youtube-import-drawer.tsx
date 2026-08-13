@@ -55,8 +55,18 @@ Your task is to analyze the video and return a structured, exercise-by-exercise 
 2. Upper Bound Check: Every timestamp MUST be less than or equal to the total video runtime. If the video length is 13:13, no timestamp can exceed 13:13.
 3. No Leading Hour Padding: Do NOT prepend \`01:\` or \`00:\` to standard minutes (e.g., write \`11:18\`, NOT \`01:11:18\` or \`00:11:18\`).
 
+### Metric Profile Rules:
+Assign a \`metric_profile\` enum to each exercise based on these rules:
+- \`WEIGHT_REPS\`: External load exercises with reps (e.g., Bench Press, Squat, Dumbbell Curl)
+- \`BODYWEIGHT_REPS\`: Unweighted bodyweight exercises with reps (e.g., Push-ups, Air Squats, Jumping Jacks)
+- \`WEIGHTED_REPS\`: Bodyweight exercises with added external load (e.g., Weighted Pull-ups, Weighted Dips)
+- \`TIMED_HOLD\`: Isometric holds, static tension, or duration-based holds (e.g., Plank, Wall Sit, Hollow Hold)
+- \`CARDIO_DISTANCE\`: Locomotion or spatial movement cardio (e.g., Running, Cycling, Rowing)
+- \`LOADED_CARRY\`: Spatial movement with load (e.g., Farmer's Walk, Sled Push)
+- \`CUSTOM\`: User-defined or custom tracking parameters
+
 ### JSON Structure Requirements:
-Return a JSON object matching this schema:
+Return a JSON object matching this schema inside a markdown code block. Do not include any extra text:
 
 {
   "workoutName": "string (optional exact video title if known)",
@@ -73,7 +83,8 @@ Return a JSON object matching this schema:
       "exercises": [
         {
           "name": "string (clear, standard exercise name for this move)",
-          "timestamp": "string (EXACT start time of THIS exercise move in MM:SS or HH:MM:SS format, e.g. '01:21')"
+          "timestamp": "string (EXACT start time of THIS exercise move in MM:SS or HH:MM:SS format, e.g. '01:21')",
+          "metric_profile": "string (ONE of: 'WEIGHT_REPS', 'BODYWEIGHT_REPS', 'WEIGHTED_REPS', 'TIMED_HOLD', 'CARDIO_DISTANCE', 'LOADED_CARRY', 'CUSTOM')"
         }
       ]
     }

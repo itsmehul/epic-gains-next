@@ -188,6 +188,7 @@ export function registerWorkoutMcpTools(server: McpServer) {
                 id: exerciseId,
                 userId,
                 name: ex.name,
+                metricProfile: ex.metric_profile ?? "CUSTOM",
               });
               usageById.set(exerciseId, 0);
               rememberExercise(ex.name, exerciseId);

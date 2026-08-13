@@ -319,6 +319,9 @@ export function WorkoutDetailPageClient() {
                     workoutId={workoutId}
                     exerciseId={selectedItem.exerciseId}
                     workoutExerciseId={selectedItem.id}
+                    metricProfile={
+                      exerciseById.get(selectedItem.exerciseId)?.metricProfile
+                    }
                     sets={selectedSets}
                     onExerciseResolved={(id) => {
                       setActiveWorkoutExerciseId(id);
