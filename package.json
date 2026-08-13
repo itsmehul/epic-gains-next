@@ -17,6 +17,7 @@
     "auth:generate": "better-auth generate --config src/infrastructure/auth/server.ts --output src/db/schema/auth-schema.ts",
     "workflows:worker": "tsx scripts/worker.ts",
     "setup": "tsx scripts/setup.ts",
+    "db:reset-non-user": "tsx scripts/reset-non-user-data.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

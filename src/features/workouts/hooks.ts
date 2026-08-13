@@ -1,6 +1,11 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseQueryResult,
+} from "@tanstack/react-query";
 
 import type {
   CreateExerciseInput,
@@ -157,6 +162,11 @@ export function useDeleteWorkout() {
   });
 }
 
+export function useExercises(): UseQueryResult<ListExercisesResult>;
+export function useExercises(options: {
+  q?: string;
+  excludeId?: string;
+}): UseQueryResult<ListExercisesResult | ListExerciseSearchResult>;
 export function useExercises(options?: { q?: string; excludeId?: string }) {
   const q = options?.q?.trim() ?? "";
   const excludeId = options?.excludeId;
