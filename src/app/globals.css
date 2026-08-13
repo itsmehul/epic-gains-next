@@ -135,3 +135,11 @@
     font-size: calc(100% * var(--ui-scale));
   }
 }
+
+.auth-shapes {
+  mix-blend-mode: multiply;
+}
+
+.dark .auth-shapes {
+  mix-blend-mode: screen;
+}

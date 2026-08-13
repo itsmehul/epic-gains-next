@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AuthAmbientBackground } from "@/components/auth/auth-ambient-background";
 import { signUp } from "@/infrastructure/auth/client";
 import { APP_NAME, BRAND_ICON } from "@/shared/pwa/constants";
 
@@ -51,8 +52,9 @@ export default function SignUpPage() {
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center px-4 py-16">
-      <Card className="w-full max-w-md">
+    <main className="relative flex flex-1 items-center justify-center overflow-hidden px-4 py-16">
+      <AuthAmbientBackground />
+      <Card className="relative w-full max-w-md shadow-xl">
         <CardHeader className="space-y-3">
           <div className="flex items-center gap-2.5">
             <span className="grid size-8 place-items-center overflow-hidden rounded-[18.8%] bg-black">
@@ -70,7 +72,7 @@ export default function SignUpPage() {
             </CardDescription>
           </div>
         </CardHeader>
-        <form onSubmit={onSubmit}>
+        <form onSubmit={onSubmit} className="flex flex-col gap-(--card-spacing)">
           <CardContent className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Label htmlFor="name">Name</Label>

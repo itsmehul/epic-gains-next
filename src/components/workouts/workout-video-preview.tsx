@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  IconArrowsMaximize,
   IconArrowsMinimize,
   IconLoader2,
   IconPlayerPauseFilled,
@@ -16,6 +17,7 @@ import {
   type Ref,
 } from "react";
 
+import { Button } from "@/components/ui/button";
 import {
   formatVideoTimestamp,
   getYouTubeVideoId,
@@ -484,17 +486,84 @@ export function WorkoutVideoPreview({
   return (
     <div className="relative flex flex-col">
       {minimized ? (
-        <button
-          type="button"
-          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex w-fit items-center gap-1.5 px-4 py-1 text-sm underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none md:px-0"
-          aria-label="Expand video"
-          onClick={() => setMinimized(false)}
-        >
-          Video
-          <span className="font-mono text-[11px] tabular-nums no-underline">
-            {timeLabel}
-          </span>
-        </button>
+        <div className="px-4 md:px-0">
+          <div className="bg-muted/70 flex items-center gap-1.5 rounded-xl py-1 pr-1 pl-1.5">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="rounded-full"
+              aria-label={playing ? "Pause video" : "Play video"}
+              disabled={!ready || Boolean(error)}
+              onClick={togglePlayback}
+            >
+              {buffering && !playing ? (
+                <IconLoader2 className="animate-spin" />
+              ) : playing ? (
+                <IconPlayerPauseFilled />
+              ) : (
+                <IconPlayerPlayFilled className="translate-x-px" />
+              )}
+            </Button>
+
+            <div
+              ref={progressTrackRef}
+              className="relative h-7 min-w-0 flex-1 cursor-pointer touch-none"
+              onPointerDown={handleProgressPointerDown}
+              onPointerMove={handleProgressPointerMove}
+              onPointerUp={handleProgressPointerUp}
+              onPointerCancel={handleProgressPointerUp}
+              role="slider"
+              aria-label="Seek"
+              aria-valuemin={0}
+              aria-valuemax={Math.floor(duration)}
+              aria-valuenow={Math.floor(currentTime)}
+              tabIndex={0}
+              onKeyDown={(event) => {
+                const player = playerRef.current;
+                if (!player || duration <= 0) return;
+                if (event.key === "ArrowLeft") {
+                  event.preventDefault();
+                  applySeek(Math.max(0, currentTime - 5), {
+                    pause: !playing,
+                  });
+                }
+                if (event.key === "ArrowRight") {
+                  event.preventDefault();
+                  applySeek(Math.min(duration, currentTime + 5), {
+                    pause: !playing,
+                  });
+                }
+              }}
+            >
+              <div className="bg-foreground/10 absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full">
+                <div
+                  className="bg-primary h-full rounded-full"
+                  style={{ width: `${progress * 100}%` }}
+                />
+              </div>
+              <div
+                className="border-background bg-foreground absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 shadow-sm"
+                style={{ left: `${progress * 100}%` }}
+              />
+            </div>
+
+            <span className="text-muted-foreground shrink-0 px-1 font-mono text-[11px] tabular-nums">
+              {timeLabel}
+            </span>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="rounded-full"
+              aria-label="Expand video"
+              onClick={() => setMinimized(false)}
+            >
+              <IconArrowsMaximize />
+            </Button>
+          </div>
+        </div>
       ) : null}
 
       <div
@@ -575,7 +644,7 @@ export function WorkoutVideoPreview({
               </button>
 
               <div
-                ref={progressTrackRef}
+                ref={minimized ? undefined : progressTrackRef}
                 className="relative h-7 flex-1 cursor-pointer touch-none"
                 onPointerDown={handleProgressPointerDown}
                 onPointerMove={handleProgressPointerMove}

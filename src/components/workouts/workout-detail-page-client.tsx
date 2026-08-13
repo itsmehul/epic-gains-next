@@ -26,7 +26,6 @@ import {
 import { muscleGroupLabel } from "@/features/workouts/muscle-group";
 import type { Set, WorkoutExercise } from "@/features/workouts/types";
 import {
-  formatDurationSeconds,
   getItemDurationSeconds,
   isRestWorkoutItem,
 } from "@/features/workouts/workout-item";
@@ -224,12 +223,6 @@ export function WorkoutDetailPageClient() {
                       const hasNext = index < workoutExercises.length - 1;
                       const label = itemLabel(item);
 
-                      const durationSeconds = getItemDurationSeconds(item);
-                      const durationStr =
-                        durationSeconds != null
-                          ? formatDurationSeconds(durationSeconds)
-                          : null;
-
                       const muscleLabel = isRest
                         ? null
                         : muscleGroupLabel(
@@ -253,35 +246,21 @@ export function WorkoutDetailPageClient() {
                             selectExercise(item);
                           }}
                         >
-                          <span className="whitespace-nowrap text-sm font-medium leading-snug">
+                          <span className="flex h-5 items-center whitespace-nowrap text-sm font-medium leading-none">
                             {label}
                           </span>
                           {muscleLabel ? (
                             <Badge
-                              variant="outline"
+                              variant="secondary"
                               aria-label={`Muscle group ${muscleLabel}`}
                               className={cn(
-                                "h-4 shrink-0 justify-center px-1.5 text-[10px]",
+                                "h-5 shrink-0 items-center justify-center rounded-md px-2 py-0 text-xs font-semibold leading-none",
                                 isActive
-                                  ? "border-primary/50 text-primary"
-                                  : "border-muted-foreground/30 text-muted-foreground group-hover:border-foreground/30 group-hover:text-foreground",
+                                  ? "border-primary/25 bg-primary/20 text-primary"
+                                  : "border-transparent bg-muted text-muted-foreground group-hover:bg-muted/80 group-hover:text-foreground",
                               )}
                             >
                               {muscleLabel}
-                            </Badge>
-                          ) : null}
-                          {durationStr ? (
-                            <Badge
-                              variant="secondary"
-                              aria-label={`Duration ${durationStr}`}
-                              className={cn(
-                                "h-4 shrink-0 justify-center rounded-[5px] border-transparent px-1.5 text-[10px] tabular-nums",
-                                isActive
-                                  ? "bg-primary/15 text-primary"
-                                  : "bg-primary/10 text-primary/70 group-hover:bg-primary/15 group-hover:text-primary",
-                              )}
-                            >
-                              {durationStr}
                             </Badge>
                           ) : null}
                           {setCount > 0 ? (
