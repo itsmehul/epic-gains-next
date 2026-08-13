@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
 
 import { QueryProvider } from "@/components/providers/query-provider";
+import { ThemeProvider } from "@/components/providers/theme-provider";
 import {
   APP_COLOR_SCHEME,
   APP_DESCRIPTION,
@@ -72,6 +73,7 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <head>
         {APPLE_SPLASH_SCREENS.map((splashScreen) => (
@@ -84,7 +86,9 @@ export default function RootLayout({
         ))}
       </head>
       <body className="flex min-h-full flex-col bg-background text-foreground">
-        <QueryProvider>{children}</QueryProvider>
+        <ThemeProvider>
+          <QueryProvider>{children}</QueryProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

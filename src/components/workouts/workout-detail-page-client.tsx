@@ -23,6 +23,7 @@ import {
   useWorkout,
   useWorkoutExercises,
 } from "@/features/workouts/hooks";
+import { muscleGroupLabel } from "@/features/workouts/muscle-group";
 import type { Set, WorkoutExercise } from "@/features/workouts/types";
 import {
   formatDurationSeconds,
@@ -229,6 +230,12 @@ export function WorkoutDetailPageClient() {
                           ? formatDurationSeconds(durationSeconds)
                           : null;
 
+                      const muscleLabel = isRest
+                        ? null
+                        : muscleGroupLabel(
+                            exerciseById.get(item.exerciseId)?.muscleGroup,
+                          );
+
                       return (
                         <button
                           key={item.id}
@@ -249,15 +256,29 @@ export function WorkoutDetailPageClient() {
                           <span className="whitespace-nowrap text-sm font-medium leading-snug">
                             {label}
                           </span>
-                          {durationStr ? (
+                          {muscleLabel ? (
                             <Badge
                               variant="outline"
-                              aria-label={`Duration ${durationStr}`}
+                              aria-label={`Muscle group ${muscleLabel}`}
                               className={cn(
-                                "h-4 shrink-0 justify-center px-1.5 text-[10px] tabular-nums",
+                                "h-4 shrink-0 justify-center px-1.5 text-[10px]",
                                 isActive
                                   ? "border-primary/50 text-primary"
                                   : "border-muted-foreground/30 text-muted-foreground group-hover:border-foreground/30 group-hover:text-foreground",
+                              )}
+                            >
+                              {muscleLabel}
+                            </Badge>
+                          ) : null}
+                          {durationStr ? (
+                            <Badge
+                              variant="secondary"
+                              aria-label={`Duration ${durationStr}`}
+                              className={cn(
+                                "h-4 shrink-0 justify-center rounded-[5px] border-transparent px-1.5 text-[10px] tabular-nums",
+                                isActive
+                                  ? "bg-primary/15 text-primary"
+                                  : "bg-primary/10 text-primary/70 group-hover:bg-primary/15 group-hover:text-primary",
                               )}
                             >
                               {durationStr}
@@ -321,6 +342,9 @@ export function WorkoutDetailPageClient() {
                     workoutExerciseId={selectedItem.id}
                     metricProfile={
                       exerciseById.get(selectedItem.exerciseId)?.metricProfile
+                    }
+                    muscleGroup={
+                      exerciseById.get(selectedItem.exerciseId)?.muscleGroup
                     }
                     sets={selectedSets}
                     onExerciseResolved={(id) => {

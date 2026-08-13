@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  IconArrowsMinimize,
   IconLoader2,
   IconPlayerPauseFilled,
   IconPlayerPlayFilled,
@@ -164,6 +165,7 @@ export function WorkoutVideoPreview({
   const [controlsVisible, setControlsVisible] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [minimized, setMinimized] = useState(false);
 
   const videoId = getYouTubeVideoId(videoUrl);
   // iOS/WebKit blocks playVideo() from overlays until the iframe itself
@@ -464,15 +466,48 @@ export function WorkoutVideoPreview({
 
   const progress = duration > 0 ? Math.min(1, currentTime / duration) : 0;
 
+  function minimizePlayer() {
+    const player = playerRef.current;
+    try {
+      player?.pauseVideo();
+    } catch {
+      // Player may be mid-destroy.
+    }
+    setMinimized(true);
+  }
+
+  const timeLabel =
+    duration > 0
+      ? `${formatVideoTimestamp(currentTime)} / ${formatVideoTimestamp(duration)}`
+      : formatVideoTimestamp(currentTime);
+
   return (
-    <div
-      className={cn(
-        "bg-muted group/player relative aspect-video overflow-hidden rounded-xl select-none [&_iframe]:absolute [&_iframe]:inset-0 [&_iframe]:size-full",
-        needsNativeFirstTap
-          ? "[&_iframe]:pointer-events-auto [&_iframe]:z-20"
-          : "[&_iframe]:pointer-events-none",
-        className,
-      )}
+    <div className="relative flex flex-col">
+      {minimized ? (
+        <button
+          type="button"
+          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex w-fit items-center gap-1.5 px-4 py-1 text-sm underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none md:px-0"
+          aria-label="Expand video"
+          onClick={() => setMinimized(false)}
+        >
+          Video
+          <span className="font-mono text-[11px] tabular-nums no-underline">
+            {timeLabel}
+          </span>
+        </button>
+      ) : null}
+
+      <div
+        className={cn(
+          "bg-muted group/player relative overflow-hidden rounded-xl select-none [&_iframe]:absolute [&_iframe]:inset-0 [&_iframe]:size-full",
+          minimized
+            ? "pointer-events-none invisible absolute size-px overflow-hidden"
+            : "aspect-video",
+          needsNativeFirstTap
+            ? "[&_iframe]:pointer-events-auto [&_iframe]:z-20"
+            : "[&_iframe]:pointer-events-none",
+          !minimized && className,
+        )}
       onPointerMove={(event) => {
         // Touch devices fire pointermove during scroll; only mouse should auto-reveal.
         if (playing && event.pointerType === "mouse") revealControls();
@@ -582,9 +617,20 @@ export function WorkoutVideoPreview({
               </div>
 
               <span className="min-w-18 text-right font-mono text-[11px] tabular-nums text-white/90">
-                {formatVideoTimestamp(currentTime)}
-                {duration > 0 ? ` / ${formatVideoTimestamp(duration)}` : ""}
+                {timeLabel}
               </span>
+
+              <button
+                type="button"
+                className="flex size-8 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15"
+                aria-label="Minimize video"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  minimizePlayer();
+                }}
+              >
+                <IconArrowsMinimize className="size-4" />
+              </button>
             </div>
           </div>
         </>
@@ -595,6 +641,7 @@ export function WorkoutVideoPreview({
           {error}
         </div>
       ) : null}
+    </div>
     </div>
   );
 }

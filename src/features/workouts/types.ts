@@ -1,3 +1,4 @@
+import type { MuscleGroup } from "@/db/schema/workout-schema";
 import type { exercise, set, workout, workoutExercise } from "@/db/schema";
 
 export type Workout = typeof workout.$inferSelect;
@@ -24,6 +25,7 @@ export type SimilarExerciseCandidate = {
   name: string;
   score: number;
   matchedAlias: string | null;
+  muscleGroup?: MuscleGroup | null;
   setCount?: number;
   workoutCount?: number;
 };

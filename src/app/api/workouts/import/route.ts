@@ -4,13 +4,15 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import {
   consolidateDuplicateExercisesForUser,
+  fillMissingExerciseCatalogFields,
   resolveCanonicalRestExercise,
 } from "@/db/repositories/exercise.repository";
 import { exercise, workout, workoutExercise } from "@/db/schema";
-import type { MetricProfile } from "@/db/schema/workout-schema";
 import { exerciseNameLookupKeys } from "@/features/workouts/exercise-name";
 import {
   expandImportStructure,
+  resolveImportMetricProfile,
+  resolveImportMuscleGroup,
   type ExpandedImportWorkout,
 } from "@/features/workouts/import-structure";
 import {
@@ -24,16 +26,6 @@ import {
   requireApiSession,
   unauthorizedResponse,
 } from "@/infrastructure/auth/api";
-
-function resolveImportMetricProfile(
-  ex:
-    | ExpandedImportWorkout["exercises"][number]
-    | ImportFullWorkoutInput["exercises"][number],
-): MetricProfile {
-  if ("metricProfile" in ex && ex.metricProfile) return ex.metricProfile;
-  if ("metric_profile" in ex && ex.metric_profile) return ex.metric_profile;
-  return "CUSTOM";
-}
 
 export async function POST(req: Request) {
   const session = await requireApiSession();
@@ -87,6 +79,10 @@ export async function POST(req: Request) {
             .groupBy(workoutExercise.exerciseId);
       const usageById = new Map(
         usageRows.map((row) => [row.exerciseId, Number(row.n)]),
+      );
+
+      const existingById = new Map(
+        existingExercises.map((item) => [item.id, item] as const),
       );
 
       const exerciseIdByName = new Map<string, string>();
@@ -158,14 +154,32 @@ export async function POST(req: Request) {
 
         if (!exerciseId) {
           exerciseId = crypto.randomUUID();
-          await tx.insert(exercise).values({
-            id: exerciseId,
-            userId,
-            name: ex.name,
-            metricProfile: resolveImportMetricProfile(ex),
-          });
+          const [created] = await tx
+            .insert(exercise)
+            .values({
+              id: exerciseId,
+              userId,
+              name: ex.name,
+              metricProfile: resolveImportMetricProfile(ex),
+              muscleGroup: resolveImportMuscleGroup(ex),
+            })
+            .returning();
           usageById.set(exerciseId, 0);
           rememberExercise(ex.name, exerciseId);
+          if (created) existingById.set(exerciseId, created);
+        } else {
+          const current = existingById.get(exerciseId);
+          if (current) {
+            const enriched = await fillMissingExerciseCatalogFields(
+              tx,
+              current,
+              {
+                metricProfile: resolveImportMetricProfile(ex),
+                muscleGroup: resolveImportMuscleGroup(ex),
+              },
+            );
+            existingById.set(exerciseId, enriched);
+          }
         }
 
         await tx.insert(workoutExercise).values({

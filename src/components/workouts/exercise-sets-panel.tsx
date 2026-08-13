@@ -6,10 +6,11 @@ import {
   IconPlus,
   IconTrash,
 } from "@tabler/icons-react";
-import { AnimatePresence, LayoutGroup, motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -19,7 +20,7 @@ import {
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ExerciseResolveCard } from "@/components/workouts/exercise-resolve-card";
-import type { MetricProfile } from "@/db/schema/workout-schema";
+import type { MetricProfile, MuscleGroup } from "@/db/schema/workout-schema";
 import {
   useCreateSet,
   useDeleteSet,
@@ -30,6 +31,7 @@ import {
   fieldsForMetricProfile,
   type SetFieldKey,
 } from "@/features/workouts/metric-profile";
+import { muscleGroupLabel } from "@/features/workouts/muscle-group";
 import type { Set } from "@/features/workouts/types";
 import { cn } from "@/shared/utils";
 
@@ -42,7 +44,6 @@ type DraftRow = {
   values: RowValues;
 };
 
-const springSoft = { type: "spring" as const, stiffness: 420, damping: 32 };
 const springSnappy = { type: "spring" as const, stiffness: 520, damping: 36 };
 const easeOut = [0.25, 1, 0.5, 1] as const;
 
@@ -222,6 +223,7 @@ type ExerciseSetsPanelProps = {
   exerciseId: string;
   workoutExerciseId: string;
   metricProfile?: MetricProfile | null;
+  muscleGroup?: MuscleGroup | null;
   sets: Set[];
   onExerciseResolved?: (workoutExerciseId: string) => void;
 };
@@ -231,6 +233,7 @@ export function ExerciseSetsPanel({
   exerciseId,
   workoutExerciseId,
   metricProfile,
+  muscleGroup,
   sets,
   onExerciseResolved,
 }: ExerciseSetsPanelProps) {
@@ -654,9 +657,8 @@ export function ExerciseSetsPanel({
 
   return (
     <div>
-      <LayoutGroup>
-        <ul className="divide-border/60 mx-2 divide-y overflow-hidden rounded-xl bg-muted/20">
-          <AnimatePresence initial={false} mode="popLayout">
+      <ul className="divide-border/60 mx-2 divide-y overflow-hidden rounded-xl bg-muted/20">
+          <AnimatePresence initial={false}>
             {sets.map((set, index) => {
               const values = savedValues[set.id] ?? valuesFromSet(set);
               const completed = !uncheckedIds.has(set.id);
@@ -667,11 +669,10 @@ export function ExerciseSetsPanel({
               return (
                 <motion.li
                   key={set.id}
-                  layout
-                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.15 } }}
-                  transition={springSoft}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0, transition: { duration: 0.15 } }}
+                  transition={{ duration: 0.18, ease: easeOut }}
                   className={cn(
                     "overflow-hidden",
                     completed && "bg-primary/8",
@@ -685,13 +686,12 @@ export function ExerciseSetsPanel({
                       aria-expanded={expanded}
                       onClick={() => toggleExpanded(set.id)}
                     >
-                      <motion.span
-                        layout
+                      <span
                         aria-hidden
                         className="text-primary/50 flex w-4 shrink-0 justify-center text-xs tabular-nums"
                       >
                         {index + 1}
-                      </motion.span>
+                      </span>
                       <span className="min-w-0 flex-1">
                         <motion.span
                           key={summary}
@@ -759,11 +759,10 @@ export function ExerciseSetsPanel({
               return (
                 <motion.li
                   key={draft.id}
-                  layout
-                  initial={{ opacity: 0, y: 10, scale: 0.97 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.15 } }}
-                  transition={springSoft}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0, transition: { duration: 0.15 } }}
+                  transition={{ duration: 0.18, ease: easeOut }}
                   className={cn(
                     "overflow-hidden",
                     completing && "bg-primary/6",
@@ -833,20 +832,27 @@ export function ExerciseSetsPanel({
             })}
           </AnimatePresence>
         </ul>
-      </LayoutGroup>
 
       <AnimatePresence initial={false}>
         {sets.length === 0 && drafts.length === 0 ? (
           <motion.div
             key="empty"
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            className="mx-2"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.22, ease: easeOut }}
+            className="mx-2 overflow-hidden"
           >
             <Card size="sm">
               <CardHeader>
-                <CardTitle>No sets yet</CardTitle>
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle>No sets yet</CardTitle>
+                  {muscleGroupLabel(muscleGroup) ? (
+                    <Badge variant="outline" className="h-5 shrink-0 text-[10px]">
+                      {muscleGroupLabel(muscleGroup)}
+                    </Badge>
+                  ) : null}
+                </div>
                 <CardDescription>
                   Add a set to start logging, or link this move to an existing
                   exercise to unify history.
@@ -868,7 +874,7 @@ export function ExerciseSetsPanel({
         ) : null}
       </AnimatePresence>
 
-      <motion.div layout className="mx-2 flex justify-center pt-2">
+      <div className="mx-2 flex justify-center pt-2">
         <Button
           type="button"
           variant="secondary"
@@ -878,7 +884,7 @@ export function ExerciseSetsPanel({
           <IconPlus data-icon="inline-start" />
           Add Set
         </Button>
-      </motion.div>
+      </div>
 
       <AnimatePresence initial={false}>
         {error ? (

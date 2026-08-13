@@ -35,6 +35,19 @@ export const metricProfileEnum = pgEnum(
   METRIC_PROFILE_VALUES,
 );
 
+export const MUSCLE_GROUP_VALUES = [
+  "chest",
+  "back",
+  "shoulders",
+  "arms",
+  "legs",
+  "core",
+] as const;
+
+export type MuscleGroup = (typeof MUSCLE_GROUP_VALUES)[number];
+
+export const muscleGroupEnum = pgEnum("muscle_group", MUSCLE_GROUP_VALUES);
+
 export const workout = pgTable(
   "workout",
   {
@@ -64,6 +77,7 @@ export const exercise = pgTable(
     metricProfile: metricProfileEnum("metric_profile")
       .notNull()
       .default("CUSTOM"),
+    muscleGroup: muscleGroupEnum("muscle_group"),
   },
   (table) => [index("exercise_userId_idx").on(table.userId)],
 );

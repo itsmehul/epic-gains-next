@@ -1,5 +1,11 @@
-import type { MetricProfile } from "@/db/schema/workout-schema";
-import type { ImportWorkoutStructureInput } from "@/features/workouts/schemas";
+import type {
+  MetricProfile,
+  MuscleGroup,
+} from "@/db/schema/workout-schema";
+import type {
+  ImportFullWorkoutInput,
+  ImportWorkoutStructureInput,
+} from "@/features/workouts/schemas";
 
 export type ExpandedImportWorkout = {
   workoutName: string;
@@ -11,8 +17,29 @@ export type ExpandedImportWorkout = {
     videoEndTime: number;
     tags?: string[];
     metricProfile?: MetricProfile;
+    muscleGroup?: MuscleGroup;
   }>;
 };
+
+type ImportExerciseInput =
+  | ExpandedImportWorkout["exercises"][number]
+  | ImportFullWorkoutInput["exercises"][number];
+
+export function resolveImportMetricProfile(
+  ex: ImportExerciseInput,
+): MetricProfile {
+  if ("metricProfile" in ex && ex.metricProfile) return ex.metricProfile;
+  if ("metric_profile" in ex && ex.metric_profile) return ex.metric_profile;
+  return "CUSTOM";
+}
+
+export function resolveImportMuscleGroup(
+  ex: ImportExerciseInput,
+): MuscleGroup | undefined {
+  if ("muscleGroup" in ex && ex.muscleGroup) return ex.muscleGroup;
+  if ("muscle_group" in ex && ex.muscle_group) return ex.muscle_group;
+  return undefined;
+}
 
 export function parseClockTimestamp(value: string): number {
   const parts = value.trim().replace(/^\[/, "").replace(/\]$/, "").split(":");
@@ -126,6 +153,7 @@ export function expandImportStructure(
       videoEndTime: workEnd,
       tags,
       metricProfile: current.metric_profile ?? current.metricProfile,
+      muscleGroup: current.muscle_group ?? current.muscleGroup,
     });
 
     if (workEnd < nextStart) {

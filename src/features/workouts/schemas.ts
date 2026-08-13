@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import { METRIC_PROFILE_VALUES } from "@/db/schema/workout-schema";
+import {
+  METRIC_PROFILE_VALUES,
+  MUSCLE_GROUP_VALUES,
+} from "@/db/schema/workout-schema";
 
 export const exerciseMetaDataSchema = z
   .object({
@@ -49,6 +52,7 @@ export const createWorkoutSchema = z.object({
 export const updateWorkoutSchema = createWorkoutSchema.partial();
 
 export const metricProfileEnum = z.enum(METRIC_PROFILE_VALUES);
+export const muscleGroupEnum = z.enum(MUSCLE_GROUP_VALUES);
 
 /** Canonical exercise: identity + standardized name only. */
 export const createExerciseSchema = z.object({
@@ -61,6 +65,7 @@ export const createExerciseSchema = z.object({
       "Exact exercise name from the video/chapter list (one move per record, not a whole section).",
     ),
   metric_profile: metricProfileEnum.optional(),
+  muscle_group: muscleGroupEnum.optional(),
 });
 
 export const listExercisesQuerySchema = z.object({
@@ -131,6 +136,9 @@ export const importFullWorkoutSchema = z.object({
         metric_profile: metricProfileEnum.optional().describe(
           "Tracking profile that determines which set fields to show (weight, reps, time, distance).",
         ),
+        muscle_group: muscleGroupEnum.optional().describe(
+          "Primary muscle group: chest, back, shoulders, arms, legs, or core.",
+        ),
       }),
     )
     .min(1)
@@ -166,6 +174,8 @@ export const importWorkoutStructureSchema = z.object({
               timestamp: clockTimestampSchema,
               metric_profile: metricProfileEnum.optional(),
               metricProfile: metricProfileEnum.optional(),
+              muscle_group: muscleGroupEnum.optional(),
+              muscleGroup: muscleGroupEnum.optional(),
             }),
           )
           .min(1),

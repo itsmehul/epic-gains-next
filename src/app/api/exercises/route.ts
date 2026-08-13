@@ -69,6 +69,7 @@ export async function POST(req: Request) {
       userId: session.user.id,
       name: parsed.data.name,
       metricProfile: parsed.data.metric_profile ?? "CUSTOM",
+      muscleGroup: parsed.data.muscle_group,
     });
 
     return NextResponse.json(item, { status: 201 });

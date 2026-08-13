@@ -4,6 +4,11 @@ import { and, asc, count, countDistinct, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { exercise, set as workoutSet, workout, workoutExercise } from "@/db/schema";
+import type {
+  MetricProfile,
+  MuscleGroup,
+} from "@/db/schema/workout-schema";
+import { missingExerciseCatalogPatch } from "@/features/workouts/exercise-catalog";
 import {
   SIMILAR_EXERCISE_THRESHOLD,
   exerciseNameLookupKeys,
@@ -51,6 +56,27 @@ export async function createExercise(data: ExerciseInsert) {
 }
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export type ExerciseRow = typeof exercise.$inferSelect;
+
+/** Fill nullable / default catalog fields without overwriting known values. */
+export async function fillMissingExerciseCatalogFields(
+  tx: DbTransaction,
+  current: ExerciseRow,
+  incoming: {
+    muscleGroup?: MuscleGroup | null;
+    metricProfile?: MetricProfile | null;
+  },
+): Promise<ExerciseRow> {
+  const patch = missingExerciseCatalogPatch(current, incoming);
+  if (Object.keys(patch).length === 0) return current;
+  const [updated] = await tx
+    .update(exercise)
+    .set(patch)
+    .where(eq(exercise.id, current.id))
+    .returning();
+  return updated ?? current;
+}
 
 /**
  * One Rest exercise per user. Remaps every rest appearance onto that id and
@@ -229,6 +255,22 @@ export async function consolidateDuplicateExercisesForUser(
       const canonical = group[0]!;
       const duplicates = group.slice(1);
       const duplicateIds = duplicates.map((item) => item.id);
+      const patch = missingExerciseCatalogPatch(canonical, {
+        muscleGroup:
+          canonical.muscleGroup ??
+          duplicates.find((item) => item.muscleGroup)?.muscleGroup,
+        metricProfile:
+          canonical.metricProfile !== "CUSTOM"
+            ? canonical.metricProfile
+            : duplicates.find((item) => item.metricProfile !== "CUSTOM")
+                ?.metricProfile,
+      });
+      if (Object.keys(patch).length > 0) {
+        await dbOrTx
+          .update(exercise)
+          .set(patch)
+          .where(eq(exercise.id, canonical.id));
+      }
 
       await dbOrTx
         .update(workoutExercise)
@@ -276,6 +318,7 @@ export type SimilarExerciseCandidate = {
   name: string;
   score: number;
   matchedAlias: string | null;
+  muscleGroup: MuscleGroup | null;
   setCount: number;
   workoutCount: number;
 };
@@ -362,6 +405,7 @@ export async function findSimilarExercisesForUser(options: {
       name: item.name,
       score: bestScore,
       matchedAlias,
+      muscleGroup: item.muscleGroup,
       setCount: setCountById.get(item.id) ?? 0,
       workoutCount: workoutCountById.get(item.id) ?? 0,
     });
@@ -573,6 +617,7 @@ export async function searchExercisesForUser(options: {
       name: item.name,
       score: 1,
       matchedAlias: null as string | null,
+      muscleGroup: item.muscleGroup,
     }));
   }
 
@@ -613,6 +658,7 @@ export async function searchExercisesForUser(options: {
       name: item.name,
       score: bestScore,
       matchedAlias,
+      muscleGroup: item.muscleGroup,
     });
   }
 

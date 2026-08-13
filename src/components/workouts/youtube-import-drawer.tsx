@@ -65,6 +65,17 @@ Assign a \`metric_profile\` enum to each exercise based on these rules:
 - \`LOADED_CARRY\`: Spatial movement with load (e.g., Farmer's Walk, Sled Push)
 - \`CUSTOM\`: User-defined or custom tracking parameters
 
+### Muscle Group Rules:
+Assign a \`muscle_group\` enum to each exercise based on the primary target:
+- \`chest\`: Pushing horizontal/decline/incline chest work (e.g., Push-ups, Bench Press, Chest Fly)
+- \`back\`: Pulling and posterior chain upper work (e.g., Rows, Pull-ups, Lat Pulldown)
+- \`shoulders\`: Deltoid-dominant work (e.g., Overhead Press, Lateral Raise, Arm Circles)
+- \`arms\`: Elbow-dominant isolation (e.g., Bicep Curl, Tricep Dip, Skull Crusher)
+- \`legs\`: Lower body (e.g., Squat, Lunge, Glute Bridge, Calf Raise)
+- \`core\`: Abdominals, obliques, and spinal stability (e.g., Plank, Crunch, Dead Bug)
+
+If a move is truly full-body cardio with no primary muscle (e.g., Jumping Jacks, Running), pick the closest dominant group or omit \`muscle_group\`.
+
 ### JSON Structure Requirements:
 Return a JSON object matching this schema inside a markdown code block. Do not include any extra text:
 
@@ -84,7 +95,8 @@ Return a JSON object matching this schema inside a markdown code block. Do not i
         {
           "name": "string (clear, standard exercise name for this move)",
           "timestamp": "string (EXACT start time of THIS exercise move in MM:SS or HH:MM:SS format, e.g. '01:21')",
-          "metric_profile": "string (ONE of: 'WEIGHT_REPS', 'BODYWEIGHT_REPS', 'WEIGHTED_REPS', 'TIMED_HOLD', 'CARDIO_DISTANCE', 'LOADED_CARRY', 'CUSTOM')"
+          "metric_profile": "string (ONE of: 'WEIGHT_REPS', 'BODYWEIGHT_REPS', 'WEIGHTED_REPS', 'TIMED_HOLD', 'CARDIO_DISTANCE', 'LOADED_CARRY', 'CUSTOM')",
+          "muscle_group": "string (ONE of: 'chest', 'back', 'shoulders', 'arms', 'legs', 'core')"
         }
       ]
     }

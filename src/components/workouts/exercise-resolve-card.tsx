@@ -14,6 +14,7 @@ import {
 } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   FamilyDrawerAnimatedContent,
   FamilyDrawerAnimatedWrapper,
@@ -36,6 +37,7 @@ import {
   useMergeExerciseImpact,
 } from "@/features/workouts/hooks";
 import type { SimilarExerciseCandidate } from "@/features/workouts/types";
+import { muscleGroupLabel } from "@/features/workouts/muscle-group";
 
 function CandidateButton({
   candidate,
@@ -44,6 +46,8 @@ function CandidateButton({
   candidate: SimilarExerciseCandidate;
   onSelect: () => void;
 }) {
+  const muscleLabel = muscleGroupLabel(candidate.muscleGroup);
+
   return (
     <button
       type="button"
@@ -56,6 +60,11 @@ function CandidateButton({
         {candidate.matchedAlias ? (
           <span className="text-muted-foreground block truncate text-xs">
             matched “{candidate.matchedAlias}”
+          </span>
+        ) : null}
+        {muscleLabel ? (
+          <span className="text-muted-foreground mt-0.5 block text-xs">
+            {muscleLabel}
           </span>
         ) : null}
       </span>
@@ -256,7 +265,9 @@ function ExerciseResolveCardInner({
               Similar exercises
             </p>
             <ul className="space-y-1.5">
-              {candidates.map((candidate) => (
+              {candidates.map((candidate) => {
+                const muscleLabel = muscleGroupLabel(candidate.muscleGroup);
+                return (
                 <li key={candidate.id}>
                   <button
                     type="button"
@@ -273,12 +284,23 @@ function ExerciseResolveCardInner({
                         </span>
                       ) : null}
                     </span>
-                    <span className="text-primary shrink-0 text-xs font-medium">
-                      Link
+                    <span className="flex shrink-0 items-center gap-2">
+                      {muscleLabel ? (
+                        <Badge
+                          variant="outline"
+                          className="h-5 text-[10px] font-medium"
+                        >
+                          {muscleLabel}
+                        </Badge>
+                      ) : null}
+                      <span className="text-primary text-xs font-medium">
+                        Link
+                      </span>
                     </span>
                   </button>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </div>
         ) : null}
