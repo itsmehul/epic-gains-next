@@ -2,8 +2,8 @@
 
 import {
   IconBarbell,
+  IconBrandYoutube,
   IconEye,
-  IconPlus,
   IconRefresh,
   IconSearch,
   IconTrash,
@@ -13,14 +13,14 @@ import {
 } from "@tabler/icons-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useState } from "react";
 
 import {
   AppShellBody,
   AppShellHeader,
   AppShellScroll,
 } from "@/components/layout/app-shell";
+import { YoutubeImportDrawer } from "@/components/workouts/youtube-import-drawer";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -39,13 +39,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  useCreateWorkout,
-  useDeleteWorkout,
-  useWorkouts,
-} from "@/features/workouts/hooks";
+import { useDeleteWorkout, useWorkouts } from "@/features/workouts/hooks";
 import type { WorkoutListStats, WorkoutWithStats } from "@/features/workouts/types";
 import { cn } from "@/shared/utils";
 
@@ -278,106 +273,9 @@ function DeleteWorkoutDialog({
   );
 }
 
-function CreateWorkoutDialog({
-  open,
-  onOpenChange,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const router = useRouter();
-  const nameId = useId();
-  const createWorkout = useCreateWorkout();
-  const [name, setName] = useState("");
-
-  function reset() {
-    setName("");
-    createWorkout.reset();
-  }
-
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmed = name.trim();
-    if (!trimmed || createWorkout.isPending) return;
-
-    try {
-      const workout = await createWorkout.mutateAsync({ name: trimmed });
-      reset();
-      onOpenChange(false);
-      router.push(`/workouts/${workout.id}`);
-    } catch {
-      // Error surfaced via mutation state below.
-    }
-  }
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) reset();
-        onOpenChange(next);
-      }}
-    >
-      <DialogContent>
-        <form className="grid gap-6" onSubmit={(event) => void onSubmit(event)}>
-          <DialogHeader>
-            <DialogTitle>New workout</DialogTitle>
-            <DialogDescription>
-              Name the session, then add exercises on the next screen.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-2">
-            <Label htmlFor={nameId}>Name</Label>
-            <Input
-              id={nameId}
-              autoFocus
-              maxLength={200}
-              placeholder="Push day · Upper strength · Video title…"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-            {createWorkout.isError ? (
-              <p className="text-destructive text-sm" role="alert">
-                {createWorkout.error instanceof Error
-                  ? createWorkout.error.message
-                  : "Could not create workout"}
-              </p>
-            ) : null}
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={createWorkout.isPending}
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={!name.trim() || createWorkout.isPending}
-            >
-              {createWorkout.isPending ? (
-                <>
-                  <Spinner className="size-4" />
-                  Creating…
-                </>
-              ) : (
-                "Create"
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export function WorkoutsPageClient() {
   const searchId = useId();
-  const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<WorkoutWithStats | null>(
     null,
   );
@@ -401,7 +299,22 @@ export function WorkoutsPageClient() {
 
   return (
     <AppShellScroll>
-      <AppShellHeader title="Workouts" />
+      <AppShellHeader
+        title="Workouts"
+        actions={
+          <div className="flex items-center gap-1.5 md:gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setImportOpen(true)}
+            >
+              <IconBrandYoutube className="size-4 text-red-500" data-icon="inline-start" />
+              Import YouTube
+            </Button>
+          </div>
+        }
+      />
       <AppShellBody>
         <div className="flex flex-col gap-3 md:gap-6 md:p-6">
           <div className="relative px-4 md:px-0">
@@ -496,7 +409,7 @@ export function WorkoutsPageClient() {
                 <p className="text-muted-foreground text-sm leading-relaxed">
                   {hasSearch
                     ? `Nothing matched “${debouncedSearch}”. Try a different name.`
-                    : "Start a workout to log sets, follow video timestamps, and keep your training history in one place."}
+                    : "Import a YouTube workout to log sets, follow video timestamps, and keep your training history in one place."}
                 </p>
               </div>
               {hasSearch ? (
@@ -512,10 +425,10 @@ export function WorkoutsPageClient() {
                 <Button
                   type="button"
                   className="relative"
-                  onClick={() => setCreateOpen(true)}
+                  onClick={() => setImportOpen(true)}
                 >
-                  <IconPlus className="size-4" data-icon="inline-start" />
-                  New workout
+                  <IconBrandYoutube className="size-4 text-red-500" data-icon="inline-start" />
+                  Import YouTube
                 </Button>
               )}
             </motion.div>
@@ -601,7 +514,7 @@ export function WorkoutsPageClient() {
         </div>
       </AppShellBody>
 
-      <CreateWorkoutDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <YoutubeImportDrawer open={importOpen} onOpenChange={setImportOpen} />
       <DeleteWorkoutDialog
         workout={deleteTarget}
         open={deleteTarget != null}

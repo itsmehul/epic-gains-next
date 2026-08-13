@@ -26,12 +26,12 @@ import {
 } from "@/db/repositories/workout.repository";
 import { exercise, workout, workoutExercise } from "@/db/schema";
 import { exerciseNameLookupKeys } from "@/features/workouts/exercise-name";
-import { isRestWorkoutItem, withRestTag } from "@/features/workouts/workout-item";
 import {
   exerciseMetaDataSchema,
   importFullWorkoutSchema,
   updateWorkoutSchema,
 } from "@/features/workouts/schemas";
+import { isRestWorkoutItem, withRestTag } from "@/features/workouts/workout-item";
 import { getMcpAuth } from "@/infrastructure/mcp/context";
 import {
   mcpErrorResult,
@@ -75,7 +75,7 @@ export function registerWorkoutMcpTools(server: McpServer) {
     {
       title: "Import full workout",
       description:
-        "Import a full follow-along video workout. Include rest periods as items named Rest with timestamps — they are timeline markers, not logged exercises. All rests share one Rest exercise per user. Reuses an existing exercise when the name already exists for this user (canonical name or prior workout alias); otherwise creates one. The same exercise may appear more than once in the workout. Provide exact timestamps for each move.",
+        "Import a full follow-along video workout. Include rest periods as items named Rest with timestamps — they are timeline markers, not logged exercises. All rests share one Rest exercise per user. Reuses an existing exercise when the name already exists for this user (canonical name or prior workout alias); otherwise creates one. The same exercise may appear more than once in the workout. Chapter timestamps are the START of each move: videoStartTime is that chapter's time, videoEndTime is the next chapter's time (or video duration for the last move). Do not shift starts onto the next chapter.",
       inputSchema: importFullWorkoutSchema,
     },
     async (args) => {
@@ -104,13 +104,13 @@ export function registerWorkoutMcpTools(server: McpServer) {
             existingIds.length === 0
               ? []
               : await tx
-                  .select({
-                    exerciseId: workoutExercise.exerciseId,
-                    n: count(),
-                  })
-                  .from(workoutExercise)
-                  .where(inArray(workoutExercise.exerciseId, existingIds))
-                  .groupBy(workoutExercise.exerciseId);
+                .select({
+                  exerciseId: workoutExercise.exerciseId,
+                  n: count(),
+                })
+                .from(workoutExercise)
+                .where(inArray(workoutExercise.exerciseId, existingIds))
+                .groupBy(workoutExercise.exerciseId);
           const usageById = new Map(
             usageRows.map((row) => [row.exerciseId, Number(row.n)]),
           );

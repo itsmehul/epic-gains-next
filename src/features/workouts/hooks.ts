@@ -7,6 +7,8 @@ import type {
   CreateSetInput,
   CreateWorkoutExerciseInput,
   CreateWorkoutInput,
+  ImportFullWorkoutInput,
+  ImportWorkoutStructureInput,
   MergeExerciseInput,
   UpdateSetInput,
   UpdateWorkoutExerciseInput,
@@ -96,6 +98,20 @@ export function useWorkout(id: string | null) {
     queryKey: workoutKeys.detail(id ?? ""),
     enabled: Boolean(id),
     queryFn: () => apiFetch<Workout>(`/api/workouts/${id}`),
+  });
+}
+
+export function useImportFullWorkout() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ImportFullWorkoutInput | ImportWorkoutStructureInput) =>
+      apiFetch<Workout>("/api/workouts/import", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: workoutKeys.all });
+    },
   });
 }
 

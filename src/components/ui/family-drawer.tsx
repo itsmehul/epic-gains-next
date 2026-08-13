@@ -11,6 +11,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import useMeasure from "react-use-measure";
 import { Drawer } from "vaul";
 
@@ -61,7 +62,6 @@ interface FamilyDrawerRootProps {
   open?: boolean
   defaultOpen?: boolean
   onOpenChange?: (open: boolean) => void
-  view?: string
   defaultView?: string
   onViewChange?: (view: string) => void
   views?: ViewsRegistry
@@ -72,32 +72,19 @@ function FamilyDrawerRoot({
   open: controlledOpen,
   defaultOpen = false,
   onOpenChange,
-  view: controlledView,
   defaultView = "default",
   onViewChange,
   views: customViews,
 }: FamilyDrawerRootProps) {
   const [internalOpen, setInternalOpen] = useState(defaultOpen)
-  const [internalView, setInternalView] = useState(defaultView)
+  const [view, setView] = useState(defaultView)
   const [elementRef, bounds] = useMeasure()
   const previousHeightRef = useRef(0)
   const [opacityDuration, setOpacityDuration] = useState(0.08)
 
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen
-  const view = controlledView !== undefined ? controlledView : internalView
-
-  const setView = (newView: string) => {
-    if (controlledView === undefined) {
-      setInternalView(newView)
-    }
-    onViewChange?.(newView)
-  }
 
   const setIsOpen = (nextOpen: boolean) => {
-    if (!nextOpen) {
-      setView(defaultView)
-    }
-
     if (controlledOpen === undefined) {
       setInternalOpen(nextOpen)
     }
@@ -105,10 +92,27 @@ function FamilyDrawerRoot({
     onOpenChange?.(nextOpen)
   }
 
+  const previousOpenRef = useRef(isOpen)
+
+  // Reset view after Vaul's close animation (~500ms) so height/view swaps
+  // don't interrupt slideToBottom / overlay fadeOut.
+  useEffect(() => {
+    const wasOpen = previousOpenRef.current
+    previousOpenRef.current = isOpen
+
+    if (isOpen || !wasOpen) return
+
+    const timeoutId = window.setTimeout(() => {
+      setView(defaultView)
+      onViewChange?.(defaultView)
+    }, 500)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [isOpen, defaultView, onViewChange])
+
   useEffect(() => {
     const currentHeight = bounds.height
     const previousHeight = previousHeightRef.current
-
     const MIN_DURATION = 0.08
     const MAX_DURATION = 0.15
 
@@ -120,14 +124,15 @@ function FamilyDrawerRoot({
 
     const heightDifference = Math.abs(currentHeight - previousHeight)
     previousHeightRef.current = currentHeight
-
     setOpacityDuration(
-      Math.min(
-        Math.max(heightDifference / 500, MIN_DURATION),
-        MAX_DURATION
-      )
+      Math.min(Math.max(heightDifference / 500, MIN_DURATION), MAX_DURATION)
     )
   }, [bounds.height])
+
+  const handleViewChange = (newView: string) => {
+    setView(newView)
+    onViewChange?.(newView)
+  }
 
   // Use custom views if provided, otherwise pass undefined
   const views =
@@ -136,7 +141,7 @@ function FamilyDrawerRoot({
   const contextValue: FamilyDrawerContextValue = {
     isOpen,
     view,
-    setView,
+    setView: handleViewChange,
     opacityDuration,
     elementRef,
     bounds,
@@ -195,7 +200,17 @@ function FamilyDrawerTrigger({
 // ============================================================================
 
 function FamilyDrawerPortal({ children }: { children: ReactNode }) {
-  return <Drawer.Portal>{children}</Drawer.Portal>
+  const [container, setContainer] = useState<HTMLElement | null>(null)
+
+  useEffect(() => {
+    setContainer(document.body)
+  }, [])
+
+  // Bypass Dialog.Portal's outer Presence — it attaches its animation ref to the
+  // Portal primitive (not the drawer node) and unmounts before slideToBottom /
+  // fadeOut can start. Overlay/Content still have their own Presence.
+  if (!container) return null
+  return createPortal(children, container)
 }
 
 // ============================================================================
@@ -233,17 +248,32 @@ function FamilyDrawerContent({
   className,
   asChild = false,
 }: FamilyDrawerContentProps) {
-  const { bounds } = useFamilyDrawer()
+  const { bounds, isOpen } = useFamilyDrawer()
+  const frozenHeightRef = useRef(0)
 
   const maxHeight =
     typeof window !== "undefined" ? window.innerHeight * 0.95 : undefined
 
-  const content = (
+  if (bounds.height > 0) {
+    frozenHeightRef.current = maxHeight
+      ? Math.min(bounds.height, maxHeight)
+      : bounds.height
+  }
+
+  // Freeze height while closing so slideToBottom's 100% translate stays visible.
+  const height =
+    isOpen && bounds.height > 0
+      ? maxHeight
+        ? Math.min(bounds.height, maxHeight)
+        : bounds.height
+      : frozenHeightRef.current
+
+  // Keep height animation on an inner node so Vaul can own transform on
+  // Drawer.Content — required for slideToBottom / overlay fade exit.
+  const heightShell = (
     <motion.div
       animate={{
-        height: maxHeight
-          ? Math.min(bounds.height || 0, maxHeight)
-          : bounds.height,
+        height,
         transition: {
           duration: 0.15,
           ease: [0.25, 1, 0.5, 1],
@@ -254,30 +284,21 @@ function FamilyDrawerContent({
     </motion.div>
   )
 
+  const contentClassName = clsx(
+    "fixed inset-x-0 bottom-0 z-50 mx-auto max-w-sm overflow-hidden rounded-t-2xl bg-background outline-none ring-1 ring-foreground/10 md:mx-auto md:w-full",
+    className
+  )
+
   if (asChild) {
     return (
-      <Drawer.Content
-        asChild
-        className={clsx(
-          "fixed inset-x-4 bottom-4 z-50 mx-auto max-w-sm overflow-hidden rounded-2xl bg-background outline-none ring-1 ring-foreground/10 md:mx-auto md:w-full",
-          className
-        )}
-      >
-        <Slot>{content}</Slot>
+      <Drawer.Content asChild className={contentClassName}>
+        <Slot>{heightShell}</Slot>
       </Drawer.Content>
     )
   }
 
   return (
-    <Drawer.Content
-      asChild
-      className={clsx(
-        "fixed inset-x-4 bottom-4 z-50 mx-auto max-w-sm overflow-hidden rounded-2xl bg-background outline-none ring-1 ring-foreground/10 md:mx-auto md:w-full",
-        className
-      )}
-    >
-      {content}
-    </Drawer.Content>
+    <Drawer.Content className={contentClassName}>{heightShell}</Drawer.Content>
   )
 }
 
@@ -300,7 +321,7 @@ function FamilyDrawerAnimatedWrapper({
     <div
       ref={elementRef}
       className={clsx(
-        "flex max-h-[95vh] flex-col overflow-hidden px-4 pb-4 pt-2 antialiased",
+        "flex max-h-[95vh] flex-col overflow-hidden px-3 pb-3 pt-1 antialiased",
         className
       )}
     >
@@ -327,7 +348,7 @@ function FamilyDrawerAnimatedContent() {
           duration: opacityDuration,
           ease: [0.26, 0.08, 0.25, 1],
         }}
-        className="flex max-h-full min-h-0 flex-col overflow-hidden"
+        className="flex max-h-full min-h-0 flex-col overflow-hidden p-1"
       >
         <FamilyDrawerViewContent viewName={view} />
       </motion.div>
@@ -346,7 +367,7 @@ interface FamilyDrawerBodyProps {
 
 function FamilyDrawerBody({ children, className }: FamilyDrawerBodyProps) {
   return (
-    <div className={clsx("min-h-0 flex-1 overflow-y-auto", className)}>
+    <div className={clsx("min-h-0 flex-1 -m-1 overflow-y-auto p-1", className)}>
       {children}
     </div>
   )

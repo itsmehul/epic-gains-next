@@ -44,9 +44,10 @@ const mcpHandler = createMcpHandler(
       "Private accounts require an accepted follow before workouts are visible.",
       "When importing a follow-along video workout, use the 'import_full_workout' tool to create the workout and all its exercises in a single transaction.",
       "You must procure granular exercise-by-exercise data before calling the tool:",
-      "1) Resolve the canonical video URL and title.",
-      "2) Obtain a timed move list (chapters, timed description, or transcript) with exact start times per exercise — never only coarse section ranges like Warm-Up 0:00–5:00.",
-      "3) Call import_full_workout, providing the sourceVideoUrl at the root, and the exact timestamps (videoStartTime in seconds) for each move in the exercises array.",
+      "1) Resolve the canonical video URL, title, and duration in seconds.",
+      "2) Obtain a timed move list (chapters, timed description, or transcript). Each chapter timestamp is that move's START, not its end — never only coarse section ranges like Warm-Up 0:00–5:00.",
+      "3) For markers T[0]..T[n], set exercise i to videoStartTime=T[i] and videoEndTime=T[i+1] (last move ends at video duration). Do not use T[i+1] as the start of move i. Adjacent moves must abut.",
+      "4) Call import_full_workout with sourceVideoUrl at the root and those timestamps in seconds.",
     ].join("\n"),
   },
 );

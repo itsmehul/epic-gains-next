@@ -135,7 +135,7 @@ type AppShellHeaderProps = {
 function ScrollableTitle({ children }: { children: string }) {
   return (
     <h1
-      className="overflow-x-auto py-0 pr-4 text-base font-semibold tracking-tight whitespace-nowrap md:py-1"
+      className="overflow-x-auto py-0 pr-4 text-base font-semibold tracking-tight whitespace-nowrap scrollbar-none md:py-1"
       title={children}
     >
       {children}

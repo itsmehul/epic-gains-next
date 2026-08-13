@@ -232,6 +232,87 @@ type ExerciseResolveCardProps = {
   onResolved: (workoutExerciseId: string) => void;
 };
 
+function ExerciseResolveCardInner({
+  candidates,
+}: {
+  candidates: SimilarExerciseCandidate[];
+}) {
+  const { setView } = useFamilyDrawer();
+  const ctx = useResolveDrawer();
+
+  function openConfirm(targetId: string) {
+    ctx.setPendingTargetId(targetId);
+    ctx.setError(null);
+    setView("confirm");
+    ctx.setOpen(true);
+  }
+
+  return (
+    <>
+      <div className="space-y-3">
+        {candidates.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+              Similar exercises
+            </p>
+            <ul className="space-y-1.5">
+              {candidates.map((candidate) => (
+                <li key={candidate.id}>
+                  <button
+                    type="button"
+                    onClick={() => openConfirm(candidate.id)}
+                    className="flex w-full items-center justify-between gap-2 rounded-xl border border-border/60 bg-background/60 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">
+                        {candidate.name}
+                      </span>
+                      {candidate.matchedAlias ? (
+                        <span className="text-muted-foreground block truncate text-xs">
+                          via “{candidate.matchedAlias}”
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="text-primary shrink-0 text-xs font-medium">
+                      Link
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        <FamilyDrawerTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground h-8 px-2 text-xs"
+            onClick={() => {
+              ctx.setPendingTargetId(null);
+              setView("default");
+            }}
+          >
+            <IconSearch data-icon="inline-start" />
+            Find existing exercise
+          </Button>
+        </FamilyDrawerTrigger>
+      </div>
+
+      <FamilyDrawerPortal>
+        <FamilyDrawerOverlay />
+        <FamilyDrawerContent>
+          <FamilyDrawerClose />
+          <FamilyDrawerAnimatedWrapper>
+            <FamilyDrawerAnimatedContent />
+          </FamilyDrawerAnimatedWrapper>
+        </FamilyDrawerContent>
+      </FamilyDrawerPortal>
+    </>
+  );
+}
+
 export function ExerciseResolveCard({
   workoutId,
   exerciseId,
@@ -240,7 +321,6 @@ export function ExerciseResolveCard({
   onResolved,
 }: ExerciseResolveCardProps) {
   const [open, setOpen] = useState(false);
-  const [view, setView] = useState("default");
   const [pendingTargetId, setPendingTargetId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -259,13 +339,6 @@ export function ExerciseResolveCard({
     [workoutId, exerciseId, workoutExerciseId, pendingTargetId, onResolved, error],
   );
 
-  function openConfirm(targetId: string) {
-    setPendingTargetId(targetId);
-    setError(null);
-    setView("confirm");
-    setOpen(true);
-  }
-
   return (
     <ResolveDrawerContext.Provider value={ctxValue}>
       <FamilyDrawerRoot
@@ -275,77 +348,15 @@ export function ExerciseResolveCard({
           if (!next) {
             setPendingTargetId(null);
             setError(null);
-            setView("default");
           }
         }}
-        view={view}
         defaultView="default"
-        onViewChange={setView}
         views={{
           default: SearchView,
           confirm: ConfirmView,
         }}
       >
-        <div className="space-y-3">
-          {candidates.length > 0 ? (
-            <div className="space-y-2">
-              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                Similar exercises
-              </p>
-              <ul className="space-y-1.5">
-                {candidates.map((candidate) => (
-                  <li key={candidate.id}>
-                    <button
-                      type="button"
-                      onClick={() => openConfirm(candidate.id)}
-                      className="flex w-full items-center justify-between gap-2 rounded-xl border border-border/60 bg-background/60 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate font-medium">
-                          {candidate.name}
-                        </span>
-                        {candidate.matchedAlias ? (
-                          <span className="text-muted-foreground block truncate text-xs">
-                            via “{candidate.matchedAlias}”
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="text-primary shrink-0 text-xs font-medium">
-                        Link
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          <FamilyDrawerTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground h-8 px-2 text-xs"
-              onClick={() => {
-                setPendingTargetId(null);
-                setView("default");
-              }}
-            >
-              <IconSearch data-icon="inline-start" />
-              Find existing exercise
-            </Button>
-          </FamilyDrawerTrigger>
-        </div>
-
-        <FamilyDrawerPortal>
-          <FamilyDrawerOverlay />
-          <FamilyDrawerContent>
-            <FamilyDrawerClose />
-            <FamilyDrawerAnimatedWrapper>
-              <FamilyDrawerAnimatedContent />
-            </FamilyDrawerAnimatedWrapper>
-          </FamilyDrawerContent>
-        </FamilyDrawerPortal>
+        <ExerciseResolveCardInner candidates={candidates} />
       </FamilyDrawerRoot>
     </ResolveDrawerContext.Provider>
   );

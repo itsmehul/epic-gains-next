@@ -12,7 +12,7 @@ const withSerwist = withSerwistInit({
 const nextConfig: NextConfig = {
   output: "standalone",
   serverExternalPackages: ["pg", "pg-workflows", "ksuid", "@opentelemetry/api"],
-  allowedDevOrigins: ['192.168.29.225'],
+  allowedDevOrigins: ['192.168.29.225', 'e272-2405-201-b-813d-54ad-470f-d2f6-debf.ngrok-free.app'],
   webpack: (config, { isServer, nextRuntime, webpack }) => {
     // instrumentation.ts is compiled for node, edge, and browser. Replace the
     // Node-only workflow engine with a stub outside the nodejs runtime so

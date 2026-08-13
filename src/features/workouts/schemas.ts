@@ -7,14 +7,14 @@ export const exerciseMetaDataSchema = z
       .nonnegative()
       .optional()
       .describe(
-        "Exercise start time in the source video, in seconds (e.g. 64 for 1:04). Prefer exact per-move timestamps over section-level approximations.",
+        "This move's start in the source video, in seconds (e.g. 0 for 0:00). Use this move's chapter timestamp, not the next chapter.",
       ),
     videoEndTime: z
       .number()
       .nonnegative()
       .optional()
       .describe(
-        "Exercise end time in the source video, in seconds. Use the next exercise's start when available; otherwise start + work/rest duration.",
+        "This move's end in the source video, in seconds. Use the next chapter timestamp (which is also the next move's start), or video duration for the last move.",
       ),
   })
   .strict();
@@ -108,12 +108,16 @@ export const importFullWorkoutSchema = z.object({
         videoStartTime: z
           .number()
           .nonnegative()
-          .describe("Exercise start time in the source video, in seconds."),
+          .describe(
+            "This move's start in the source video, in seconds. Use this move's chapter timestamp (T[i]), not the next chapter.",
+          ),
         videoEndTime: z
           .number()
           .nonnegative()
           .optional()
-          .describe("Exercise end time in the source video, in seconds."),
+          .describe(
+            "This move's end in the source video, in seconds. Use the next move's chapter timestamp (T[i+1]), or video duration for the last move. Must equal the next exercise's videoStartTime.",
+          ),
         tags: z
           .array(z.string().trim().min(1).max(64))
           .max(50)
@@ -123,6 +127,41 @@ export const importFullWorkoutSchema = z.object({
     )
     .min(1)
     .describe("List of moves and rest periods in the order they appear in the video."),
+});
+
+const clockTimestampSchema = z
+  .string()
+  .trim()
+  .regex(
+    /^\[?\d{1,2}:\d{2}(?::\d{2})?\]?$/,
+    "Timestamp must be MM:SS or HH:MM:SS",
+  );
+
+export const importWorkoutStructureSchema = z.object({
+  workoutName: z.string().trim().min(1).max(200).optional(),
+  author: z.string().trim().min(1).max(200).optional(),
+  sourceVideoUrl: z.string().url().optional(),
+  overview: z.object({
+    workout_length: z.string().trim().min(1).max(64),
+    structure: z.string().trim().min(1).max(200).optional(),
+    interval_pattern: z.string().trim().min(1).max(128),
+    equipment_needed: z.array(z.string().trim().min(1).max(64)).max(20).optional(),
+  }),
+  sections: z
+    .array(
+      z.object({
+        section_name: z.string().trim().min(1).max(200),
+        exercises: z
+          .array(
+            z.object({
+              name: z.string().trim().min(1).max(200),
+              timestamp: clockTimestampSchema,
+            }),
+          )
+          .min(1),
+      }),
+    )
+    .min(1),
 });
 
 export const createWorkoutExerciseSchema = z.object({
@@ -181,5 +220,8 @@ export type UpdateWorkoutExerciseInput = z.infer<
   typeof updateWorkoutExerciseSchema
 >;
 export type ImportFullWorkoutInput = z.infer<typeof importFullWorkoutSchema>;
+export type ImportWorkoutStructureInput = z.infer<
+  typeof importWorkoutStructureSchema
+>;
 export type CreateSetInput = z.infer<typeof createSetSchema>;
 export type UpdateSetInput = z.infer<typeof updateSetSchema>;
