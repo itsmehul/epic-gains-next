@@ -82,6 +82,7 @@ export async function listWorkoutsForUser(
         workoutId: workoutExercise.workoutId,
         name: workoutExercise.name,
         tags: workoutExercise.tags,
+        videoUrl: workoutExercise.videoUrl,
       })
       .from(workoutExercise)
       .where(inArray(workoutExercise.workoutId, ids)),
@@ -105,12 +106,16 @@ export async function listWorkoutsForUser(
   ]);
 
   const exerciseByWorkout = new Map<string, number>();
+  const videoUrlByWorkout = new Map<string, string | null>();
   for (const row of exerciseRows) {
     if (isRestWorkoutItem(row)) continue;
     exerciseByWorkout.set(
       row.workoutId,
       (exerciseByWorkout.get(row.workoutId) ?? 0) + 1,
     );
+    if (!videoUrlByWorkout.has(row.workoutId) && row.videoUrl) {
+      videoUrlByWorkout.set(row.workoutId, row.videoUrl);
+    }
   }
   const setByWorkout = new Map(
     setRows.map((row) => [
@@ -149,6 +154,7 @@ export async function listWorkoutsForUser(
     const setStats = setByWorkout.get(item.id);
     return {
       ...item,
+      videoUrl: videoUrlByWorkout.get(item.id) ?? null,
       stats: {
         exerciseCount: exerciseByWorkout.get(item.id) ?? 0,
         setCount: setStats?.setCount ?? 0,

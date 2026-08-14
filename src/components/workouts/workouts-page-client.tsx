@@ -3,9 +3,8 @@
 import {
   IconBarbell,
   IconBrandYoutube,
-  IconChevronDown,
-  IconEye,
-  IconFilter,
+  IconDotsVertical,
+  IconPlayerPlayFilled,
   IconRefresh,
   IconSearch,
   IconTrash,
@@ -15,7 +14,7 @@ import {
 } from "@tabler/icons-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 
 import {
   AppShellBody,
@@ -23,15 +22,6 @@ import {
   AppShellScroll,
 } from "@/components/layout/app-shell";
 import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -44,17 +34,14 @@ import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
-  PopoverHeader,
-  PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
-import { WorkoutChannelLink } from "@/components/workouts/workout-channel-link";
-import { YoutubeImportDrawer } from "@/components/workouts/youtube-import-drawer";
 import type { MuscleGroup } from "@/db/schema/workout-schema";
 import { useDeleteWorkout, useWorkouts } from "@/features/workouts/hooks";
 import { MUSCLE_GROUP_OPTIONS } from "@/features/workouts/muscle-group";
 import type { WorkoutListStats, WorkoutWithStats } from "@/features/workouts/types";
+import { getYouTubeThumbnailUrl } from "@/features/workouts/youtube";
 import { cn } from "@/shared/utils";
 
 const springSoft = { type: "spring" as const, stiffness: 420, damping: 32 };
@@ -93,82 +80,6 @@ function formatWorkoutDate(value: Date | string) {
   });
 }
 
-function MuscleGroupFilter({
-  selected,
-  onChange,
-}: {
-  selected: MuscleGroup[];
-  onChange: (next: MuscleGroup[]) => void;
-}) {
-  const selectedCount = selected.length;
-  const label =
-    selectedCount === 0
-      ? "Muscle groups"
-      : selectedCount === 1
-        ? (MUSCLE_GROUP_OPTIONS.find((option) => option.value === selected[0])
-          ?.label ?? "Muscle groups")
-        : `${selectedCount} muscle groups`;
-
-  return (
-    <Popover>
-      <PopoverTrigger
-        render={
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="w-fit max-w-full"
-            aria-label="Filter by muscle group"
-          />
-        }
-      >
-        <IconFilter className="size-3.5" data-icon="inline-start" />
-        <span className="truncate">{label}</span>
-        <IconChevronDown className="size-3.5 opacity-60" data-icon="inline-end" />
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-56 gap-2 p-3">
-        <PopoverHeader>
-          <PopoverTitle className="text-sm">Muscle groups</PopoverTitle>
-        </PopoverHeader>
-        <ul className="flex flex-col gap-0.5">
-          {MUSCLE_GROUP_OPTIONS.map((option) => {
-            const checked = selected.includes(option.value);
-            return (
-              <li key={option.value}>
-                <label className="hover:bg-muted/70 flex cursor-pointer items-center gap-2 rounded-xl px-2 py-1.5 text-sm">
-                  <Checkbox
-                    checked={checked}
-                    onCheckedChange={(next) => {
-                      const isChecked = next === true;
-                      onChange(
-                        isChecked
-                          ? [...selected, option.value]
-                          : selected.filter((value) => value !== option.value),
-                      );
-                    }}
-                  />
-                  {option.label}
-                </label>
-              </li>
-            );
-          })}
-        </ul>
-        {selectedCount > 0 ? (
-          <Button
-            type="button"
-            size="xs"
-            variant="ghost"
-            className="self-start"
-            onClick={() => onChange([])}
-          >
-            Clear
-          </Button>
-        ) : null}
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 function formatVolume(volume: number) {
   if (volume <= 0) return null;
   if (volume >= 1000) return `${(volume / 1000).toFixed(1)}k`;
@@ -181,43 +92,84 @@ function formatVolumeChange(pct: number) {
   return `${pct > 0 ? "+" : "−"}${rounded}%`;
 }
 
-function WorkoutStatChips({ stats }: { stats: WorkoutListStats }) {
+function MuscleGroupChips({
+  selected,
+  onChange,
+}: {
+  selected: MuscleGroup[];
+  onChange: (next: MuscleGroup[]) => void;
+}) {
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+      <button
+        type="button"
+        onClick={() => onChange([])}
+        className={cn(
+          "h-8 shrink-0 rounded-lg px-3 text-sm font-medium transition-colors",
+          selected.length === 0
+            ? "bg-foreground text-background"
+            : "bg-muted text-foreground hover:bg-muted/80",
+        )}
+      >
+        All
+      </button>
+      {MUSCLE_GROUP_OPTIONS.map((option) => {
+        const active = selected.includes(option.value);
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => {
+              onChange(
+                active
+                  ? selected.filter((value) => value !== option.value)
+                  : [...selected, option.value],
+              );
+            }}
+            className={cn(
+              "h-8 shrink-0 rounded-lg px-3 text-sm font-medium transition-colors",
+              active
+                ? "bg-foreground text-background"
+                : "bg-muted text-foreground hover:bg-muted/80",
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function WorkoutMetaLine({ stats }: { stats: WorkoutListStats }) {
   const lastLogged = stats.lastLoggedAt
     ? formatWorkoutDate(stats.lastLoggedAt)
     : null;
   const volumeLabel = formatVolume(stats.volume);
-  const progressPct =
-    stats.exerciseCount > 0
-      ? Math.round((stats.loggedExerciseCount / stats.exerciseCount) * 100)
-      : null;
   const volumeChange = stats.volumeChangePct;
 
-  const chips: { key: string; label: string; tone?: "up" | "down" | "flat" }[] =
-    [];
+  const parts: { key: string; node: ReactNode }[] = [];
 
-  if (lastLogged) {
-    chips.push({ key: "logged", label: `Last ${lastLogged}` });
-  }
   if (stats.exerciseCount > 0) {
-    chips.push({
+    parts.push({
       key: "exercises",
-      label:
+      node:
         stats.loggedExerciseCount > 0
           ? `${stats.loggedExerciseCount}/${stats.exerciseCount} exercises`
           : `${stats.exerciseCount} ${stats.exerciseCount === 1 ? "exercise" : "exercises"}`,
     });
   }
   if (stats.setCount > 0) {
-    chips.push({
+    parts.push({
       key: "sets",
-      label: `${stats.setCount} ${stats.setCount === 1 ? "set" : "sets"}`,
+      node: `${stats.setCount} ${stats.setCount === 1 ? "set" : "sets"}`,
     });
   }
   if (volumeLabel) {
-    chips.push({ key: "volume", label: `${volumeLabel} vol` });
+    parts.push({ key: "volume", node: `${volumeLabel} vol` });
   }
-  if (progressPct != null && stats.setCount > 0) {
-    chips.push({ key: "progress", label: `${progressPct}% logged` });
+  if (lastLogged) {
+    parts.push({ key: "logged", node: lastLogged });
   }
   if (volumeChange != null) {
     const tone =
@@ -226,62 +178,162 @@ function WorkoutStatChips({ stats }: { stats: WorkoutListStats }) {
         : volumeChange > 0
           ? "up"
           : "down";
-    chips.push({
+    parts.push({
       key: "trend",
-      label: formatVolumeChange(volumeChange),
-      tone,
+      node: (
+        <span
+          className={cn(
+            "inline-flex items-center gap-0.5",
+            tone === "up" && "text-emerald-600 dark:text-emerald-400",
+            tone === "down" && "text-rose-600 dark:text-rose-400",
+          )}
+        >
+          {tone === "up" ? (
+            <IconTrendingUp className="size-3" aria-hidden />
+          ) : null}
+          {tone === "down" ? (
+            <IconTrendingDown className="size-3" aria-hidden />
+          ) : null}
+          {formatVolumeChange(volumeChange)}
+        </span>
+      ),
     });
   }
 
-  if (chips.length === 0) return null;
+  if (parts.length === 0) {
+    return <p className="text-muted-foreground text-xs">No sets logged yet</p>;
+  }
 
   return (
-    <p className="text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs">
-      {chips.map((chip, index) => (
-        <span key={chip.key} className="inline-flex items-center gap-1.5">
-          {index > 0 ? (
-            <span className="text-muted-foreground/40" aria-hidden>
-              ·
-            </span>
-          ) : null}
-          <span
-            className={cn(
-              "inline-flex items-center gap-0.5",
-              chip.tone === "up" && "text-emerald-600 dark:text-emerald-400",
-              chip.tone === "down" && "text-rose-600 dark:text-rose-400",
-            )}
-          >
-            {chip.tone === "up" ? (
-              <IconTrendingUp className="size-3" aria-hidden />
-            ) : null}
-            {chip.tone === "down" ? (
-              <IconTrendingDown className="size-3" aria-hidden />
-            ) : null}
-            {chip.label}
-          </span>
+    <p className="text-muted-foreground line-clamp-2 text-xs leading-relaxed">
+      {parts.map((part, index) => (
+        <span key={part.key}>
+          {index > 0 ? <span className="text-muted-foreground/40"> · </span> : null}
+          {part.node}
         </span>
       ))}
     </p>
   );
 }
 
-function WorkoutRowSkeleton({ index }: { index: number }) {
+function WorkoutFeedCard({
+  workout,
+  onDelete,
+}: {
+  workout: WorkoutWithStats;
+  onDelete: () => void;
+}) {
+  const thumbnail = workout.videoUrl
+    ? getYouTubeThumbnailUrl(workout.videoUrl)
+    : null;
+  const channel = workout.author?.trim() || "Imported workout";
+  const createdLabel = formatWorkoutDate(workout.createdAt);
+  const progressPct =
+    workout.stats.exerciseCount > 0
+      ? Math.round(
+        (workout.stats.loggedExerciseCount / workout.stats.exerciseCount) *
+        100,
+      )
+      : null;
+
   return (
-    <div
-      className="flex flex-col gap-4 rounded-4xl bg-card px-4 py-4 ring-1 ring-foreground/5"
-      style={{ animationDelay: `${index * 60}ms` }}
-    >
-      <div className="flex flex-col gap-2">
-        <div
-          className="bg-muted/80 h-4 animate-pulse rounded-md"
-          style={{ width: `${58 + ((index * 17) % 28)}%` }}
-        />
-        <div className="bg-muted/60 h-3 w-36 animate-pulse rounded-md" />
-        <div className="bg-muted/50 h-2.5 w-48 animate-pulse rounded-md" />
+    <article className="group flex flex-col gap-3">
+      <Link
+        href={`/workouts/${workout.id}`}
+        className="relative block overflow-hidden rounded-xl bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
+        <div className="relative aspect-video overflow-hidden bg-zinc-900">
+          {thumbnail ? (
+            // External YouTube CDN; next/image domain config not required.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={thumbnail}
+              alt=""
+              className="size-full object-cover transition duration-300 group-hover:scale-[1.03] group-hover:brightness-90"
+            />
+          ) : (
+            <div className="flex size-full items-center justify-center bg-linear-to-br from-zinc-800 to-zinc-950 text-zinc-500">
+              <IconBarbell className="size-12" stroke={1.25} />
+            </div>
+          )}
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+            <span className="flex size-12 items-center justify-center rounded-full bg-black/70 text-white shadow-lg">
+              <IconPlayerPlayFilled className="size-6 translate-x-px" />
+            </span>
+          </div>
+          {progressPct != null && workout.stats.setCount > 0 ? (
+            <span className="absolute right-1.5 bottom-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-white">
+              {progressPct}% logged
+            </span>
+          ) : workout.stats.exerciseCount > 0 ? (
+            <span className="absolute right-1.5 bottom-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-white">
+              {workout.stats.exerciseCount}{" "}
+              {workout.stats.exerciseCount === 1 ? "exercise" : "exercises"}
+            </span>
+          ) : null}
+        </div>
+      </Link>
+
+      <div className="flex gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start gap-1">
+            <Link href={`/workouts/${workout.id}`} className="min-w-0 flex-1">
+              <h2 className="line-clamp-2 text-sm leading-snug font-semibold tracking-tight">
+                {workout.name}
+              </h2>
+            </Link>
+            <Popover>
+              <PopoverTrigger
+                render={
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="ghost"
+                    className="mt-0.5 shrink-0 opacity-70 hover:opacity-100"
+                    aria-label={`More actions for ${workout.name}`}
+                  />
+                }
+              >
+                <IconDotsVertical className="size-4" />
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-40 gap-1 p-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive hover:bg-destructive/10 w-full justify-start"
+                  onClick={onDelete}
+                >
+                  <IconTrash className="size-3.5" data-icon="inline-start" />
+                  Delete
+                </Button>
+              </PopoverContent>
+            </Popover>
+          </div>
+          <p className="text-muted-foreground mt-0.5 truncate text-xs">
+            {channel}
+            {createdLabel ? ` · ${createdLabel}` : null}
+          </p>
+          <div className="mt-1">
+            <WorkoutMetaLine stats={workout.stats} />
+          </div>
+        </div>
       </div>
-      <div className="flex gap-2 border-t border-border/60 pt-3">
-        <div className="bg-muted/60 h-8 w-20 animate-pulse rounded-4xl" />
-        <div className="bg-muted/50 h-8 w-20 animate-pulse rounded-4xl" />
+    </article>
+  );
+}
+
+function WorkoutFeedSkeleton({ index }: { index: number }) {
+  return (
+    <div className="flex flex-col gap-3" style={{ animationDelay: `${index * 60}ms` }}>
+      <div className="bg-muted aspect-video animate-pulse rounded-xl" />
+      <div className="flex min-w-0 flex-col gap-2">
+        <div
+          className="bg-muted h-4 animate-pulse rounded-md"
+          style={{ width: `${62 + ((index * 13) % 28)}%` }}
+        />
+        <div className="bg-muted/70 h-3 w-28 animate-pulse rounded-md" />
+        <div className="bg-muted/50 h-3 w-40 animate-pulse rounded-md" />
       </div>
     </div>
   );
@@ -364,7 +416,6 @@ function DeleteWorkoutDialog({
 
 export function WorkoutsPageClient() {
   const searchId = useId();
-  const [importOpen, setImportOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<WorkoutWithStats | null>(
     null,
   );
@@ -397,34 +448,32 @@ export function WorkoutsPageClient() {
         title="Workouts"
         actions={
           <div className="flex items-center gap-1.5 md:gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setImportOpen(true)}
+            <Link
+              href="/workouts/import"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
               <IconBrandYoutube className="size-4 text-red-500" data-icon="inline-start" />
               Import YouTube
-            </Button>
+            </Link>
           </div>
         }
       />
-      <AppShellBody>
-        <div className="flex flex-col gap-3 md:gap-6 md:p-6">
-          <div className="flex flex-col gap-2 px-4 md:px-0">
-            <div className="relative">
+      <AppShellBody className="max-w-screen-2xl">
+        <div className="flex flex-col gap-4 px-4 py-4 md:gap-5 md:px-6 md:py-6">
+          <div className="flex flex-col gap-3">
+            <div className="relative mx-auto w-full max-w-xl">
               <IconSearch
                 aria-hidden
-                className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
+                className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2"
               />
               <Input
                 id={searchId}
                 type="search"
                 value={searchInput}
                 maxLength={200}
-                placeholder="Search by workout or author…"
+                placeholder="Search workouts or creators"
                 aria-label="Search workouts by name or author"
-                className="bg-muted/40 h-10 pr-10 pl-9"
+                className="bg-muted/50 h-10 rounded-full pr-10 pl-10"
                 onChange={(event) => setSearchInput(event.target.value)}
               />
               {searchInput ? (
@@ -440,7 +489,7 @@ export function WorkoutsPageClient() {
                 </Button>
               ) : null}
             </div>
-            <MuscleGroupFilter
+            <MuscleGroupChips
               selected={muscleGroups}
               onChange={setMuscleGroups}
             />
@@ -448,12 +497,12 @@ export function WorkoutsPageClient() {
 
           {workoutsQuery.isLoading ? (
             <div
-              className="flex flex-col gap-3 px-4 md:gap-4 md:px-0"
+              className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 xl:grid-cols-3"
               aria-busy="true"
               aria-label="Loading workouts"
             >
-              {Array.from({ length: 5 }, (_, index) => (
-                <WorkoutRowSkeleton key={index} index={index} />
+              {Array.from({ length: 6 }, (_, index) => (
+                <WorkoutFeedSkeleton key={index} index={index} />
               ))}
             </div>
           ) : null}
@@ -463,7 +512,7 @@ export function WorkoutsPageClient() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.28, ease: easeOut }}
-              className="mx-4 flex flex-col items-start gap-4 rounded-3xl border border-destructive/20 bg-destructive/5 px-5 py-6 md:mx-0"
+              className="flex flex-col items-start gap-4 rounded-3xl border border-destructive/20 bg-destructive/5 px-5 py-6"
               role="alert"
             >
               <div className="flex flex-col gap-1.5">
@@ -493,23 +542,23 @@ export function WorkoutsPageClient() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, ease: easeOut }}
-              className="relative mx-4 flex flex-col items-center gap-5 overflow-hidden rounded-3xl border border-dashed border-primary/25 bg-linear-to-b from-primary/8 to-transparent px-6 py-14 text-center md:mx-0"
+              className="relative flex flex-col items-center gap-5 overflow-hidden rounded-3xl border border-dashed border-primary/25 bg-linear-to-b from-primary/8 to-transparent px-6 py-16 text-center"
             >
               <div
                 aria-hidden
                 className="absolute inset-0 bg-[radial-gradient(color-mix(in_oklch,var(--foreground)_12%,transparent)_1px,transparent_1px)] bg-size-[14px_14px] opacity-[0.35]"
               />
               <div className="relative flex size-14 items-center justify-center rounded-2xl bg-primary/15 text-primary ring-1 ring-primary/20">
-                <IconBarbell className="size-7" stroke={1.5} />
+                <IconBrandYoutube className="size-7 text-red-500" stroke={1.5} />
               </div>
               <div className="relative flex max-w-xs flex-col gap-2">
                 <p className="text-base font-semibold tracking-tight">
-                  {hasFilters ? "No matches" : "No sessions yet"}
+                  {hasFilters ? "No matches" : "Your feed is empty"}
                 </p>
                 <p className="text-muted-foreground text-sm leading-relaxed">
                   {hasFilters
-                    ? "Nothing matched those filters. Try a different name, author, or muscle group."
-                    : "Import a YouTube workout to log sets, follow video timestamps, and keep your training history in one place."}
+                    ? "Nothing matched those filters. Try a different name, creator, or muscle group."
+                    : "Import a YouTube workout and it will show up here like a video in your feed."}
                 </p>
               </div>
               {hasFilters ? (
@@ -525,14 +574,10 @@ export function WorkoutsPageClient() {
                   Clear filters
                 </Button>
               ) : (
-                <Button
-                  type="button"
-                  className="relative"
-                  onClick={() => setImportOpen(true)}
-                >
+                <Link href="/workouts/import" className={cn(buttonVariants(), "relative")}>
                   <IconBrandYoutube className="size-4 text-red-500" data-icon="inline-start" />
                   Import
-                </Button>
+                </Link>
               )}
             </motion.div>
           ) : null}
@@ -540,94 +585,33 @@ export function WorkoutsPageClient() {
           {showList ? (
             <ul
               className={cn(
-                "flex flex-col gap-3 px-4 transition-opacity duration-200 md:gap-4 md:px-0",
+                "grid grid-cols-1 gap-x-4 gap-y-8 transition-opacity duration-200 sm:grid-cols-2 xl:grid-cols-3",
                 workoutsQuery.isFetching && "opacity-70",
               )}
             >
               <AnimatePresence initial={false}>
-                {items.map((workout, index) => {
-                  const createdLabel = formatWorkoutDate(workout.createdAt);
-                  const hasStats =
-                    workout.stats.exerciseCount > 0 ||
-                    workout.stats.setCount > 0;
-
-                  return (
-                    <motion.li
-                      key={workout.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{
-                        ...springSoft,
-                        delay: Math.min(index * 0.035, 0.28),
-                      }}
-                    >
-                      <Card size="sm">
-                        <CardHeader>
-                          <CardTitle className="truncate leading-snug tracking-tight">
-                            {workout.name}
-                          </CardTitle>
-                          {createdLabel ||
-                            workout.author ||
-                            workout.channelUrl ? (
-                            <CardDescription className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                              {workout.author || workout.channelUrl ? (
-                                <WorkoutChannelLink
-                                  author={workout.author}
-                                  channelUrl={workout.channelUrl}
-                                />
-                              ) : null}
-                              {createdLabel ? (
-                                <span>Created {createdLabel}</span>
-                              ) : null}
-                            </CardDescription>
-                          ) : null}
-                        </CardHeader>
-                        <CardContent>
-                          {hasStats || workout.stats.lastLoggedAt ? (
-                            <WorkoutStatChips stats={workout.stats} />
-                          ) : (
-                            <p className="text-muted-foreground/80 text-xs">
-                              No sets logged yet
-                            </p>
-                          )}
-                        </CardContent>
-                        <CardFooter className="gap-2 border-t border-border/60">
-                          <Link
-                            href={`/workouts/${workout.id}`}
-                            className={cn(
-                              buttonVariants({ variant: "outline", size: "sm" }),
-                            )}
-                          >
-                            <IconEye
-                              className="size-3.5"
-                              data-icon="inline-start"
-                            />
-                            View
-                          </Link>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => setDeleteTarget(workout)}
-                          >
-                            <IconTrash
-                              className="size-3.5"
-                              data-icon="inline-start"
-                            />
-                            Delete
-                          </Button>
-                        </CardFooter>
-                      </Card>
-                    </motion.li>
-                  );
-                })}
+                {items.map((workout, index) => (
+                  <motion.li
+                    key={workout.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                      ...springSoft,
+                      delay: Math.min(index * 0.035, 0.28),
+                    }}
+                  >
+                    <WorkoutFeedCard
+                      workout={workout}
+                      onDelete={() => setDeleteTarget(workout)}
+                    />
+                  </motion.li>
+                ))}
               </AnimatePresence>
             </ul>
           ) : null}
         </div>
       </AppShellBody>
 
-      <YoutubeImportDrawer open={importOpen} onOpenChange={setImportOpen} />
       <DeleteWorkoutDialog
         workout={deleteTarget}
         open={deleteTarget != null}

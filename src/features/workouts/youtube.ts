@@ -28,6 +28,12 @@ export function getYouTubeVideoId(url: string): string | null {
   return null;
 }
 
+export function getYouTubeThumbnailUrl(url: string): string | null {
+  const videoId = getYouTubeVideoId(url);
+  if (!videoId) return null;
+  return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+}
+
 export function formatVideoTimestamp(seconds: number): string {
   const total = Math.max(0, Math.floor(seconds));
   const hours = Math.floor(total / 3600);

@@ -17,6 +17,7 @@ export type WorkoutListStats = {
 };
 
 export type WorkoutWithStats = Workout & {
+  videoUrl: string | null;
   stats: WorkoutListStats;
 };
 
