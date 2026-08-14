@@ -28,6 +28,7 @@ import {
 import { exercise, workout, workoutExercise } from "@/db/schema";
 import { exerciseNameLookupKeys } from "@/features/workouts/exercise-name";
 import {
+  resolveImportKeyMuscles,
   resolveImportMetricProfile,
   resolveImportMuscleGroup,
 } from "@/features/workouts/import-structure";
@@ -202,6 +203,7 @@ export function registerWorkoutMcpTools(server: McpServer) {
                   name: ex.name,
                   metricProfile: resolveImportMetricProfile(ex),
                   muscleGroup: resolveImportMuscleGroup(ex),
+                  keyMuscles: resolveImportKeyMuscles(ex) ?? [],
                 })
                 .returning();
               usageById.set(exerciseId, 0);
@@ -216,6 +218,7 @@ export function registerWorkoutMcpTools(server: McpServer) {
                   {
                     metricProfile: resolveImportMetricProfile(ex),
                     muscleGroup: resolveImportMuscleGroup(ex),
+                    keyMuscles: resolveImportKeyMuscles(ex),
                   },
                 );
                 existingById.set(exerciseId, enriched);

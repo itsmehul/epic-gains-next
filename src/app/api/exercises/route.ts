@@ -70,6 +70,7 @@ export async function POST(req: Request) {
       name: parsed.data.name,
       metricProfile: parsed.data.metric_profile ?? "CUSTOM",
       muscleGroup: parsed.data.muscle_group,
+      keyMuscles: parsed.data.key_muscles ?? [],
     });
 
     return NextResponse.json(item, { status: 201 });

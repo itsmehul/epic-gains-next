@@ -19,6 +19,7 @@ export type ExpandedImportWorkout = {
     tags?: string[];
     metricProfile?: MetricProfile;
     muscleGroup?: MuscleGroup;
+    keyMuscles?: string[];
   }>;
 };
 
@@ -39,6 +40,18 @@ export function resolveImportMuscleGroup(
 ): MuscleGroup | undefined {
   if ("muscleGroup" in ex && ex.muscleGroup) return ex.muscleGroup;
   if ("muscle_group" in ex && ex.muscle_group) return ex.muscle_group;
+  return undefined;
+}
+
+export function resolveImportKeyMuscles(
+  ex: ImportExerciseInput,
+): string[] | undefined {
+  if ("keyMuscles" in ex && ex.keyMuscles && ex.keyMuscles.length > 0) {
+    return ex.keyMuscles;
+  }
+  if ("key_muscles" in ex && ex.key_muscles && ex.key_muscles.length > 0) {
+    return ex.key_muscles;
+  }
   return undefined;
 }
 
@@ -155,6 +168,7 @@ export function expandImportStructure(
       tags,
       metricProfile: current.metric_profile ?? current.metricProfile,
       muscleGroup: current.muscle_group ?? current.muscleGroup,
+      keyMuscles: current.key_muscles ?? current.keyMuscles,
     });
 
     if (workEnd < nextStart) {

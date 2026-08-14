@@ -342,6 +342,9 @@ export function WorkoutDetailPageClient() {
                       muscleGroup={
                         exerciseById.get(selectedItem.exerciseId)?.muscleGroup
                       }
+                      keyMuscles={
+                        exerciseById.get(selectedItem.exerciseId)?.keyMuscles
+                      }
                       sets={selectedSets}
                       onExerciseResolved={(id) => {
                         setActiveWorkoutExerciseId(id);

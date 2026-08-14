@@ -11,6 +11,7 @@ import { exercise, workout, workoutExercise } from "@/db/schema";
 import { exerciseNameLookupKeys } from "@/features/workouts/exercise-name";
 import {
   expandImportStructure,
+  resolveImportKeyMuscles,
   resolveImportMetricProfile,
   resolveImportMuscleGroup,
   type ExpandedImportWorkout,
@@ -163,6 +164,7 @@ export async function POST(req: Request) {
               name: ex.name,
               metricProfile: resolveImportMetricProfile(ex),
               muscleGroup: resolveImportMuscleGroup(ex),
+              keyMuscles: resolveImportKeyMuscles(ex) ?? [],
             })
             .returning();
           usageById.set(exerciseId, 0);
@@ -177,6 +179,7 @@ export async function POST(req: Request) {
               {
                 metricProfile: resolveImportMetricProfile(ex),
                 muscleGroup: resolveImportMuscleGroup(ex),
+                keyMuscles: resolveImportKeyMuscles(ex),
               },
             );
             existingById.set(exerciseId, enriched);

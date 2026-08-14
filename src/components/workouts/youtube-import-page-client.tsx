@@ -56,6 +56,9 @@ Assign a \`muscle_group\` enum to each exercise based on the primary target:
 
 If a move is truly full-body cardio with no primary muscle (e.g., Jumping Jacks, Running), pick the closest dominant group or omit \`muscle_group\`.
 
+### Key Muscles Rules:
+Assign \`key_muscles\` as an array of specific anatomical muscle names that this move actually uses (not the broad group). Use standard Latin/anatomical names when they add precision (e.g. \`Tibialis Anterior\`, \`Peroneus Tertius\`, \`Rectus Abdominis\`, \`Gluteus Medius\`, \`Latissimus Dorsi\`). Include 1–6 muscles, primary first. Omit the field or use \`[]\` when the move is generic cardio with no clear targeted muscles.
+
 ### JSON Structure Requirements:
 Return a JSON object matching this schema inside a markdown code block. Do not include any extra text:
 
@@ -77,7 +80,8 @@ Return a JSON object matching this schema inside a markdown code block. Do not i
           "name": "string (clear, standard exercise name for this move)",
           "timestamp": "string (EXACT start time of THIS exercise move in MM:SS or HH:MM:SS format, e.g. '01:21')",
           "metric_profile": "string (ONE of: 'WEIGHT_REPS', 'BODYWEIGHT_REPS', 'WEIGHTED_REPS', 'TIMED_HOLD', 'CARDIO_DISTANCE', 'LOADED_CARRY', 'CUSTOM')",
-          "muscle_group": "string (ONE of: 'chest', 'back', 'shoulders', 'arms', 'legs', 'core')"
+          "muscle_group": "string (ONE of: 'chest', 'back', 'shoulders', 'arms', 'legs', 'core')",
+          "key_muscles": ["string (anatomical names, e.g. 'Tibialis Anterior', 'Peroneus Tertius')"]
         }
       ]
     }

@@ -308,6 +308,7 @@ type ExerciseSetsPanelProps = {
   workoutExerciseId: string;
   metricProfile?: MetricProfile | null;
   muscleGroup?: MuscleGroup | null;
+  keyMuscles?: string[] | null;
   sets: Set[];
   onExerciseResolved?: (workoutExerciseId: string) => void;
 };
@@ -318,6 +319,7 @@ export function ExerciseSetsPanel({
   workoutExerciseId,
   metricProfile,
   muscleGroup,
+  keyMuscles,
   sets,
   onExerciseResolved,
 }: ExerciseSetsPanelProps) {
@@ -798,6 +800,11 @@ export function ExerciseSetsPanel({
                     </Badge>
                   ) : null}
                 </div>
+                {keyMuscles && keyMuscles.length > 0 ? (
+                  <p className="text-muted-foreground text-xs">
+                    {keyMuscles.join(", ")}
+                  </p>
+                ) : null}
                 <CardDescription>
                   Add a set to start logging, or link this move to an existing
                   exercise to unify history.

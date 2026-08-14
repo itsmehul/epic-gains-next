@@ -66,6 +66,7 @@ export async function fillMissingExerciseCatalogFields(
   incoming: {
     muscleGroup?: MuscleGroup | null;
     metricProfile?: MetricProfile | null;
+    keyMuscles?: string[] | null;
   },
 ): Promise<ExerciseRow> {
   const patch = missingExerciseCatalogPatch(current, incoming);
@@ -264,6 +265,10 @@ export async function consolidateDuplicateExercisesForUser(
             ? canonical.metricProfile
             : duplicates.find((item) => item.metricProfile !== "CUSTOM")
                 ?.metricProfile,
+        keyMuscles:
+          canonical.keyMuscles?.length
+            ? canonical.keyMuscles
+            : duplicates.find((item) => item.keyMuscles?.length)?.keyMuscles,
       });
       if (Object.keys(patch).length > 0) {
         await dbOrTx

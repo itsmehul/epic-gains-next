@@ -1,0 +1,1 @@
+ALTER TABLE "exercise" ADD COLUMN "key_muscles" text[] DEFAULT '{}' NOT NULL;

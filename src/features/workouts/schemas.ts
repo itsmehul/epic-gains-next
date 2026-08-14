@@ -26,6 +26,9 @@ export const exerciseMetaDataSchema = z
 
 export const metricProfileEnum = z.enum(METRIC_PROFILE_VALUES);
 export const muscleGroupEnum = z.enum(MUSCLE_GROUP_VALUES);
+export const keyMusclesSchema = z
+  .array(z.string().trim().min(1).max(80))
+  .max(8);
 
 export const listWorkoutsQuerySchema = z.object({
   q: z.string().trim().max(200).optional(),
@@ -78,6 +81,7 @@ export const createExerciseSchema = z.object({
     ),
   metric_profile: metricProfileEnum.optional(),
   muscle_group: muscleGroupEnum.optional(),
+  key_muscles: keyMusclesSchema.optional(),
 });
 
 export const listExercisesQuerySchema = z.object({
@@ -158,6 +162,9 @@ export const importFullWorkoutSchema = z.object({
         muscle_group: muscleGroupEnum.optional().describe(
           "Primary muscle group: chest, back, shoulders, arms, legs, or core.",
         ),
+        key_muscles: keyMusclesSchema.optional().describe(
+          "Specific anatomical muscles used (e.g. Tibialis Anterior, Peroneus Tertius).",
+        ),
       }),
     )
     .min(1)
@@ -196,6 +203,8 @@ export const importWorkoutStructureSchema = z.object({
               metricProfile: metricProfileEnum.optional(),
               muscle_group: muscleGroupEnum.optional(),
               muscleGroup: muscleGroupEnum.optional(),
+              key_muscles: keyMusclesSchema.optional(),
+              keyMuscles: keyMusclesSchema.optional(),
             }),
           )
           .min(1),

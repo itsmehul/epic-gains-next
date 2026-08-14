@@ -79,6 +79,7 @@ export const exercise = pgTable(
       .notNull()
       .default("CUSTOM"),
     muscleGroup: muscleGroupEnum("muscle_group"),
+    keyMuscles: text("key_muscles").array().notNull().default([]),
   },
   (table) => [index("exercise_userId_idx").on(table.userId)],
 );
