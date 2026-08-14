@@ -81,6 +81,18 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["google"],
+      // Email/password sign-up does not verify addresses, so the default
+      // requireLocalEmailVerified gate would reject Google for the same email.
+      requireLocalEmailVerified: false,
+    },
+  },
+  onAPIError: {
+    errorURL: "/sign-in",
+  },
   user: {
     additionalFields: {
       username: {

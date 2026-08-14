@@ -20,6 +20,14 @@ import { AuthAmbientBackground } from "@/components/auth/auth-ambient-background
 import { signIn } from "@/infrastructure/auth/client";
 import { APP_NAME, BRAND_ICON } from "@/shared/pwa/constants";
 
+function oauthCallbackErrorMessage(code: string | null) {
+  if (!code) return null;
+  if (code === "account_not_linked") {
+    return "This email already has an account. Sign in with email and password, then you can use Google next time.";
+  }
+  return "Google sign-in failed. Try again.";
+}
+
 function safeNextPath(next: string | null) {
   if (next && next.startsWith("/") && !next.startsWith("//")) {
     return next;
@@ -37,7 +45,9 @@ function mcpAuthorizeResumePath(searchParams: URLSearchParams): string | null {
 function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    oauthCallbackErrorMessage(searchParams.get("error")),
+  );
   const [pending, setPending] = useState(false);
   const nextPath = safeNextPath(searchParams.get("next"));
   const mcpAuthorizePath = mcpAuthorizeResumePath(searchParams);

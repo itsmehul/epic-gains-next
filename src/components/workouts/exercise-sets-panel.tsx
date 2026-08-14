@@ -6,8 +6,9 @@ import {
   IconPlus,
   IconTrash,
 } from "@tabler/icons-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useId, useRef, useState } from "react";
+import useMeasure from "react-use-measure";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,10 +43,80 @@ type RowValues = Record<FieldKey, string>;
 type DraftRow = {
   id: string;
   values: RowValues;
+  shouldFocus?: boolean;
+  committed?: Set;
 };
 
 const springSnappy = { type: "spring" as const, stiffness: 520, damping: 36 };
-const easeOut = [0.25, 1, 0.5, 1] as const;
+const sizeEase = [0.22, 1, 0.36, 1] as const;
+const sizeTransition = { duration: 0.28, ease: sizeEase };
+const FOCUS_AFTER_MS = 280;
+const collapseGridClass =
+  "grid transition-[grid-template-rows] duration-280 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none";
+
+type SizeTransition = typeof sizeTransition | { duration: number };
+
+function SwapSize({
+  swapKey,
+  children,
+  transition,
+}: {
+  swapKey: string;
+  children: React.ReactNode;
+  transition: SizeTransition;
+}) {
+  const [ref, bounds] = useMeasure();
+  const lastHeightRef = useRef(0);
+  const originHeightRef = useRef(0);
+  const [state, setState] = useState({ key: swapKey, locked: false });
+
+  if (swapKey !== state.key) {
+    originHeightRef.current = lastHeightRef.current;
+    setState({ key: swapKey, locked: true });
+  }
+
+  useEffect(() => {
+    if (!state.locked && bounds.height > 0) {
+      lastHeightRef.current = bounds.height;
+    }
+  }, [bounds.height, state.locked]);
+
+  useEffect(() => {
+    if (!state.locked) return;
+    const timeoutId = window.setTimeout(
+      () => {
+        setState((prev) => {
+          if (!prev.locked) return prev;
+          return { ...prev, locked: false };
+        });
+      },
+      Math.round(transition.duration * 1000) + 32,
+    );
+    return () => window.clearTimeout(timeoutId);
+  }, [state.locked, state.key, transition.duration]);
+
+  const height = state.locked
+    ? bounds.height > 0
+      ? bounds.height
+      : originHeightRef.current || "auto"
+    : "auto";
+
+  return (
+    <motion.div
+      initial={false}
+      animate={{ height }}
+      transition={state.locked ? transition : { duration: 0 }}
+      onAnimationComplete={() => {
+        if (!state.locked) return;
+        setState((prev) => (prev.locked ? { ...prev, locked: false } : prev));
+        if (bounds.height > 0) lastHeightRef.current = bounds.height;
+      }}
+      className={state.locked ? "overflow-clip" : undefined}
+    >
+      <div ref={ref}>{children}</div>
+    </motion.div>
+  );
+}
 
 function createDraftId() {
   const randomUUID = globalThis.crypto?.randomUUID?.bind(globalThis.crypto);
@@ -145,8 +216,22 @@ function SetMetricInput({
   onKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
   autoFocus?: boolean;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!autoFocus) return;
+    const timeoutId = window.setTimeout(() => {
+      const input = inputRef.current;
+      if (!input) return;
+      input.focus({ preventScroll: true });
+      input.select();
+    }, FOCUS_AFTER_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [autoFocus]);
+
   return (
     <input
+      ref={inputRef}
       id={id}
       type="number"
       inputMode={inputMode}
@@ -155,7 +240,6 @@ function SetMetricInput({
       aria-label={ariaLabel}
       disabled={disabled}
       value={value}
-      autoFocus={autoFocus}
       onChange={(event) => onChange(event.target.value)}
       onFocus={(event) => {
         onFocus?.();
@@ -240,6 +324,8 @@ export function ExerciseSetsPanel({
   const createSet = useCreateSet();
   const updateSet = useUpdateSet();
   const deleteSet = useDeleteSet();
+  const reduceMotion = useReducedMotion();
+  const transition = reduceMotion ? { duration: 0 } : sizeTransition;
   const showResolve = sets.length === 0;
   const similarQuery = useSimilarExercises(exerciseId, {
     workoutId,
@@ -256,6 +342,10 @@ export function ExerciseSetsPanel({
     () => new Set<string>(),
   );
   const [uncheckedIds, setUncheckedIds] = useState(() => new Set<string>());
+  const [removedIds, setRemovedIds] = useState(() => new Set<string>());
+  const [rowKeyBySetId, setRowKeyBySetId] = useState<Record<string, string>>(
+    {},
+  );
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -272,6 +362,8 @@ export function ExerciseSetsPanel({
   }, [savedValues]);
 
   useEffect(() => {
+    const ids = new Set(sets.map((set) => set.id));
+
     setSavedValues((prev) => {
       const next: Record<string, RowValues> = {};
       for (const set of sets) {
@@ -283,35 +375,77 @@ export function ExerciseSetsPanel({
       return next;
     });
     setUncheckedIds((prev) => {
-      const ids = new Set(sets.map((set) => set.id));
       const next = new Set<string>();
       for (const id of prev) {
         if (ids.has(id)) next.add(id);
       }
       return next;
     });
+    setDrafts((prev) => {
+      const next = prev.filter(
+        (draft) => !draft.committed || !ids.has(draft.committed.id),
+      );
+      return next.length === prev.length ? prev : next;
+    });
+    setRemovedIds((prev) => {
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (ids.has(id)) next.add(id);
+      }
+      return next.size === prev.size ? prev : next;
+    });
   }, [sets]);
 
   const extraKeys = profileFields.extra;
+  const liveDrafts = drafts.filter((draft) => !draft.committed);
+  const visibleSets = [
+    ...sets.filter((set) => !removedIds.has(set.id)),
+    ...drafts.flatMap((draft) => {
+      if (!draft.committed) return [];
+      if (removedIds.has(draft.committed.id)) return [];
+      if (sets.some((set) => set.id === draft.committed?.id)) return [];
+      return [draft.committed];
+    }),
+  ];
+  const rows = [
+    ...visibleSets.map((set, index) => ({
+      kind: "saved" as const,
+      rowId: rowKeyBySetId[set.id] ?? set.id,
+      setId: set.id,
+      values: savedValues[set.id] ?? valuesFromSet(set),
+      index,
+      shouldFocus: false as boolean,
+    })),
+    ...liveDrafts.map((draft, draftIndex) => ({
+      kind: "draft" as const,
+      rowId: draft.id,
+      setId: draft.id,
+      values: draft.values,
+      index: visibleSets.length + draftIndex,
+      shouldFocus: Boolean(draft.shouldFocus),
+    })),
+  ];
+  const showEmpty = rows.length === 0;
   const hasExtraValues =
     extraKeys.some((key) =>
-      sets.some((set) => set[key] != null),
+      visibleSets.some((set) => set[key] != null),
     ) ||
-    drafts.some((draft) =>
+    liveDrafts.some((draft) =>
       extraKeys.some((key) => draft.values[key].trim() !== ""),
     );
   const extrasOpen = extraFields.length > 0 && (showExtras || hasExtraValues);
 
   function handleAddSet() {
     setError(null);
-    const lastSaved = sets.at(-1);
-    const lastDraft = drafts.at(-1);
+    const lastSaved = visibleSets.at(-1);
+    const lastDraft = liveDrafts.at(-1);
     const id = createDraftId();
     setDrafts((prev) => [
       ...prev,
       {
         id,
         values: valuesFromLast(lastSaved, lastDraft),
+        shouldFocus: true,
       },
     ]);
     setExpandedId(id);
@@ -326,7 +460,9 @@ export function ExerciseSetsPanel({
       return;
     }
 
-    const existing = sets.find((set) => set.id === setId);
+    const existing =
+      sets.find((set) => set.id === setId) ??
+      drafts.find((draft) => draft.committed?.id === setId)?.committed;
     if (!existing) return;
 
     const payload = toPayload(values);
@@ -350,7 +486,7 @@ export function ExerciseSetsPanel({
 
   async function completeDraft(draftId: string) {
     const draft = drafts.find((row) => row.id === draftId);
-    if (!draft) return;
+    if (!draft || draft.committed) return;
 
     if (
       !profileFields.primary.some((key) => draft.values[key].trim() !== "")
@@ -372,13 +508,22 @@ export function ExerciseSetsPanel({
         exerciseId,
         ...toPayload(draft.values),
       });
-      setDrafts((prev) => prev.filter((row) => row.id !== draftId));
+      setRowKeyBySetId((prev) => ({ ...prev, [created.id]: draftId }));
+      setSavedValues((prev) => ({
+        ...prev,
+        [created.id]: valuesFromSet(created),
+      }));
+      setDrafts((prev) =>
+        prev.map((row) =>
+          row.id === draftId ? { ...row, committed: created } : row,
+        ),
+      );
       setCompletedDraftIds((prev) => {
         const next = new Set(prev);
         next.delete(draftId);
         return next;
       });
-      setExpandedId(created.id);
+      setExpandedId((prev) => (prev === draftId ? null : prev));
     } catch (err) {
       setCompletedDraftIds((prev) => {
         const next = new Set(prev);
@@ -391,12 +536,13 @@ export function ExerciseSetsPanel({
     }
   }
 
-  async function handleDeleteSaved(setId: string) {
+  async function handleDeleteSaved(setId: string, rowId: string) {
     setError(null);
     setBusyId(setId);
     try {
       await deleteSet.mutateAsync(setId);
-      setExpandedId((prev) => (prev === setId ? null : prev));
+      setRemovedIds((prev) => new Set(prev).add(setId));
+      setExpandedId((prev) => (prev === rowId || prev === setId ? null : prev));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete set");
     } finally {
@@ -436,6 +582,7 @@ export function ExerciseSetsPanel({
 
   function renderEditor({
     rowId,
+    setId,
     values,
     busy,
     isDraft,
@@ -443,6 +590,7 @@ export function ExerciseSetsPanel({
     autoFocusWeight,
   }: {
     rowId: string;
+    setId: string;
     values: RowValues;
     busy: boolean;
     isDraft: boolean;
@@ -450,405 +598,202 @@ export function ExerciseSetsPanel({
     autoFocusWeight?: boolean;
   }) {
     return (
-      <motion.div
-        key={`${rowId}-editor`}
-        initial={{ height: 0, opacity: 0 }}
-        animate={{ height: "auto", opacity: 1 }}
-        exit={{ height: 0, opacity: 0 }}
-        transition={{ duration: 0.22, ease: easeOut }}
-        className="overflow-hidden"
-      >
-        <div className="space-y-3 px-3 pb-2 pt-1">
-          <div className="grid grid-cols-2 gap-2">
-            {primaryFields.map((field, fieldIndex) => (
-              <motion.div
-                key={field.key}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  delay: 0.04 + fieldIndex * 0.04,
-                  duration: 0.2,
-                  ease: easeOut,
-                }}
-                className="space-y-1"
+      <div className="space-y-3 px-3 pb-2 pt-1">
+        <div className="grid grid-cols-2 gap-2">
+          {primaryFields.map((field) => (
+            <div key={field.key} className="space-y-1">
+              <label
+                htmlFor={`${baseId}-${rowId}-${field.key}`}
+                className="text-muted-foreground flex items-baseline justify-between px-0.5 text-[11px] font-medium tracking-wide uppercase"
               >
-                <label
-                  htmlFor={`${baseId}-${rowId}-${field.key}`}
-                  className="text-muted-foreground flex items-baseline justify-between px-0.5 text-[11px] font-medium tracking-wide uppercase"
-                >
-                  <span>{field.label}</span>
-                  <span className="normal-case tracking-normal opacity-70">
-                    {field.unit}
-                  </span>
-                </label>
-                <SetMetricInput
-                  id={`${baseId}-${rowId}-${field.key}`}
-                  value={values[field.key]}
-                  disabled={busy}
-                  inputMode={field.inputMode}
-                  step={field.step}
-                  ariaLabel={field.label}
-                  autoFocus={
-                    autoFocusWeight && field.key === firstPrimaryKey && isDraft
-                  }
-                  onFocus={() => {
-                    focusedFieldRef.current = `${rowId}:${field.key}`;
-                  }}
-                  onChange={(value) => {
-                    focusedFieldRef.current = `${rowId}:${field.key}`;
-                    if (isDraft) updateDraftValue(rowId, field.key, value);
-                    else updateSavedValue(rowId, field.key, value);
-                  }}
-                  onBlur={() => {
-                    focusedFieldRef.current = null;
-                    if (!isDraft) void persistSaved(rowId);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key !== "Enter") return;
-                    if (isDraft) {
-                      event.preventDefault();
-                      void completeDraft(rowId);
-                    } else {
-                      event.currentTarget.blur();
-                    }
-                  }}
-                />
-              </motion.div>
-            ))}
-          </div>
-
-          <AnimatePresence initial={false}>
-            {extrasOpen ? (
-              <motion.div
-                key="extras"
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2, ease: easeOut }}
-                className="overflow-hidden"
-              >
-                <div className="grid grid-cols-2 gap-2 pb-0.5">
-                  {extraFields.map((field, fieldIndex) => (
-                    <motion.div
-                      key={field.key}
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{
-                        delay: fieldIndex * 0.03,
-                        duration: 0.18,
-                        ease: easeOut,
-                      }}
-                      className="space-y-1"
-                    >
-                      <label
-                        htmlFor={`${baseId}-${rowId}-${field.key}`}
-                        className="text-muted-foreground flex items-baseline justify-between px-0.5 text-[11px] font-medium tracking-wide uppercase"
-                      >
-                        <span>{field.label}</span>
-                        <span className="normal-case tracking-normal opacity-70">
-                          {field.unit}
-                        </span>
-                      </label>
-                      <SetMetricInput
-                        id={`${baseId}-${rowId}-${field.key}`}
-                        value={values[field.key]}
-                        disabled={busy}
-                        inputMode={field.inputMode}
-                        step={field.step}
-                        ariaLabel={field.label}
-                        onFocus={() => {
-                          focusedFieldRef.current = `${rowId}:${field.key}`;
-                        }}
-                        onChange={(value) => {
-                          focusedFieldRef.current = `${rowId}:${field.key}`;
-                          if (isDraft)
-                            updateDraftValue(rowId, field.key, value);
-                          else updateSavedValue(rowId, field.key, value);
-                        }}
-                        onBlur={() => {
-                          focusedFieldRef.current = null;
-                          if (!isDraft) void persistSaved(rowId);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key !== "Enter") return;
-                          if (isDraft) {
-                            event.preventDefault();
-                            void completeDraft(rowId);
-                          } else {
-                            event.currentTarget.blur();
-                          }
-                        }}
-                      />
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-
-          <div className="flex items-center justify-between gap-2 pt-0.5">
-            {extraFields.length > 0 && !hasExtraValues ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground h-8 px-2 text-xs"
-                onClick={() => setShowExtras((prev) => !prev)}
-              >
-                <motion.span
-                  animate={{ rotate: extrasOpen ? 180 : 0 }}
-                  transition={springSnappy}
-                  className="inline-flex"
-                >
-                  <IconChevronDown className="size-3.5" />
-                </motion.span>
-                {extrasOpen ? "Hide extras" : extraFields.map((f) => f.label).join(" / ")}
-              </Button>
-            ) : (
-              <span />
-            )}
-
-            <div className="flex items-center gap-1">
-              {isDraft ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-8"
-                  disabled={busy}
-                  onClick={() => {
-                    void completeDraft(rowId);
-                  }}
-                >
-                  {busy ? (
-                    <IconLoader2 className="animate-spin" data-icon="inline-start" />
-                  ) : null}
-                  Save set
-                </Button>
-              ) : null}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                aria-label={`Delete set ${index + 1}`}
+                <span>{field.label}</span>
+                <span className="normal-case tracking-normal opacity-70">
+                  {field.unit}
+                </span>
+              </label>
+              <SetMetricInput
+                id={`${baseId}-${rowId}-${field.key}`}
+                value={values[field.key]}
                 disabled={busy}
-                className="text-muted-foreground hover:text-destructive h-8 px-2"
-                onClick={() => {
+                inputMode={field.inputMode}
+                step={field.step}
+                ariaLabel={field.label}
+                autoFocus={
+                  autoFocusWeight && field.key === firstPrimaryKey && isDraft
+                }
+                onFocus={() => {
+                  focusedFieldRef.current = `${setId}:${field.key}`;
+                }}
+                onChange={(value) => {
+                  focusedFieldRef.current = `${setId}:${field.key}`;
+                  if (isDraft) updateDraftValue(rowId, field.key, value);
+                  else updateSavedValue(setId, field.key, value);
+                }}
+                onBlur={() => {
+                  focusedFieldRef.current = null;
+                  if (!isDraft) void persistSaved(setId);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
                   if (isDraft) {
-                    setDrafts((prev) => prev.filter((row) => row.id !== rowId));
-                    setExpandedId((prev) => (prev === rowId ? null : prev));
+                    event.preventDefault();
+                    void completeDraft(rowId);
                   } else {
-                    void handleDeleteSaved(rowId);
+                    event.currentTarget.blur();
                   }
                 }}
-              >
-                {busy && !isDraft ? (
-                  <IconLoader2 className="animate-spin" />
-                ) : (
-                  <IconTrash className="size-4" />
-                )}
-                <span className="sr-only md:not-sr-only md:ml-1">Delete</span>
-              </Button>
+              />
+            </div>
+          ))}
+        </div>
+
+        {extraFields.length > 0 ? (
+          <div
+            className={cn(
+              collapseGridClass,
+              extrasOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+            )}
+          >
+            <div className="min-h-0 overflow-clip">
+              <div className="grid grid-cols-2 gap-2 pb-0.5">
+                {extraFields.map((field) => (
+                  <div key={field.key} className="space-y-1">
+                    <label
+                      htmlFor={`${baseId}-${rowId}-${field.key}`}
+                      className="text-muted-foreground flex items-baseline justify-between px-0.5 text-[11px] font-medium tracking-wide uppercase"
+                    >
+                      <span>{field.label}</span>
+                      <span className="normal-case tracking-normal opacity-70">
+                        {field.unit}
+                      </span>
+                    </label>
+                    <SetMetricInput
+                      id={`${baseId}-${rowId}-${field.key}`}
+                      value={values[field.key]}
+                      disabled={busy}
+                      inputMode={field.inputMode}
+                      step={field.step}
+                      ariaLabel={field.label}
+                      onFocus={() => {
+                        focusedFieldRef.current = `${setId}:${field.key}`;
+                      }}
+                      onChange={(value) => {
+                        focusedFieldRef.current = `${setId}:${field.key}`;
+                        if (isDraft)
+                          updateDraftValue(rowId, field.key, value);
+                        else updateSavedValue(setId, field.key, value);
+                      }}
+                      onBlur={() => {
+                        focusedFieldRef.current = null;
+                        if (!isDraft) void persistSaved(setId);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter") return;
+                        if (isDraft) {
+                          event.preventDefault();
+                          void completeDraft(rowId);
+                        } else {
+                          event.currentTarget.blur();
+                        }
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
+        ) : null}
+
+        <div className="flex items-center justify-between gap-2 pt-0.5">
+          {extraFields.length > 0 && !hasExtraValues ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground h-8 px-2 text-xs"
+              onClick={() => setShowExtras((prev) => !prev)}
+            >
+              <motion.span
+                animate={{ rotate: extrasOpen ? 180 : 0 }}
+                transition={springSnappy}
+                className="inline-flex"
+              >
+                <IconChevronDown className="size-3.5" />
+              </motion.span>
+              {extrasOpen
+                ? "Hide extras"
+                : extraFields.map((f) => f.label).join(" / ")}
+            </Button>
+          ) : (
+            <span />
+          )}
+
+          <div className="flex items-center gap-1">
+            {isDraft ? (
+              <Button
+                type="button"
+                size="sm"
+                className="h-8"
+                disabled={busy}
+                onClick={() => {
+                  void completeDraft(rowId);
+                }}
+              >
+                {busy ? (
+                  <IconLoader2
+                    className="animate-spin"
+                    data-icon="inline-start"
+                  />
+                ) : null}
+                Save set
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label={`Delete set ${index + 1}`}
+              disabled={busy}
+              className="text-muted-foreground hover:text-destructive h-8 px-2"
+              onClick={() => {
+                if (isDraft) {
+                  setDrafts((prev) => prev.filter((row) => row.id !== rowId));
+                  setExpandedId((prev) => (prev === rowId ? null : prev));
+                } else {
+                  void handleDeleteSaved(setId, rowId);
+                }
+              }}
+            >
+              {busy && !isDraft ? (
+                <IconLoader2 className="animate-spin" />
+              ) : (
+                <IconTrash className="size-4" />
+              )}
+              <span className="sr-only md:not-sr-only md:ml-1">Delete</span>
+            </Button>
+          </div>
         </div>
-      </motion.div>
+      </div>
     );
   }
 
   return (
     <div>
-      <ul className="divide-border/60 mx-2 divide-y overflow-hidden rounded-xl bg-muted/20">
-          <AnimatePresence initial={false}>
-            {sets.map((set, index) => {
-              const values = savedValues[set.id] ?? valuesFromSet(set);
-              const completed = !uncheckedIds.has(set.id);
-              const busy = busyId === set.id;
-              const expanded = expandedId === set.id;
-              const summary = formatSetSummary(values);
-
-              return (
-                <motion.li
-                  key={set.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0, transition: { duration: 0.15 } }}
-                  transition={{ duration: 0.18, ease: easeOut }}
-                  className={cn(
-                    "overflow-hidden",
-                    completed && "bg-primary/8",
-                    expanded && "bg-muted/40",
-                  )}
-                >
-                  <div className="flex items-center gap-2 px-3 py-1.5">
-                    <button
-                      type="button"
-                      className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-                      aria-expanded={expanded}
-                      onClick={() => toggleExpanded(set.id)}
-                    >
-                      <span
-                        aria-hidden
-                        className="text-primary/50 flex w-4 shrink-0 justify-center text-xs tabular-nums"
-                      >
-                        {index + 1}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <motion.span
-                          key={summary}
-                          initial={{ opacity: 0, y: 4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.18, ease: easeOut }}
-                          className={cn(
-                            "block truncate text-sm font-medium tabular-nums",
-                            summary === "Tap to log" &&
-                            "text-muted-foreground font-normal",
-                          )}
-                        >
-                          {summary}
-                        </motion.span>
-                        <span className="text-muted-foreground text-[11px]">
-                          {expanded ? "Editing" : "Previous —"}
-                        </span>
-                      </span>
-                    </button>
-
-                    <motion.div
-                      whileTap={{ scale: 0.9 }}
-                      transition={springSnappy}
-                      className="shrink-0"
-                    >
-                      <Checkbox
-                        checked={completed}
-                        disabled={busy}
-                        aria-label={`Mark set ${index + 1} complete`}
-                        className="size-5 rounded-md data-checked:bg-primary"
-                        onCheckedChange={(checked) => {
-                          setUncheckedIds((prev) => {
-                            const next = new Set(prev);
-                            if (checked) next.delete(set.id);
-                            else next.add(set.id);
-                            return next;
-                          });
-                        }}
-                      />
-                    </motion.div>
-                  </div>
-
-                  <AnimatePresence initial={false}>
-                    {expanded
-                      ? renderEditor({
-                        rowId: set.id,
-                        values,
-                        busy,
-                        isDraft: false,
-                        index,
-                      })
-                      : null}
-                  </AnimatePresence>
-                </motion.li>
-              );
-            })}
-
-            {drafts.map((draft, draftIndex) => {
-              const index = sets.length + draftIndex;
-              const busy = busyId === draft.id;
-              const completing = completedDraftIds.has(draft.id);
-              const expanded = expandedId === draft.id;
-              const summary = formatSetSummary(draft.values);
-
-              return (
-                <motion.li
-                  key={draft.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0, transition: { duration: 0.15 } }}
-                  transition={{ duration: 0.18, ease: easeOut }}
-                  className={cn(
-                    "overflow-hidden",
-                    completing && "bg-primary/6",
-                    expanded && "bg-muted/30",
-                  )}
-                >
-                  <div className="flex items-center gap-2 px-3 py-1.5">
-                    <button
-                      type="button"
-                      className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-                      aria-expanded={expanded}
-                      onClick={() => toggleExpanded(draft.id)}
-                    >
-                      <span
-                        aria-hidden
-                        className="text-primary/50 flex w-4 shrink-0 justify-center text-xs tabular-nums"
-                      >
-                        {index + 1}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span
-                          className={cn(
-                            "block truncate text-sm font-medium tabular-nums",
-                            summary === "Tap to log" &&
-                            "text-muted-foreground font-normal",
-                          )}
-                        >
-                          {summary}
-                        </span>
-                        <span className="text-muted-foreground text-[11px]">
-                          Draft · not saved
-                        </span>
-                      </span>
-                    </button>
-
-                    <motion.div
-                      whileTap={{ scale: 0.9 }}
-                      transition={springSnappy}
-                      className="shrink-0"
-                    >
-                      <Checkbox
-                        checked={completing}
-                        disabled={busy}
-                        aria-label={`Complete set ${index + 1}`}
-                        className="size-5 rounded-md data-checked:bg-primary"
-                        onCheckedChange={(checked) => {
-                          if (checked) void completeDraft(draft.id);
-                        }}
-                      />
-                    </motion.div>
-                  </div>
-
-                  <AnimatePresence initial={false}>
-                    {expanded
-                      ? renderEditor({
-                        rowId: draft.id,
-                        values: draft.values,
-                        busy,
-                        isDraft: true,
-                        index,
-                        autoFocusWeight: true,
-                      })
-                      : null}
-                  </AnimatePresence>
-                </motion.li>
-              );
-            })}
-          </AnimatePresence>
-        </ul>
-
-      <AnimatePresence initial={false}>
-        {sets.length === 0 && drafts.length === 0 ? (
-          <motion.div
-            key="empty"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.22, ease: easeOut }}
-            className="mx-2 overflow-hidden"
-          >
+      <div className="mx-2">
+        <SwapSize
+          swapKey={showEmpty ? "empty" : "list"}
+          transition={transition}
+        >
+          {showEmpty ? (
             <Card size="sm">
               <CardHeader>
                 <div className="flex items-start justify-between gap-2">
                   <CardTitle>No sets yet</CardTitle>
                   {muscleGroupLabel(muscleGroup) ? (
-                    <Badge variant="outline" className="h-5 shrink-0 text-[10px]">
+                    <Badge
+                      variant="outline"
+                      className="h-5 shrink-0 text-[10px]"
+                    >
                       {muscleGroupLabel(muscleGroup)}
                     </Badge>
                   ) : null}
@@ -870,9 +815,123 @@ export function ExerciseSetsPanel({
                 />
               </CardContent>
             </Card>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+          ) : (
+            <ul className="divide-border/60 divide-y overflow-clip rounded-xl bg-muted/20">
+              <AnimatePresence initial={false}>
+                {rows.map((row) => {
+                  const isDraft = row.kind === "draft";
+                  const busy = busyId === row.setId || busyId === row.rowId;
+                  const expanded = expandedId === row.rowId;
+                  const completed = isDraft
+                    ? completedDraftIds.has(row.rowId)
+                    : !uncheckedIds.has(row.setId);
+                  const summary = formatSetSummary(row.values);
+
+                  return (
+                    <motion.li
+                      key={row.rowId}
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={transition}
+                      className={cn(
+                        "overflow-clip transition-colors duration-280",
+                        completed && "bg-primary/8",
+                        expanded && "bg-muted/40",
+                      )}
+                    >
+                      <div className="flex items-center gap-2 px-3 py-1.5">
+                        <button
+                          type="button"
+                          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                          aria-expanded={expanded}
+                          onClick={() => toggleExpanded(row.rowId)}
+                        >
+                          <span
+                            aria-hidden
+                            className="text-primary/50 flex w-4 shrink-0 justify-center text-xs tabular-nums"
+                          >
+                            {row.index + 1}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span
+                              className={cn(
+                                "block truncate text-sm font-medium tabular-nums",
+                                summary === "Tap to log" &&
+                                  "text-muted-foreground font-normal",
+                              )}
+                            >
+                              {summary}
+                            </span>
+                            <span className="text-muted-foreground text-[11px]">
+                              {isDraft
+                                ? "Draft · not saved"
+                                : expanded
+                                  ? "Editing"
+                                  : "Previous —"}
+                            </span>
+                          </span>
+                        </button>
+
+                        <motion.div
+                          whileTap={{ scale: 0.9 }}
+                          transition={springSnappy}
+                          className="shrink-0"
+                        >
+                          <Checkbox
+                            checked={completed}
+                            disabled={busy}
+                            aria-label={
+                              isDraft
+                                ? `Complete set ${row.index + 1}`
+                                : `Mark set ${row.index + 1} complete`
+                            }
+                            className="size-5 rounded-md data-checked:bg-primary"
+                            onCheckedChange={(checked) => {
+                              if (isDraft) {
+                                if (checked) void completeDraft(row.rowId);
+                                return;
+                              }
+                              setUncheckedIds((prev) => {
+                                const next = new Set(prev);
+                                if (checked) next.delete(row.setId);
+                                else next.add(row.setId);
+                                return next;
+                              });
+                            }}
+                          />
+                        </motion.div>
+                      </div>
+
+                      <div
+                        className={cn(
+                          collapseGridClass,
+                          expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+                        )}
+                      >
+                        <div
+                          className="min-h-0 overflow-clip"
+                          inert={!expanded}
+                        >
+                          {renderEditor({
+                            rowId: row.rowId,
+                            setId: row.setId,
+                            values: row.values,
+                            busy,
+                            isDraft,
+                            index: row.index,
+                            autoFocusWeight: isDraft && row.shouldFocus,
+                          })}
+                        </div>
+                      </div>
+                    </motion.li>
+                  );
+                })}
+              </AnimatePresence>
+            </ul>
+          )}
+        </SwapSize>
+      </div>
 
       <div className="mx-2 flex justify-center pt-2">
         <Button
@@ -894,7 +953,8 @@ export function ExerciseSetsPanel({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="text-destructive mx-2 overflow-hidden px-3 text-xs"
+            transition={transition}
+            className="text-destructive mx-2 overflow-clip px-3 text-xs"
           >
             {error}
           </motion.p>
