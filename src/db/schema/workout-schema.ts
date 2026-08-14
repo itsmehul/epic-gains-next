@@ -145,6 +145,42 @@ export const set = pgTable(
   ],
 );
 
+export const comments = pgTable(
+  "comments",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    exerciseId: text("exercise_id").notNull(),
+    workoutId: text("workout_id"),
+    text: text("text").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    authorId: text("author_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.exerciseId],
+      foreignColumns: [exercise.id],
+      name: "comments_exercise_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.workoutId],
+      foreignColumns: [workout.id],
+      name: "comments_workout_id_fk",
+    }).onDelete("cascade"),
+    index("comments_exerciseId_idx").on(table.exerciseId),
+    index("comments_workoutId_idx").on(table.workoutId),
+    index("comments_authorId_idx").on(table.authorId),
+    index("comments_createdAt_idx").on(table.createdAt),
+    index("comments_exerciseId_workoutId_idx").on(
+      table.exerciseId,
+      table.workoutId,
+    ),
+  ],
+);
+
 export const workoutRelations = relations(workout, ({ one, many }) => ({
   user: one(user, {
     fields: [workout.userId],
@@ -152,6 +188,7 @@ export const workoutRelations = relations(workout, ({ one, many }) => ({
   }),
   workoutExercises: many(workoutExercise),
   sets: many(set),
+  comments: many(comments),
 }));
 
 export const exerciseRelations = relations(exercise, ({ one, many }) => ({
@@ -161,6 +198,7 @@ export const exerciseRelations = relations(exercise, ({ one, many }) => ({
   }),
   workoutExercises: many(workoutExercise),
   sets: many(set),
+  comments: many(comments),
 }));
 
 export const workoutExerciseRelations = relations(
@@ -185,5 +223,20 @@ export const setRelations = relations(set, ({ one }) => ({
   exercise: one(exercise, {
     fields: [set.exerciseId],
     references: [exercise.id],
+  }),
+}));
+
+export const commentsRelations = relations(comments, ({ one }) => ({
+  exercise: one(exercise, {
+    fields: [comments.exerciseId],
+    references: [exercise.id],
+  }),
+  workout: one(workout, {
+    fields: [comments.workoutId],
+    references: [workout.id],
+  }),
+  author: one(user, {
+    fields: [comments.authorId],
+    references: [user.id],
   }),
 }));

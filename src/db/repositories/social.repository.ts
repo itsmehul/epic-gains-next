@@ -25,7 +25,7 @@ const publicUserColumns = {
   isPrivate: user.isPrivate,
 };
 
-function toPublicUser(row: {
+export function toPublicUser(row: {
   id: string;
   name: string;
   username: string | null;

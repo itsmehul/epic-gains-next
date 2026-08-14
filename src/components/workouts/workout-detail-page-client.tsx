@@ -11,6 +11,7 @@ import {
   AppShellScroll,
 } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
+import { ExerciseCommentsPanel } from "@/components/workouts/exercise-comments-panel";
 import { ExerciseSetsPanel } from "@/components/workouts/exercise-sets-panel";
 import { WorkoutChannelLink } from "@/components/workouts/workout-channel-link";
 import { RestDetailsPanel } from "@/components/workouts/rest-details-panel";
@@ -330,21 +331,27 @@ export function WorkoutDetailPageClient() {
                     }
                   />
                 ) : (
-                  <ExerciseSetsPanel
-                    workoutId={workoutId}
-                    exerciseId={selectedItem.exerciseId}
-                    workoutExerciseId={selectedItem.id}
-                    metricProfile={
-                      exerciseById.get(selectedItem.exerciseId)?.metricProfile
-                    }
-                    muscleGroup={
-                      exerciseById.get(selectedItem.exerciseId)?.muscleGroup
-                    }
-                    sets={selectedSets}
-                    onExerciseResolved={(id) => {
-                      setActiveWorkoutExerciseId(id);
-                    }}
-                  />
+                  <>
+                    <ExerciseSetsPanel
+                      workoutId={workoutId}
+                      exerciseId={selectedItem.exerciseId}
+                      workoutExerciseId={selectedItem.id}
+                      metricProfile={
+                        exerciseById.get(selectedItem.exerciseId)?.metricProfile
+                      }
+                      muscleGroup={
+                        exerciseById.get(selectedItem.exerciseId)?.muscleGroup
+                      }
+                      sets={selectedSets}
+                      onExerciseResolved={(id) => {
+                        setActiveWorkoutExerciseId(id);
+                      }}
+                    />
+                    <ExerciseCommentsPanel
+                      exerciseId={selectedItem.exerciseId}
+                      workoutId={workoutId}
+                    />
+                  </>
                 )}
               </div>
             </div>
