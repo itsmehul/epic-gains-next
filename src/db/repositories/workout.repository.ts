@@ -45,7 +45,29 @@ export async function listWorkoutsForUser(
   if (q) {
     const pattern = `%${q.replace(/[%_]/g, "\\$&")}%`;
     conditions.push(
-      or(ilike(workout.name, pattern), ilike(workout.author, pattern))!,
+      or(
+        ilike(workout.name, pattern),
+        ilike(workout.author, pattern),
+        exists(
+          db
+            .select({ one: sql`1` })
+            .from(workoutExercise)
+            .innerJoin(exercise, eq(exercise.id, workoutExercise.exerciseId))
+            .where(
+              and(
+                eq(workoutExercise.workoutId, workout.id),
+                or(
+                  sql`${exercise.muscleGroup}::text ilike ${pattern} escape '\\'`,
+                  sql`exists (
+                    select 1
+                    from unnest(${exercise.keyMuscles}) as muscle
+                    where muscle ilike ${pattern} escape '\\'
+                  )`,
+                ),
+              ),
+            ),
+        ),
+      )!,
     );
   }
 

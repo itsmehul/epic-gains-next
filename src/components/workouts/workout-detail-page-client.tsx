@@ -186,8 +186,8 @@ export function WorkoutDetailPageClient() {
       <AppShellBody>
         <div
           className={cn(
-            "flex flex-col gap-3 md:gap-6 md:p-6",
-            !showVideo && "gap-6 py-4",
+            "flex flex-col gap-3 pb-10 md:gap-6 md:p-6 md:pb-14",
+            !showVideo && "gap-6 py-4 pb-10",
           )}
         >
           {showVideo ? (

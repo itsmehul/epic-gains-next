@@ -459,7 +459,7 @@ export function WorkoutsPageClient() {
         }
       />
       <AppShellBody className="max-w-screen-2xl">
-        <div className="flex flex-col gap-4 px-4 py-4 md:gap-5 md:px-6 md:py-6">
+        <div className="flex flex-col gap-4 px-4 pt-4 pb-10 md:gap-5 md:px-6 md:pt-6 md:pb-14">
           <div className="flex flex-col gap-3">
             <div className="relative mx-auto w-full max-w-xl">
               <IconSearch
@@ -471,8 +471,8 @@ export function WorkoutsPageClient() {
                 type="search"
                 value={searchInput}
                 maxLength={200}
-                placeholder="Search workouts or creators"
-                aria-label="Search workouts by name or author"
+                placeholder="Search workouts, creators, or muscles"
+                aria-label="Search workouts by name, author, muscle group, or key muscles"
                 className="bg-muted/50 h-10 rounded-full pr-10 pl-10"
                 onChange={(event) => setSearchInput(event.target.value)}
               />
@@ -557,7 +557,7 @@ export function WorkoutsPageClient() {
                 </p>
                 <p className="text-muted-foreground text-sm leading-relaxed">
                   {hasFilters
-                    ? "Nothing matched those filters. Try a different name, creator, or muscle group."
+                    ? "Nothing matched those filters. Try a different name, creator, or muscle."
                     : "Import a YouTube workout and it will show up here like a video in your feed."}
                 </p>
               </div>
