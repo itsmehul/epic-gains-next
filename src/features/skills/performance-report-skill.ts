@@ -3,7 +3,7 @@ export const PERFORMANCE_REPORT_SKILL_NAME = "epic-gains-performance-report";
 export const PERFORMANCE_REPORT_SKILL_FILENAME = "SKILL.md";
 
 export const PERFORMANCE_REPORT_SKILL_TRIGGER =
-  "Give me a performance report for my workout";
+  "Analysis by workout data from yesterday and give me a summary, use Epic Gains";
 
 export const PERFORMANCE_REPORT_SKILL_INSTALL_PATH =
   `~/.cursor/skills/${PERFORMANCE_REPORT_SKILL_NAME}/SKILL.md`;
@@ -13,9 +13,11 @@ name: epic-gains-performance-report
 description: >-
   Generates a short Epic Gains training recap via the performance_metrics MCP
   tool (focal day, week-over-week, 30-day volume, streak, PRs, session comments).
-  Use when the user says "Give me a performance report for my workout" or asks
-  for a performance report of their workout. Do not use for app/code/UI/API/schema
-  changes in the Epic Gains codebase.
+  Apply whenever the user asks about workouts, exercises, sets, training, gym,
+  lifting, fitness, progress, volume, PRs, streaks, comments, session notes,
+  muscle groups, how they (or a friend) are doing, yesterday/today/this week’s
+  session, or any Epic Gains workout/exercise/fitness question. Do not use for
+  app/code/UI/API/schema changes in the Epic Gains codebase.
 ---
 
 # Epic Gains performance report
@@ -24,15 +26,18 @@ Produce a **short** report that answers “how am I doing?” — not a dump of 
 
 Default task (use this wording as the job, unless the user names another window):
 
-Give me a performance report for my workout
+Analysis by workout data from yesterday and give me a summary, use Epic Gains
 
 ## When to apply
 
-Load this skill when the user says:
-
-Give me a performance report for my workout
-
-Also load for close variants (“performance report”, “workout performance report”). Pass \`username\` to \`performance_metrics\` only if they ask about a friend.
+Load this skill for **end-user training questions**, including:
+- workouts, sessions, programs, “what did I do”
+- exercises, sets, reps, weight, volume, PRs
+- fitness, gym, lifting, cardio, muscle groups
+- progress, trends, streaks, consistency, “how am I doing”
+- yesterday / today / this week / this month recaps
+- comments, session notes, how a lift felt
+- a friend’s training (pass \`username\` to \`performance_metrics\`)
 
 ## When not to apply
 
@@ -54,6 +59,13 @@ One call. Do **not** issue multiple \`performance_data\` calls for day/week/mont
 | \`muscleGroup\` / \`keyMuscle\` | Only if the user asks to slice. |
 
 Do **not** call \`performance_data\` for comments. They are already on this payload.
+
+## Tool & Execution Constraints
+
+- **Direct MCP Only:** Use only \`performance_metrics\` (and \`mcp_auth\` if needed).
+- **No Workspace Searching:** Do NOT search Gmail, Google Drive, Google Calendar, or Google Chat via context tools or semantic search for workout data.
+- **No System Exploration:** Do NOT execute exploratory shell commands (\`env\`, \`which\`, broad filesystem scans, or multi-step trial scripts).
+- **Fast Failure:** If the Epic Gains MCP server or tool is unavailable or fails after one auth attempt, immediately inform the user that the Epic Gains MCP connection is unavailable. Do not attempt exploratory workarounds or ad-hoc sweeps across external tools.
 
 ## What the payload already contains
 
