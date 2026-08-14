@@ -294,17 +294,15 @@ export function WorkoutDetailPageClient() {
           {selectedKeyMuscles.length > 0 ? (
             <div className="overflow-x-auto overscroll-x-contain px-4 scrollbar-none md:px-0">
               <ul
-                className="flex w-max items-center gap-1.5"
+                className="flex w-max items-center gap-2"
                 aria-label="Key muscles"
               >
                 {selectedKeyMuscles.map((muscle) => (
-                  <li key={muscle}>
-                    <Badge
-                      variant="secondary"
-                      className="h-6 rounded-full px-2.5 text-xs font-medium"
-                    >
-                      {muscle}
-                    </Badge>
+                  <li
+                    key={muscle}
+                    className="text-muted-foreground/70 text-[11px] font-normal tracking-wide whitespace-nowrap"
+                  >
+                    {muscle}
                   </li>
                 ))}
               </ul>
@@ -312,14 +310,15 @@ export function WorkoutDetailPageClient() {
           ) : null}
 
           {showVideo ? (
-            <WorkoutVideoPreview
-              ref={videoRef}
-              className="rounded-none md:rounded-xl"
-              videoUrl={videoUrl!}
-              author={workoutQuery.data?.author}
-              channelUrl={workoutQuery.data?.channelUrl}
-              onTimeUpdate={handleVideoTimeUpdate}
-            />
+            <div className="px-4 md:px-0">
+              <WorkoutVideoPreview
+                ref={videoRef}
+                videoUrl={videoUrl!}
+                author={workoutQuery.data?.author}
+                channelUrl={workoutQuery.data?.channelUrl}
+                onTimeUpdate={handleVideoTimeUpdate}
+              />
+            </div>
           ) : null}
 
           {!showVideo &&
@@ -336,7 +335,7 @@ export function WorkoutDetailPageClient() {
             <div className="flex flex-col gap-3">
               <div
                 key={selectedItem.id}
-                className="flex flex-col gap-2"
+                className="flex flex-col gap-6"
               >
                 {isRestWorkoutItem(selectedItem) ? (
                   <RestDetailsPanel

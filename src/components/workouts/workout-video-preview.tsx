@@ -454,7 +454,7 @@ export function WorkoutVideoPreview({
   }
 
   function handleProgressPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!ready || duration <= 0 || needsNativeFirstTap) return;
+    if (!ready || duration <= 0) return;
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     scrubbingRef.current = true;
@@ -534,8 +534,7 @@ export function WorkoutVideoPreview({
   return (
     <div className="relative flex flex-col">
       {minimized ? (
-        <div className="px-4 md:px-0">
-          <div className="bg-muted/70 flex items-center gap-1.5 rounded-xl py-1 pr-1 pl-1.5">
+        <div className="bg-muted/70 flex items-center gap-1.5 rounded-xl py-1 pr-1 pl-1.5">
             <Button
               type="button"
               variant="ghost"
@@ -610,7 +609,6 @@ export function WorkoutVideoPreview({
             >
               <IconArrowsMaximize />
             </Button>
-          </div>
         </div>
       ) : null}
 
@@ -642,14 +640,16 @@ export function WorkoutVideoPreview({
     >
       <div ref={hostRef} className="absolute inset-0 size-full" />
 
-      {!error && !needsNativeFirstTap ? (
+      {!error ? (
         <>
-          <button
-            type="button"
-            className="absolute inset-0 z-10"
-            aria-label={playing ? "Pause video" : "Play video"}
-            onClick={handleSurfaceClick}
-          />
+          {!needsNativeFirstTap ? (
+            <button
+              type="button"
+              className="absolute inset-0 z-10"
+              aria-label={playing ? "Pause video" : "Play video"}
+              onClick={handleSurfaceClick}
+            />
+          ) : null}
 
           {showPlayPrompt ? (
             <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/35">
