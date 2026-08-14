@@ -10,6 +10,7 @@ import type {
 export type ExpandedImportWorkout = {
   workoutName: string;
   author?: string;
+  channelUrl?: string;
   sourceVideoUrl?: string;
   exercises: Array<{
     name: string;
@@ -177,6 +178,7 @@ export function expandImportStructure(
       input.sections[0]?.section_name ||
       "Imported workout",
     author: input.author,
+    channelUrl: input.channelUrl,
     sourceVideoUrl: input.sourceVideoUrl,
     exercises,
   };

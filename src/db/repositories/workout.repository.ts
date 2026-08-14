@@ -1,16 +1,37 @@
 import "server-only";
 
-import { and, count, countDistinct, desc, eq, ilike, inArray, max, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  countDistinct,
+  desc,
+  eq,
+  exists,
+  ilike,
+  inArray,
+  max,
+  or,
+  sql,
+} from "drizzle-orm";
 
 import { db } from "@/db";
-import { set as workoutSet, workout, workoutExercise } from "@/db/schema";
+import {
+  exercise,
+  set as workoutSet,
+  workout,
+  workoutExercise,
+} from "@/db/schema";
+import type { MuscleGroup } from "@/db/schema/workout-schema";
 import { isRestWorkoutItem } from "@/features/workouts/workout-item";
 
 export type WorkoutInsert = typeof workout.$inferInsert;
-export type WorkoutUpdate = Partial<Pick<WorkoutInsert, "name" | "author">>;
+export type WorkoutUpdate = Partial<
+  Pick<WorkoutInsert, "name" | "author" | "channelUrl">
+>;
 
 export type ListWorkoutsOptions = {
   q?: string;
+  muscleGroups?: MuscleGroup[];
 };
 
 export async function listWorkoutsForUser(
@@ -18,11 +39,31 @@ export async function listWorkoutsForUser(
   options?: ListWorkoutsOptions,
 ) {
   const q = options?.q?.trim() ?? "";
+  const muscleGroups = options?.muscleGroups ?? [];
   const conditions = [eq(workout.userId, userId)];
 
   if (q) {
     const pattern = `%${q.replace(/[%_]/g, "\\$&")}%`;
-    conditions.push(ilike(workout.name, pattern));
+    conditions.push(
+      or(ilike(workout.name, pattern), ilike(workout.author, pattern))!,
+    );
+  }
+
+  if (muscleGroups.length > 0) {
+    conditions.push(
+      exists(
+        db
+          .select({ one: sql`1` })
+          .from(workoutExercise)
+          .innerJoin(exercise, eq(exercise.id, workoutExercise.exerciseId))
+          .where(
+            and(
+              eq(workoutExercise.workoutId, workout.id),
+              inArray(exercise.muscleGroup, muscleGroups),
+            ),
+          ),
+      ),
+    );
   }
 
   const workouts = await db

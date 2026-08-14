@@ -24,8 +24,15 @@ export const exerciseMetaDataSchema = z
   })
   .strict();
 
+export const metricProfileEnum = z.enum(METRIC_PROFILE_VALUES);
+export const muscleGroupEnum = z.enum(MUSCLE_GROUP_VALUES);
+
 export const listWorkoutsQuerySchema = z.object({
   q: z.string().trim().max(200).optional(),
+  muscleGroup: z
+    .array(muscleGroupEnum)
+    .max(MUSCLE_GROUP_VALUES.length)
+    .optional(),
 });
 
 export const createWorkoutSchema = z.object({
@@ -47,12 +54,17 @@ export const createWorkoutSchema = z.object({
     .describe(
       "Optional YouTube channel / video author name (e.g. the creator credited on the video).",
     ),
+  channelUrl: z
+    .string()
+    .trim()
+    .url()
+    .max(2048)
+    .nullable()
+    .optional()
+    .describe("Optional YouTube channel URL (opens the creator's channel)."),
 });
 
 export const updateWorkoutSchema = createWorkoutSchema.partial();
-
-export const metricProfileEnum = z.enum(METRIC_PROFILE_VALUES);
-export const muscleGroupEnum = z.enum(MUSCLE_GROUP_VALUES);
 
 /** Canonical exercise: identity + standardized name only. */
 export const createExerciseSchema = z.object({
@@ -102,6 +114,13 @@ export const importFullWorkoutSchema = z.object({
     .describe(
       "Optional YouTube channel / video author name (e.g. the creator credited on the video).",
     ),
+  channelUrl: z
+    .string()
+    .trim()
+    .url()
+    .max(2048)
+    .optional()
+    .describe("Optional YouTube channel URL (e.g. https://www.youtube.com/@handle)."),
   sourceVideoUrl: z
     .string()
     .url()
@@ -156,6 +175,7 @@ const clockTimestampSchema = z
 export const importWorkoutStructureSchema = z.object({
   workoutName: z.string().trim().min(1).max(200).optional(),
   author: z.string().trim().min(1).max(200).optional(),
+  channelUrl: z.string().trim().url().max(2048).optional(),
   sourceVideoUrl: z.string().url().optional(),
   overview: z.object({
     workout_length: z.string().trim().min(1).max(64),

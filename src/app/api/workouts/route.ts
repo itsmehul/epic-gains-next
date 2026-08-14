@@ -22,8 +22,10 @@ export async function GET(req: Request) {
 
   try {
     const { searchParams } = new URL(req.url);
+    const muscleGroup = searchParams.getAll("muscleGroup");
     const parsed = listWorkoutsQuerySchema.safeParse({
       q: searchParams.get("q") ?? undefined,
+      muscleGroup: muscleGroup.length > 0 ? muscleGroup : undefined,
     });
     if (!parsed.success) {
       return apiError("Invalid query", 400);
@@ -31,6 +33,7 @@ export async function GET(req: Request) {
 
     const items = await listWorkoutsForUser(session.user.id, {
       q: parsed.data.q,
+      muscleGroups: parsed.data.muscleGroup,
     });
     return NextResponse.json({ items });
   } catch (error) {
@@ -57,6 +60,7 @@ export async function POST(req: Request) {
       id: crypto.randomUUID(),
       name: parsed.data.name,
       author: parsed.data.author ?? null,
+      channelUrl: parsed.data.channelUrl ?? null,
       userId: session.user.id,
     });
 

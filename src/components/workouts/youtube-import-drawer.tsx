@@ -82,6 +82,7 @@ Return a JSON object matching this schema inside a markdown code block. Do not i
 {
   "workoutName": "string (optional exact video title if known)",
   "author": "string (optional creator/channel name)",
+  "channelUrl": "string (optional YouTube channel URL, e.g. https://www.youtube.com/@handle)",
   "overview": {
     "workout_length": "string (e.g., '20 minutes' or '40 minutes')",
     "structure": "string (e.g., 'Full Body Circuit')",

@@ -1,4 +1,7 @@
-import type { MuscleGroup } from "@/db/schema/workout-schema";
+import {
+  MUSCLE_GROUP_VALUES,
+  type MuscleGroup,
+} from "@/db/schema/workout-schema";
 
 const MUSCLE_GROUP_LABELS: Record<MuscleGroup, string> = {
   chest: "Chest",
@@ -8,6 +11,11 @@ const MUSCLE_GROUP_LABELS: Record<MuscleGroup, string> = {
   legs: "Legs",
   core: "Core",
 };
+
+export const MUSCLE_GROUP_OPTIONS = MUSCLE_GROUP_VALUES.map((value) => ({
+  value,
+  label: MUSCLE_GROUP_LABELS[value],
+}));
 
 export function muscleGroupLabel(
   group: MuscleGroup | null | undefined,

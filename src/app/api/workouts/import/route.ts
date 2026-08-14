@@ -56,6 +56,7 @@ export async function POST(req: Request) {
           id: workoutId,
           name: args.workoutName,
           author: args.author ?? null,
+          channelUrl: args.channelUrl ?? null,
           userId,
         })
         .returning();

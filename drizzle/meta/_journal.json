@@ -71,6 +71,13 @@
       "when": 1786643330876,
       "tag": "0009_graceful_shatterstar",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786689772797,
+      "tag": "0010_slimy_fantastic_four",
+      "breakpoints": true
     }
   ]
 }

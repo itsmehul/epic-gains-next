@@ -34,6 +34,8 @@ export async function GET(
     return NextResponse.json({
       id: item.id,
       name: item.name,
+      author: item.author,
+      channelUrl: item.channelUrl,
       userId: item.userId,
       createdAt: item.createdAt.toISOString(),
       owner: item.owner,

@@ -54,6 +54,7 @@ export const workout = pgTable(
     id: text("id").primaryKey(),
     name: text("name").notNull(),
     author: text("author"),
+    channelUrl: text("channel_url"),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),

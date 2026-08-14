@@ -3,7 +3,9 @@
 import {
   IconBarbell,
   IconBrandYoutube,
+  IconChevronDown,
   IconEye,
+  IconFilter,
   IconRefresh,
   IconSearch,
   IconTrash,
@@ -20,8 +22,10 @@ import {
   AppShellHeader,
   AppShellScroll,
 } from "@/components/layout/app-shell";
+import { WorkoutChannelLink } from "@/components/workouts/workout-channel-link";
 import { YoutubeImportDrawer } from "@/components/workouts/youtube-import-drawer";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -39,9 +43,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
 import { useDeleteWorkout, useWorkouts } from "@/features/workouts/hooks";
+import { MUSCLE_GROUP_OPTIONS } from "@/features/workouts/muscle-group";
 import type { WorkoutListStats, WorkoutWithStats } from "@/features/workouts/types";
+import type { MuscleGroup } from "@/db/schema/workout-schema";
 import { cn } from "@/shared/utils";
 
 const springSoft = { type: "spring" as const, stiffness: 420, damping: 32 };
@@ -78,6 +91,82 @@ function formatWorkoutDate(value: Date | string) {
     day: "numeric",
     year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
   });
+}
+
+function MuscleGroupFilter({
+  selected,
+  onChange,
+}: {
+  selected: MuscleGroup[];
+  onChange: (next: MuscleGroup[]) => void;
+}) {
+  const selectedCount = selected.length;
+  const label =
+    selectedCount === 0
+      ? "Muscle groups"
+      : selectedCount === 1
+        ? (MUSCLE_GROUP_OPTIONS.find((option) => option.value === selected[0])
+            ?.label ?? "Muscle groups")
+        : `${selectedCount} muscle groups`;
+
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="w-fit max-w-full"
+            aria-label="Filter by muscle group"
+          />
+        }
+      >
+        <IconFilter className="size-3.5" data-icon="inline-start" />
+        <span className="truncate">{label}</span>
+        <IconChevronDown className="size-3.5 opacity-60" data-icon="inline-end" />
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-56 gap-2 p-3">
+        <PopoverHeader>
+          <PopoverTitle className="text-sm">Muscle groups</PopoverTitle>
+        </PopoverHeader>
+        <ul className="flex flex-col gap-0.5">
+          {MUSCLE_GROUP_OPTIONS.map((option) => {
+            const checked = selected.includes(option.value);
+            return (
+              <li key={option.value}>
+                <label className="hover:bg-muted/70 flex cursor-pointer items-center gap-2 rounded-xl px-2 py-1.5 text-sm">
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={(next) => {
+                      const isChecked = next === true;
+                      onChange(
+                        isChecked
+                          ? [...selected, option.value]
+                          : selected.filter((value) => value !== option.value),
+                      );
+                    }}
+                  />
+                  {option.label}
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+        {selectedCount > 0 ? (
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            className="self-start"
+            onClick={() => onChange([])}
+          >
+            Clear
+          </Button>
+        ) : null}
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 function formatVolume(volume: number) {
@@ -281,6 +370,7 @@ export function WorkoutsPageClient() {
   );
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [muscleGroups, setMuscleGroups] = useState<MuscleGroup[]>([]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -289,9 +379,13 @@ export function WorkoutsPageClient() {
     return () => window.clearTimeout(timeoutId);
   }, [searchInput]);
 
-  const workoutsQuery = useWorkouts({ q: debouncedSearch });
+  const workoutsQuery = useWorkouts({
+    q: debouncedSearch,
+    muscleGroups,
+  });
   const items = workoutsQuery.data?.items ?? [];
   const hasSearch = debouncedSearch.length > 0;
+  const hasFilters = hasSearch || muscleGroups.length > 0;
   const showList =
     !workoutsQuery.isLoading && !workoutsQuery.isError && items.length > 0;
   const showEmpty =
@@ -317,33 +411,39 @@ export function WorkoutsPageClient() {
       />
       <AppShellBody>
         <div className="flex flex-col gap-3 md:gap-6 md:p-6">
-          <div className="relative px-4 md:px-0">
-            <IconSearch
-              aria-hidden
-              className="text-muted-foreground pointer-events-none absolute top-1/2 left-7 size-4 -translate-y-1/2 md:left-3"
+          <div className="flex flex-col gap-2 px-4 md:px-0">
+            <div className="relative">
+              <IconSearch
+                aria-hidden
+                className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
+              />
+              <Input
+                id={searchId}
+                type="search"
+                value={searchInput}
+                maxLength={200}
+                placeholder="Search by workout or author…"
+                aria-label="Search workouts by name or author"
+                className="bg-muted/40 h-10 pr-10 pl-9"
+                onChange={(event) => setSearchInput(event.target.value)}
+              />
+              {searchInput ? (
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant="ghost"
+                  aria-label="Clear search"
+                  className="absolute top-1/2 right-2 -translate-y-1/2"
+                  onClick={() => setSearchInput("")}
+                >
+                  <IconX className="size-3.5" />
+                </Button>
+              ) : null}
+            </div>
+            <MuscleGroupFilter
+              selected={muscleGroups}
+              onChange={setMuscleGroups}
             />
-            <Input
-              id={searchId}
-              type="search"
-              value={searchInput}
-              maxLength={200}
-              placeholder="Search workouts…"
-              aria-label="Search workouts"
-              className="bg-muted/40 h-10 pr-10 pl-9"
-              onChange={(event) => setSearchInput(event.target.value)}
-            />
-            {searchInput ? (
-              <Button
-                type="button"
-                size="icon-xs"
-                variant="ghost"
-                aria-label="Clear search"
-                className="absolute top-1/2 right-6 -translate-y-1/2 md:right-2"
-                onClick={() => setSearchInput("")}
-              >
-                <IconX className="size-3.5" />
-              </Button>
-            ) : null}
           </div>
 
           {workoutsQuery.isLoading ? (
@@ -404,22 +504,25 @@ export function WorkoutsPageClient() {
               </div>
               <div className="relative flex max-w-xs flex-col gap-2">
                 <p className="text-base font-semibold tracking-tight">
-                  {hasSearch ? "No matches" : "No sessions yet"}
+                  {hasFilters ? "No matches" : "No sessions yet"}
                 </p>
                 <p className="text-muted-foreground text-sm leading-relaxed">
-                  {hasSearch
-                    ? `Nothing matched “${debouncedSearch}”. Try a different name.`
+                  {hasFilters
+                    ? "Nothing matched those filters. Try a different name, author, or muscle group."
                     : "Import a YouTube workout to log sets, follow video timestamps, and keep your training history in one place."}
                 </p>
               </div>
-              {hasSearch ? (
+              {hasFilters ? (
                 <Button
                   type="button"
                   variant="outline"
                   className="relative"
-                  onClick={() => setSearchInput("")}
+                  onClick={() => {
+                    setSearchInput("");
+                    setMuscleGroups([]);
+                  }}
                 >
-                  Clear search
+                  Clear filters
                 </Button>
               ) : (
                 <Button
@@ -463,9 +566,19 @@ export function WorkoutsPageClient() {
                           <CardTitle className="truncate leading-snug tracking-tight">
                             {workout.name}
                           </CardTitle>
-                          {createdLabel ? (
-                            <CardDescription>
-                              Created {createdLabel}
+                          {createdLabel ||
+                          workout.author ||
+                          workout.channelUrl ? (
+                            <CardDescription className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                              {workout.author || workout.channelUrl ? (
+                                <WorkoutChannelLink
+                                  author={workout.author}
+                                  channelUrl={workout.channelUrl}
+                                />
+                              ) : null}
+                              {createdLabel ? (
+                                <span>Created {createdLabel}</span>
+                              ) : null}
                             </CardDescription>
                           ) : null}
                         </CardHeader>

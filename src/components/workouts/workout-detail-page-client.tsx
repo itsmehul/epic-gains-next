@@ -12,6 +12,7 @@ import {
 } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { ExerciseSetsPanel } from "@/components/workouts/exercise-sets-panel";
+import { WorkoutChannelLink } from "@/components/workouts/workout-channel-link";
 import { RestDetailsPanel } from "@/components/workouts/rest-details-panel";
 import {
   WorkoutVideoPreview,
@@ -195,6 +196,20 @@ export function WorkoutDetailPageClient() {
               videoUrl={videoUrl!}
               onTimeUpdate={handleVideoTimeUpdate}
             />
+          ) : null}
+
+          {workoutQuery.data?.author || workoutQuery.data?.channelUrl ? (
+            <p
+              className={cn(
+                "text-muted-foreground px-4 text-sm md:px-0",
+                showVideo && "-mt-1",
+              )}
+            >
+              <WorkoutChannelLink
+                author={workoutQuery.data.author}
+                channelUrl={workoutQuery.data.channelUrl}
+              />
+            </p>
           ) : null}
 
           {showExercises && selectedItem ? (

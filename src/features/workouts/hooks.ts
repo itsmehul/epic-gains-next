@@ -38,7 +38,7 @@ import { apiFetch } from "@/shared/api";
 export const workoutKeys = {
   all: ["workouts"] as const,
   lists: () => [...workoutKeys.all, "list"] as const,
-  list: (params?: { q?: string }) =>
+  list: (params?: { q?: string; muscleGroups?: string[] }) =>
     [...workoutKeys.lists(), params ?? {}] as const,
   detail: (id: string) => [...workoutKeys.all, "detail", id] as const,
 };
@@ -81,14 +81,21 @@ export const setKeys = {
   detail: (id: string) => [...setKeys.all, "detail", id] as const,
 };
 
-export function useWorkouts(options?: { q?: string }) {
+export function useWorkouts(options?: {
+  q?: string;
+  muscleGroups?: string[];
+}) {
   const q = options?.q?.trim() ?? "";
+  const muscleGroups = [...(options?.muscleGroups ?? [])].sort();
 
   return useQuery({
-    queryKey: workoutKeys.list({ q }),
+    queryKey: workoutKeys.list({ q, muscleGroups }),
     queryFn: () => {
       const params = new URLSearchParams();
       if (q) params.set("q", q);
+      for (const group of muscleGroups) {
+        params.append("muscleGroup", group);
+      }
       const query = params.toString();
       return apiFetch<ListWorkoutsResult>(
         `/api/workouts${query ? `?${query}` : ""}`,

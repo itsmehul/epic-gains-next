@@ -39,6 +39,8 @@ export async function getVisibleWorkoutById(
     .select({
       id: workout.id,
       name: workout.name,
+      author: workout.author,
+      channelUrl: workout.channelUrl,
       userId: workout.userId,
       createdAt: workout.createdAt,
     })
