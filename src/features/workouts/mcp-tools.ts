@@ -19,13 +19,15 @@ import {
   listWorkoutExercises,
   updateWorkoutExercise,
 } from "@/db/repositories/workout-exercise.repository";
-import { listSetsByPeriodForUser } from "@/db/repositories/set.repository";
+import { listSetsByPeriodForUser, getPerformanceMetricsForUser } from "@/db/repositories/set.repository";
+import { getUserByUsername } from "@/db/repositories/social.repository";
 import {
   deleteWorkoutForUser,
   getWorkoutByIdForUser,
   listWorkoutsForUser,
   updateWorkoutForUser,
 } from "@/db/repositories/workout.repository";
+import { canViewUserWorkouts } from "@/features/social/privacy";
 import { exercise, workout, workoutExercise } from "@/db/schema";
 import { exerciseNameLookupKeys } from "@/features/workouts/exercise-name";
 import {
@@ -429,14 +431,14 @@ export function registerWorkoutMcpTools(server: McpServer) {
   );
 
   server.registerTool(
-    "get_sets_by_period",
+    "performance_data",
     {
-      title: "Get sets by period",
+      title: "Performance data",
       description:
-        "Fetch logged sets for the authenticated user for a calendar day, week (Monday–Sunday), month, or year. Includes workout overview, exercise muscle group and key muscles, and comments. Optionally filter by muscle group and/or key muscle.",
+        "Granular logged sets for one calendar window (day, ISO week, month, or year). Prefer performance_metrics for training recaps, week-over-week trends, streaks, or PRs — that tool returns every comparison window in one call. Use this tool when you need set-level detail and comments for a single period.",
       inputSchema: z.object({
         period: z.enum(SET_PERIOD_VALUES).describe(
-          "Time window: day, week (ISO Monday–Sunday), month, or year containing `date`.",
+          "Time window to summarize: day, week (ISO Monday–Sunday), month, or year containing `date`. Use week for “this week” questions.",
         ),
         date: z
           .string()
@@ -444,6 +446,14 @@ export function registerWorkoutMcpTools(server: McpServer) {
           .optional()
           .describe(
             "Anchor date as YYYY-MM-DD. Defaults to today. Selects the day/week/month/year that contains this date.",
+          ),
+        username: z
+          .string()
+          .trim()
+          .min(1)
+          .optional()
+          .describe(
+            "Friend to summarize. Omit for the authenticated user. Required when asking about someone else’s training.",
           ),
         muscleGroup: muscleGroupEnum
           .optional()
@@ -457,19 +467,104 @@ export function registerWorkoutMcpTools(server: McpServer) {
           .describe("Only include exercises whose key muscles match this name."),
       }),
     },
-    async ({ period, date, muscleGroup, keyMuscle }) => {
+    async ({ period, date, username, muscleGroup, keyMuscle }) => {
       const { userId } = getMcpAuth();
       const on = date ? parseIsoDate(date) : new Date();
       if (date && !on) {
         return mcpErrorResult("date must be a valid YYYY-MM-DD calendar date");
       }
-      const result = await listSetsByPeriodForUser(userId, {
+
+      const owner = await resolvePerformanceOwner(userId, username);
+      if ("error" in owner) return mcpErrorResult(owner.error);
+
+      const result = await listSetsByPeriodForUser(owner.ownerId, {
         period,
         date: on ?? undefined,
         muscleGroup,
         keyMuscle,
+        viewerId: userId,
       });
-      return mcpTextResult(result);
+      return mcpTextResult(
+        owner.ownerUsername
+          ? { ...result, username: owner.ownerUsername }
+          : result,
+      );
     },
   );
+
+  server.registerTool(
+    "performance_metrics",
+    {
+      title: "Performance metrics",
+      description:
+        "One-call training analytics. Use this instead of multiple performance_data calls. Returns focal-day, current ISO week (Mon–Sun), prior week, and trailing 30-day stats (volume, sessions, set counts, muscle-group mix), week-over-week deltas, streak, personal records in the 30-day window vs all-time, every visible comment on this athlete’s exercises with exercise and workout context, and a compact daily rollup (comments nested on the matching exercise). Defaults to the authenticated user; pass username for a visible friend. For a recap of yesterday, pass yesterday’s date.",
+      inputSchema: z.object({
+        date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional()
+          .describe(
+            "As-of date YYYY-MM-DD. Defaults to today. Focal day is this date; current/prior weeks and the 30-day window are relative to it.",
+          ),
+        username: z
+          .string()
+          .trim()
+          .min(1)
+          .optional()
+          .describe(
+            "Friend to summarize. Omit for the authenticated user.",
+          ),
+        muscleGroup: muscleGroupEnum
+          .optional()
+          .describe("Only include exercises in this muscle group."),
+        keyMuscle: z
+          .string()
+          .trim()
+          .min(1)
+          .max(80)
+          .optional()
+          .describe("Only include exercises whose key muscles match this name."),
+      }),
+    },
+    async ({ date, username, muscleGroup, keyMuscle }) => {
+      const { userId } = getMcpAuth();
+      const on = date ? parseIsoDate(date) : new Date();
+      if (date && !on) {
+        return mcpErrorResult("date must be a valid YYYY-MM-DD calendar date");
+      }
+
+      const owner = await resolvePerformanceOwner(userId, username);
+      if ("error" in owner) return mcpErrorResult(owner.error);
+
+      const result = await getPerformanceMetricsForUser(owner.ownerId, {
+        date: on ?? undefined,
+        muscleGroup,
+        keyMuscle,
+        viewerId: userId,
+      });
+      return mcpTextResult(
+        owner.ownerUsername
+          ? { ...result, username: owner.ownerUsername }
+          : result,
+      );
+    },
+  );
+}
+
+async function resolvePerformanceOwner(
+  viewerId: string,
+  username?: string,
+): Promise<
+  | { ownerId: string; ownerUsername: string | null }
+  | { error: string }
+> {
+  if (!username) {
+    return { ownerId: viewerId, ownerUsername: null };
+  }
+  const owner = await getUserByUsername(username);
+  if (!owner) return { error: "User not found" };
+  if (!(await canViewUserWorkouts(viewerId, owner))) {
+    return { error: "Workouts are not visible for this user" };
+  }
+  return { ownerId: owner.id, ownerUsername: owner.username };
 }

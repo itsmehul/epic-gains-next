@@ -84,6 +84,33 @@ export function localDateString(date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+export function addCalendarDays(isoDate: string, days: number): string {
+  const parsed = parseIsoDate(isoDate);
+  if (!parsed) return isoDate;
+  parsed.setDate(parsed.getDate() + days);
+  return localDateString(parsed);
+}
+
+/** Inclusive calendar range. `end` on the returned PeriodRange is exclusive. */
+export function inclusiveDateRange(
+  startDay: string,
+  endDay: string,
+): PeriodRange {
+  const start = parseIsoDate(startDay);
+  const last = parseIsoDate(endDay);
+  if (!start || !last) {
+    return periodRange("day");
+  }
+  const end = new Date(last);
+  end.setDate(end.getDate() + 1);
+  return {
+    start,
+    end,
+    startDay,
+    endDay,
+  };
+}
+
 export function dayKey(value: string | Date): string {
   if (typeof value === "string") {
     const iso = value.slice(0, 10);

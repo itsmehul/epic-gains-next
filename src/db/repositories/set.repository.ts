@@ -3,6 +3,7 @@ import "server-only";
 import { and, asc, desc, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
+import { commentVisibleToViewer, listVisibleCommentsForOwner } from "@/db/repositories/comment.repository";
 import {
   toPublicUser,
   type PublicUser,
@@ -14,9 +15,20 @@ import {
   user,
   workout,
 } from "@/db/schema";
-import type { MuscleGroup } from "@/db/schema/workout-schema";
-import type { SetPeriod } from "@/features/workouts/set-day";
-import { dayKey, periodRange } from "@/features/workouts/set-day";
+import type { MetricProfile, MuscleGroup } from "@/db/schema/workout-schema";
+import {
+  buildPerformanceMetrics,
+  coveringRange,
+  metricWindows,
+  type AllTimeBest,
+  type MetricsDay,
+} from "@/features/workouts/performance-metrics";
+import {
+  dayKey,
+  localDateString,
+  periodRange,
+  type SetPeriod,
+} from "@/features/workouts/set-day";
 
 export type SetInsert = typeof workoutSet.$inferInsert;
 export type SetUpdate = Partial<
@@ -91,24 +103,53 @@ export type ListSetsByPeriodOptions = {
   date?: Date;
   muscleGroup?: MuscleGroup;
   keyMuscle?: string;
+  viewerId: string;
 };
 
-export async function listSetsByPeriodForUser(
-  userId: string,
-  options: ListSetsByPeriodOptions,
-) {
-  const range = periodRange(options.period, options.date);
-  const keyMuscle = options.keyMuscle?.trim();
-  const conditions = [
-    eq(workout.userId, userId),
-    gte(workoutSet.updatedAt, range.start),
-    lt(workoutSet.updatedAt, range.end),
-  ];
+type ListSetsInRangeOptions = {
+  start: Date;
+  end: Date;
+  muscleGroup?: MuscleGroup;
+  keyMuscle?: string;
+};
 
+type LoggedSetRow = {
+  set: {
+    id: string;
+    reps: number | null;
+    weight: number | null;
+    time: number | null;
+    distance: number | null;
+    workoutId: string;
+    exerciseId: string;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+  workout: {
+    id: string;
+    name: string;
+    author: string | null;
+    channelUrl: string | null;
+    createdAt: Date;
+  };
+  exercise: {
+    id: string;
+    name: string;
+    metricProfile: MetricProfile;
+    muscleGroup: MuscleGroup | null;
+    keyMuscles: string[];
+  };
+};
+
+function muscleFilterConditions(options: {
+  muscleGroup?: MuscleGroup;
+  keyMuscle?: string;
+}) {
+  const conditions = [];
   if (options.muscleGroup) {
     conditions.push(eq(exercise.muscleGroup, options.muscleGroup));
   }
-
+  const keyMuscle = options.keyMuscle?.trim();
   if (keyMuscle) {
     const pattern = `%${keyMuscle.replace(/[%_]/g, "\\$&")}%`;
     conditions.push(
@@ -119,8 +160,21 @@ export async function listSetsByPeriodForUser(
       )`,
     );
   }
+  return conditions;
+}
 
-  const rows = await db
+async function loadLoggedSetRows(
+  userId: string,
+  options: ListSetsInRangeOptions,
+): Promise<LoggedSetRow[]> {
+  const conditions = [
+    eq(workout.userId, userId),
+    gte(workoutSet.updatedAt, options.start),
+    lt(workoutSet.updatedAt, options.end),
+    ...muscleFilterConditions(options),
+  ];
+
+  return db
     .select({
       set: {
         id: workoutSet.id,
@@ -153,20 +207,20 @@ export async function listSetsByPeriodForUser(
     .innerJoin(exercise, eq(exercise.id, workoutSet.exerciseId))
     .where(and(...conditions))
     .orderBy(desc(workoutSet.updatedAt), asc(workoutSet.createdAt));
+}
 
-  const commentsByKey = await loadCommentsForLoggedSets(rows);
-
+function groupLoggedSetRows(rows: LoggedSetRow[]) {
   const daysMap = new Map<
     string,
     Map<
       string,
       {
-        workout: (typeof rows)[number]["workout"];
+        workout: LoggedSetRow["workout"];
         exercises: Map<
           string,
           {
-            exercise: (typeof rows)[number]["exercise"];
-            sets: (typeof rows)[number]["set"][];
+            exercise: LoggedSetRow["exercise"];
+            sets: LoggedSetRow["set"][];
           }
         >;
       }
@@ -190,6 +244,27 @@ export async function listSetsByPeriodForUser(
     daysMap.set(day, workouts);
   }
 
+  return daysMap;
+}
+
+export async function listSetsByPeriodForUser(
+  userId: string,
+  options: ListSetsByPeriodOptions,
+) {
+  const range = periodRange(options.period, options.date);
+  const rows = await loadLoggedSetRows(userId, {
+    start: range.start,
+    end: range.end,
+    muscleGroup: options.muscleGroup,
+    keyMuscle: options.keyMuscle,
+  });
+
+  const commentsByKey = await loadCommentsForLoggedSets(
+    rows,
+    options.viewerId,
+  );
+
+  const daysMap = groupLoggedSetRows(rows);
   const days = [...daysMap.entries()]
     .sort(([a], [b]) => b.localeCompare(a))
     .map(([day, workouts]) => ({
@@ -218,8 +293,112 @@ export async function listSetsByPeriodForUser(
   };
 }
 
+export async function getPerformanceMetricsForUser(
+  userId: string,
+  options: {
+    date?: Date;
+    muscleGroup?: MuscleGroup;
+    keyMuscle?: string;
+    viewerId: string;
+  },
+) {
+  const asOf = options.date ?? new Date();
+  const windows = metricWindows(asOf);
+  const covering = coveringRange(windows);
+  const [rows, comments] = await Promise.all([
+    loadLoggedSetRows(userId, {
+      start: covering.start,
+      end: covering.end,
+      muscleGroup: options.muscleGroup,
+      keyMuscle: options.keyMuscle,
+    }),
+    listVisibleCommentsForOwner({
+      ownerId: userId,
+      viewerId: options.viewerId,
+      muscleGroup: options.muscleGroup,
+      keyMuscle: options.keyMuscle,
+    }),
+  ]);
+
+  const daysMap = groupLoggedSetRows(rows);
+  const days: MetricsDay[] = [...daysMap.entries()]
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([day, workouts]) => ({
+      day,
+      workouts: [...workouts.values()].map((entry) => ({
+        id: entry.workout.id,
+        name: entry.workout.name,
+        exercises: [...entry.exercises.values()].map((item) => ({
+          id: item.exercise.id,
+          name: item.exercise.name,
+          metricProfile: item.exercise.metricProfile,
+          muscleGroup: item.exercise.muscleGroup,
+          keyMuscles: item.exercise.keyMuscles,
+          sets: item.sets.map((set) => ({
+            reps: set.reps,
+            weight: set.weight,
+            time: set.time,
+            distance: set.distance,
+          })),
+        })),
+      })),
+    }));
+
+  const exerciseIds = [...new Set(rows.map((row) => row.exercise.id))];
+  const allTimeBests = await listAllTimeBestsForExercises(userId, exerciseIds);
+
+  return buildPerformanceMetrics({
+    asOf: localDateString(asOf),
+    windows,
+    days,
+    allTimeBests,
+    comments,
+  });
+}
+
+async function listAllTimeBestsForExercises(
+  userId: string,
+  exerciseIds: string[],
+): Promise<AllTimeBest[]> {
+  if (exerciseIds.length === 0) return [];
+
+  return db
+    .select({
+      exerciseId: workoutSet.exerciseId,
+      bestWeight: sql<number>`coalesce(max(${workoutSet.weight}), 0)`.mapWith(
+        Number,
+      ),
+      bestReps: sql<number>`coalesce(max(${workoutSet.reps}), 0)`.mapWith(
+        Number,
+      ),
+      bestTime: sql<number>`coalesce(max(${workoutSet.time}), 0)`.mapWith(
+        Number,
+      ),
+      bestDistance: sql<number>`coalesce(max(${workoutSet.distance}), 0)`.mapWith(
+        Number,
+      ),
+      bestVolume: sql<number>`coalesce(max(
+        case
+          when ${workoutSet.weight} is not null and ${workoutSet.reps} is not null
+          then ${workoutSet.weight} * ${workoutSet.reps}
+          else 0
+        end
+      ), 0)`.mapWith(Number),
+    })
+    .from(workoutSet)
+    .innerJoin(workout, eq(workout.id, workoutSet.workoutId))
+    .where(
+      and(
+        eq(workout.userId, userId),
+        inArray(workoutSet.exerciseId, exerciseIds),
+      ),
+    )
+    .groupBy(workoutSet.exerciseId);
+}
+
 async function loadCommentsForLoggedSets(
   rows: { exercise: { id: string }; workout: { id: string } }[],
+  viewerId: string,
 ) {
   const commentsByKey = new Map<string, LoggedSetComment[]>();
   const exerciseIds = [...new Set(rows.map((row) => row.exercise.id))];
@@ -248,6 +427,7 @@ async function loadCommentsForLoggedSets(
       and(
         inArray(comments.exerciseId, exerciseIds),
         or(isNull(comments.workoutId), inArray(comments.workoutId, workoutIds))!,
+        commentVisibleToViewer(viewerId),
       ),
     )
     .orderBy(asc(comments.createdAt));

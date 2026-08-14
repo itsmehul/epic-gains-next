@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseIsoDate, periodRange } from "@/features/workouts/set-day";
+import { addCalendarDays, parseIsoDate, periodRange } from "@/features/workouts/set-day";
 
 describe("parseIsoDate", () => {
   it("parses a calendar date", () => {
@@ -44,5 +44,12 @@ describe("periodRange", () => {
     const range = periodRange("year", friday);
     expect(range.startDay).toBe("2026-01-01");
     expect(range.endDay).toBe("2026-12-31");
+  });
+});
+
+describe("addCalendarDays", () => {
+  it("adds calendar days across month boundaries", () => {
+    expect(addCalendarDays("2026-08-01", -1)).toBe("2026-07-31");
+    expect(addCalendarDays("2026-07-31", 1)).toBe("2026-08-01");
   });
 });

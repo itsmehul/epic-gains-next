@@ -40,7 +40,7 @@ const mcpHandler = createMcpHandler(
     },
     instructions: [
       "Epic Gains MCP manages user workouts, a shared exercise catalog, logged sets, and Instagram-style follows.",
-      "Use get_sets_by_period to fetch logged sets for a day, week, month, or year, including workout overview, exercise muscle group/key muscles, and comments. Filter with muscleGroup and/or keyMuscle.",
+      "For training recaps, progress, volume, week-over-week trends, streaks, PRs, or session notes, call performance_metrics once (optional date YYYY-MM-DD, default today; optional username for a visible friend). It returns focal day, current ISO week, prior week, trailing 30 days, deltas, streak, PRs, all visible comments with exercise/workout context, and a daily rollup — do not issue multiple performance_data calls for those windows. Use performance_data only when you need set-level detail for a single day/week/month/year. Filter either tool with muscleGroup and/or keyMuscle. Omit username for the authenticated user. Private accounts require an accepted follow.",
       "Social tools: search_users, get_social_profile, follow_user/unfollow_user, list/accept/reject follow requests, list_following_feed, update_social_settings.",
       "Private accounts require an accepted follow before workouts are visible.",
       "When importing a follow-along video workout, use the 'import_full_workout' tool to create the workout and all its exercises in a single transaction.",

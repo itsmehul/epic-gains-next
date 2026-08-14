@@ -1,6 +1,6 @@
 "use client";
 
-import { IconBarbell, IconUsers, IconX } from "@tabler/icons-react";
+import { IconBarbell, IconSparkles, IconUsers, IconX } from "@tabler/icons-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -139,6 +139,14 @@ function AppSidebarContent({
         >
           <IconUsers className="size-4 shrink-0" />
           Friends
+        </SidebarNavItem>
+        <SidebarNavItem
+          active={pathname.startsWith("/skills")}
+          closeOnNavigate={showCloseButton}
+          href="/skills"
+        >
+          <IconSparkles className="size-4 shrink-0" />
+          Skills
         </SidebarNavItem>
       </div>
 
