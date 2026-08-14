@@ -22,10 +22,7 @@ import {
   AppShellHeader,
   AppShellScroll,
 } from "@/components/layout/app-shell";
-import { WorkoutChannelLink } from "@/components/workouts/workout-channel-link";
-import { YoutubeImportDrawer } from "@/components/workouts/youtube-import-drawer";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -34,6 +31,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -51,10 +49,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
+import { WorkoutChannelLink } from "@/components/workouts/workout-channel-link";
+import { YoutubeImportDrawer } from "@/components/workouts/youtube-import-drawer";
+import type { MuscleGroup } from "@/db/schema/workout-schema";
 import { useDeleteWorkout, useWorkouts } from "@/features/workouts/hooks";
 import { MUSCLE_GROUP_OPTIONS } from "@/features/workouts/muscle-group";
 import type { WorkoutListStats, WorkoutWithStats } from "@/features/workouts/types";
-import type { MuscleGroup } from "@/db/schema/workout-schema";
 import { cn } from "@/shared/utils";
 
 const springSoft = { type: "spring" as const, stiffness: 420, damping: 32 };
@@ -106,7 +106,7 @@ function MuscleGroupFilter({
       ? "Muscle groups"
       : selectedCount === 1
         ? (MUSCLE_GROUP_OPTIONS.find((option) => option.value === selected[0])
-            ?.label ?? "Muscle groups")
+          ?.label ?? "Muscle groups")
         : `${selectedCount} muscle groups`;
 
   return (
@@ -531,7 +531,7 @@ export function WorkoutsPageClient() {
                   onClick={() => setImportOpen(true)}
                 >
                   <IconBrandYoutube className="size-4 text-red-500" data-icon="inline-start" />
-                  Import YouTube
+                  Import
                 </Button>
               )}
             </motion.div>
@@ -567,8 +567,8 @@ export function WorkoutsPageClient() {
                             {workout.name}
                           </CardTitle>
                           {createdLabel ||
-                          workout.author ||
-                          workout.channelUrl ? (
+                            workout.author ||
+                            workout.channelUrl ? (
                             <CardDescription className="flex flex-wrap items-center gap-x-2 gap-y-1">
                               {workout.author || workout.channelUrl ? (
                                 <WorkoutChannelLink

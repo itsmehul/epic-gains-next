@@ -181,7 +181,7 @@ function isEditableElement(element: Element | null) {
 }
 
 function useDrawerKeyboardInset(isOpen: boolean) {
-  const [node, setNode] = useState<HTMLDivElement | null>(null)
+  const [node, setNode] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
     if (!isOpen || !node) return
