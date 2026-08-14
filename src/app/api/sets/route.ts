@@ -4,7 +4,10 @@ import { getExerciseByIdForUser } from "@/db/repositories/exercise.repository";
 import { getVisibleWorkoutById } from "@/db/repositories/feed.repository";
 import { createSet, listSets } from "@/db/repositories/set.repository";
 import { getWorkoutByIdForUser } from "@/db/repositories/workout.repository";
-import { createSetSchema } from "@/features/workouts/schemas";
+import {
+  createSetSchema,
+  listSetsQuerySchema,
+} from "@/features/workouts/schemas";
 import {
   apiError,
   requireApiSession,
@@ -19,8 +22,14 @@ export async function GET(req: Request) {
 
   try {
     const { searchParams } = new URL(req.url);
-    const workoutId = searchParams.get("workoutId") ?? undefined;
-    const exerciseId = searchParams.get("exerciseId") ?? undefined;
+    const parsed = listSetsQuerySchema.safeParse({
+      workoutId: searchParams.get("workoutId") ?? undefined,
+      exerciseId: searchParams.get("exerciseId") ?? undefined,
+    });
+    if (!parsed.success) {
+      return apiError("Invalid query", 400);
+    }
+    const { workoutId, exerciseId } = parsed.data;
 
     if (workoutId) {
       const workout = await getVisibleWorkoutById(session.user.id, workoutId);

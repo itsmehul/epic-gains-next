@@ -31,6 +31,11 @@ import {
   fieldsForMetricProfile,
   type SetFieldKey,
 } from "@/features/workouts/metric-profile";
+import {
+  formatDayHeading,
+  groupSetsByDay,
+  localDateString,
+} from "@/features/workouts/set-day";
 import type { Set } from "@/features/workouts/types";
 import { cn } from "@/shared/utils";
 
@@ -337,6 +342,9 @@ export function ExerciseSetsPanel({
   const [completedDraftIds, setCompletedDraftIds] = useState(
     () => new Set<string>(),
   );
+  const [checkedAtById, setCheckedAtById] = useState<Record<string, number>>(
+    {},
+  );
   const [uncheckedIds, setUncheckedIds] = useState(() => new Set<string>());
   const [removedIds, setRemovedIds] = useState(() => new Set<string>());
   const [rowKeyBySetId, setRowKeyBySetId] = useState<Record<string, string>>(
@@ -393,6 +401,7 @@ export function ExerciseSetsPanel({
   }, [sets]);
 
   const extraKeys = profileFields.extra;
+  const today = localDateString();
   const liveDrafts = drafts.filter((draft) => !draft.committed);
   const visibleSets = [
     ...sets.filter((set) => !removedIds.has(set.id)),
@@ -403,25 +412,60 @@ export function ExerciseSetsPanel({
       return [draft.committed];
     }),
   ];
-  const rows = [
-    ...visibleSets.map((set, index) => ({
-      kind: "saved" as const,
-      rowId: rowKeyBySetId[set.id] ?? set.id,
-      setId: set.id,
-      values: savedValues[set.id] ?? valuesFromSet(set),
-      index,
-      shouldFocus: false as boolean,
-    })),
-    ...liveDrafts.map((draft, draftIndex) => ({
-      kind: "draft" as const,
-      rowId: draft.id,
-      setId: draft.id,
-      values: draft.values,
-      index: visibleSets.length + draftIndex,
-      shouldFocus: Boolean(draft.shouldFocus),
-    })),
-  ];
-  const showEmpty = rows.length === 0;
+  const dayGroups = groupSetsByDay(visibleSets);
+  const todaySets =
+    dayGroups.find((group) => group.day === today)?.sets ?? [];
+  const pastGroups = dayGroups.filter((group) => group.day !== today);
+
+  type SetRow = {
+    kind: "saved" | "draft";
+    rowId: string;
+    setId: string;
+    values: RowValues;
+    createdAt: Date | string | undefined;
+    index: number;
+    shouldFocus: boolean;
+    previous: RowValues | null;
+  };
+
+  function rowsForDay(day: string, daySets: Set[]): SetRow[] {
+    const previousGroup = dayGroups.find((group) => group.day < day);
+    const savedRows = daySets.map((set, index) => {
+      const previousSet = previousGroup?.sets[index];
+      return {
+        kind: "saved" as const,
+        rowId: rowKeyBySetId[set.id] ?? set.id,
+        setId: set.id,
+        values: savedValues[set.id] ?? valuesFromSet(set),
+        createdAt: set.createdAt,
+        index,
+        shouldFocus: false as boolean,
+        previous: previousSet ? valuesFromSet(previousSet) : null,
+      };
+    });
+    if (day !== today) return savedRows;
+
+    return [
+      ...savedRows,
+      ...liveDrafts.map((draft, draftIndex) => {
+        const index = daySets.length + draftIndex;
+        const previousSet = previousGroup?.sets[index];
+        return {
+          kind: "draft" as const,
+          rowId: draft.id,
+          setId: draft.id,
+          values: draft.values,
+          createdAt: undefined as Date | string | undefined,
+          index,
+          shouldFocus: Boolean(draft.shouldFocus),
+          previous: previousSet ? valuesFromSet(previousSet) : null,
+        };
+      }),
+    ];
+  }
+
+  const todayRows = rowsForDay(today, todaySets);
+  const showEmpty = visibleSets.length === 0 && liveDrafts.length === 0;
   const hasExtraValues =
     extraKeys.some((key) =>
       visibleSets.some((set) => set[key] != null),
@@ -433,7 +477,7 @@ export function ExerciseSetsPanel({
 
   function handleAddSet() {
     setError(null);
-    const lastSaved = visibleSets.at(-1);
+    const lastSaved = todaySets.at(-1);
     const lastDraft = liveDrafts.at(-1);
     const id = createDraftId();
     setDrafts((prev) => [
@@ -498,6 +542,7 @@ export function ExerciseSetsPanel({
     setBusyId(draftId);
     setError(null);
     setCompletedDraftIds((prev) => new Set(prev).add(draftId));
+    setCheckedAtById((prev) => ({ ...prev, [draftId]: Date.now() }));
     try {
       const created = await createSet.mutateAsync({
         workoutId,
@@ -524,6 +569,11 @@ export function ExerciseSetsPanel({
       setCompletedDraftIds((prev) => {
         const next = new Set(prev);
         next.delete(draftId);
+        return next;
+      });
+      setCheckedAtById((prev) => {
+        const next = { ...prev };
+        delete next[draftId];
         return next;
       });
       setError(err instanceof Error ? err.message : "Failed to log set");
@@ -773,161 +823,218 @@ export function ExerciseSetsPanel({
     );
   }
 
+  function renderHistoryRows(rows: SetRow[]) {
+    return (
+      <ul className="text-muted-foreground divide-border/50 divide-y overflow-clip rounded-xl bg-muted/10">
+        {rows.map((row) => {
+          const summary = formatSetSummary(row.values);
+          return (
+            <li
+              key={row.rowId}
+              className="flex items-center gap-2 px-3 py-1.5"
+            >
+              <span className="min-w-0 flex-1 truncate text-sm tabular-nums">
+                {summary === "Tap to log" ? "—" : summary}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }
+
+  function renderSetRows(rows: SetRow[]) {
+    return (
+      <ul className="divide-border/60 divide-y overflow-clip rounded-xl bg-muted/20">
+        <AnimatePresence initial={false}>
+          {rows.map((row) => {
+            const isDraft = row.kind === "draft";
+            const busy = busyId === row.setId || busyId === row.rowId;
+            const expanded = expandedId === row.rowId;
+            const completed = isDraft
+              ? completedDraftIds.has(row.rowId)
+              : !uncheckedIds.has(row.setId);
+            const summary = formatSetSummary(row.values);
+            const previousLabel = row.previous
+              ? `Previous ${formatSetSummary(row.previous)}`
+              : "Previous —";
+            const subtitle =
+              isDraft && !completed ? "Draft · not saved" : previousLabel;
+
+            return (
+              <motion.li
+                key={row.rowId}
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={transition}
+                className={cn(
+                  "overflow-clip transition-colors duration-280",
+                  completed && "bg-primary/8",
+                  expanded && "bg-muted/40",
+                )}
+              >
+                <div className="flex items-center gap-2 px-3 py-1.5">
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                    aria-expanded={expanded}
+                    onClick={() => toggleExpanded(row.rowId)}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className={cn(
+                          "block truncate text-sm font-medium tabular-nums",
+                          summary === "Tap to log" &&
+                            "text-muted-foreground font-normal",
+                        )}
+                      >
+                        {summary}
+                      </span>
+                      {subtitle ? (
+                        <span className="text-muted-foreground text-[11px] tabular-nums">
+                          {subtitle}
+                        </span>
+                      ) : null}
+                    </span>
+                  </button>
+
+                  <motion.div
+                    whileTap={{ scale: 0.9 }}
+                    transition={springSnappy}
+                    className="shrink-0"
+                  >
+                    <Checkbox
+                      checked={completed}
+                      disabled={busy}
+                      aria-label={
+                        isDraft
+                          ? `Complete set ${row.index + 1}`
+                          : `Mark set ${row.index + 1} complete`
+                      }
+                      className="size-5 rounded-md data-checked:bg-primary"
+                      onCheckedChange={(checked) => {
+                        if (isDraft) {
+                          if (checked) void completeDraft(row.rowId);
+                          return;
+                        }
+                        setUncheckedIds((prev) => {
+                          const next = new Set(prev);
+                          if (checked) next.delete(row.setId);
+                          else next.add(row.setId);
+                          return next;
+                        });
+                        setCheckedAtById((prev) => {
+                          if (checked) {
+                            return { ...prev, [row.setId]: Date.now() };
+                          }
+                          const next = { ...prev };
+                          delete next[row.setId];
+                          delete next[row.rowId];
+                          return next;
+                        });
+                      }}
+                    />
+                  </motion.div>
+                </div>
+
+                <div
+                  className={cn(
+                    collapseGridClass,
+                    expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+                  )}
+                >
+                  <div className="min-h-0 overflow-clip" inert={!expanded}>
+                    {renderEditor({
+                      rowId: row.rowId,
+                      setId: row.setId,
+                      values: row.values,
+                      busy,
+                      isDraft,
+                      index: row.index,
+                      autoFocusWeight: isDraft && row.shouldFocus,
+                    })}
+                  </div>
+                </div>
+              </motion.li>
+            );
+          })}
+        </AnimatePresence>
+      </ul>
+    );
+  }
+
   return (
     <div className="px-4 md:px-0">
       <SwapSize
         swapKey={showEmpty ? "empty" : "list"}
         transition={transition}
       >
-          {showEmpty ? (
-            <Card size="sm">
-              <CardHeader>
-                <CardTitle>No sets yet</CardTitle>
-                <CardDescription>
-                  Add a set to start logging, or link this move to an existing
-                  exercise to unify history.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ExerciseResolveCard
-                  workoutId={workoutId}
-                  exerciseId={exerciseId}
-                  workoutExerciseId={workoutExerciseId}
-                  candidates={similarQuery.data?.items ?? []}
-                  onResolved={(id) => {
-                    onExerciseResolved?.(id);
-                  }}
-                />
-              </CardContent>
-            </Card>
-          ) : (
-            <ul className="divide-border/60 divide-y overflow-clip rounded-xl bg-muted/20">
-              <AnimatePresence initial={false}>
-                {rows.map((row) => {
-                  const isDraft = row.kind === "draft";
-                  const busy = busyId === row.setId || busyId === row.rowId;
-                  const expanded = expandedId === row.rowId;
-                  const completed = isDraft
-                    ? completedDraftIds.has(row.rowId)
-                    : !uncheckedIds.has(row.setId);
-                  const summary = formatSetSummary(row.values);
+        {showEmpty ? (
+          <Card size="sm">
+            <CardHeader>
+              <CardTitle>No sets yet</CardTitle>
+              <CardDescription>
+                Add a set to start logging, or link this move to an existing
+                exercise to unify history.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ExerciseResolveCard
+                workoutId={workoutId}
+                exerciseId={exerciseId}
+                workoutExerciseId={workoutExerciseId}
+                candidates={similarQuery.data?.items ?? []}
+                onResolved={(id) => {
+                  onExerciseResolved?.(id);
+                }}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                className="mt-3 w-full"
+                onClick={handleAddSet}
+              >
+                <IconPlus data-icon="inline-start" />
+                Add set
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <section className="flex flex-col gap-2">
+              <h3 className="text-muted-foreground px-1 text-[11px] font-medium tracking-wide uppercase">
+                {formatDayHeading(today)}
+              </h3>
+              {todayRows.length > 0 ? (
+                renderSetRows(todayRows)
+              ) : (
+                <p className="text-muted-foreground px-1 text-sm">
+                  No sets logged today.
+                </p>
+              )}
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full"
+                onClick={handleAddSet}
+              >
+                <IconPlus data-icon="inline-start" />
+                Add set
+              </Button>
+            </section>
 
-                  return (
-                    <motion.li
-                      key={row.rowId}
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={transition}
-                      className={cn(
-                        "overflow-clip transition-colors duration-280",
-                        completed && "bg-primary/8",
-                        expanded && "bg-muted/40",
-                      )}
-                    >
-                      <div className="flex items-center gap-2 px-3 py-1.5">
-                        <button
-                          type="button"
-                          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-                          aria-expanded={expanded}
-                          onClick={() => toggleExpanded(row.rowId)}
-                        >
-                          <span
-                            aria-hidden
-                            className="text-primary/50 flex w-4 shrink-0 justify-center text-xs tabular-nums"
-                          >
-                            {row.index + 1}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span
-                              className={cn(
-                                "block truncate text-sm font-medium tabular-nums",
-                                summary === "Tap to log" &&
-                                  "text-muted-foreground font-normal",
-                              )}
-                            >
-                              {summary}
-                            </span>
-                            <span className="text-muted-foreground text-[11px]">
-                              {isDraft
-                                ? "Draft · not saved"
-                                : expanded
-                                  ? "Editing"
-                                  : "Previous —"}
-                            </span>
-                          </span>
-                        </button>
-
-                        <motion.div
-                          whileTap={{ scale: 0.9 }}
-                          transition={springSnappy}
-                          className="shrink-0"
-                        >
-                          <Checkbox
-                            checked={completed}
-                            disabled={busy}
-                            aria-label={
-                              isDraft
-                                ? `Complete set ${row.index + 1}`
-                                : `Mark set ${row.index + 1} complete`
-                            }
-                            className="size-5 rounded-md data-checked:bg-primary"
-                            onCheckedChange={(checked) => {
-                              if (isDraft) {
-                                if (checked) void completeDraft(row.rowId);
-                                return;
-                              }
-                              setUncheckedIds((prev) => {
-                                const next = new Set(prev);
-                                if (checked) next.delete(row.setId);
-                                else next.add(row.setId);
-                                return next;
-                              });
-                            }}
-                          />
-                        </motion.div>
-                      </div>
-
-                      <div
-                        className={cn(
-                          collapseGridClass,
-                          expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-                        )}
-                      >
-                        <div
-                          className="min-h-0 overflow-clip"
-                          inert={!expanded}
-                        >
-                          {renderEditor({
-                            rowId: row.rowId,
-                            setId: row.setId,
-                            values: row.values,
-                            busy,
-                            isDraft,
-                            index: row.index,
-                            autoFocusWeight: isDraft && row.shouldFocus,
-                          })}
-                        </div>
-                      </div>
-                    </motion.li>
-                  );
-                })}
-              </AnimatePresence>
-            </ul>
-          )}
-        </SwapSize>
-
-      <div className="flex justify-center pt-2">
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={handleAddSet}
-        >
-          <IconPlus data-icon="inline-start" />
-          Add Set
-        </Button>
-      </div>
+            {pastGroups.map((group) => (
+              <section key={group.day} className="flex flex-col gap-2">
+                <h3 className="text-muted-foreground px-1 text-[11px] font-medium tracking-wide uppercase">
+                  {formatDayHeading(group.day, today)}
+                </h3>
+                {renderHistoryRows(rowsForDay(group.day, group.sets))}
+              </section>
+            ))}
+          </div>
+        )}
+      </SwapSize>
 
       <AnimatePresence initial={false}>
         {error ? (

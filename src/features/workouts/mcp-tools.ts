@@ -19,6 +19,7 @@ import {
   listWorkoutExercises,
   updateWorkoutExercise,
 } from "@/db/repositories/workout-exercise.repository";
+import { listSetsByPeriodForUser } from "@/db/repositories/set.repository";
 import {
   deleteWorkoutForUser,
   getWorkoutByIdForUser,
@@ -35,8 +36,13 @@ import {
 import {
   exerciseMetaDataSchema,
   importFullWorkoutSchema,
+  muscleGroupEnum,
   updateWorkoutSchema,
 } from "@/features/workouts/schemas";
+import {
+  parseIsoDate,
+  SET_PERIOD_VALUES,
+} from "@/features/workouts/set-day";
 import { isRestWorkoutItem, withRestTag } from "@/features/workouts/workout-item";
 import { getMcpAuth } from "@/infrastructure/mcp/context";
 import {
@@ -419,6 +425,51 @@ export function registerWorkoutMcpTools(server: McpServer) {
       const item = await deleteWorkoutExercise(id);
       if (!item) return mcpErrorResult("Workout exercise not found");
       return mcpTextResult(item);
+    },
+  );
+
+  server.registerTool(
+    "get_sets_by_period",
+    {
+      title: "Get sets by period",
+      description:
+        "Fetch logged sets for the authenticated user for a calendar day, week (Monday–Sunday), month, or year. Includes workout overview, exercise muscle group and key muscles, and comments. Optionally filter by muscle group and/or key muscle.",
+      inputSchema: z.object({
+        period: z.enum(SET_PERIOD_VALUES).describe(
+          "Time window: day, week (ISO Monday–Sunday), month, or year containing `date`.",
+        ),
+        date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional()
+          .describe(
+            "Anchor date as YYYY-MM-DD. Defaults to today. Selects the day/week/month/year that contains this date.",
+          ),
+        muscleGroup: muscleGroupEnum
+          .optional()
+          .describe("Only include exercises in this muscle group."),
+        keyMuscle: z
+          .string()
+          .trim()
+          .min(1)
+          .max(80)
+          .optional()
+          .describe("Only include exercises whose key muscles match this name."),
+      }),
+    },
+    async ({ period, date, muscleGroup, keyMuscle }) => {
+      const { userId } = getMcpAuth();
+      const on = date ? parseIsoDate(date) : new Date();
+      if (date && !on) {
+        return mcpErrorResult("date must be a valid YYYY-MM-DD calendar date");
+      }
+      const result = await listSetsByPeriodForUser(userId, {
+        period,
+        date: on ?? undefined,
+        muscleGroup,
+        keyMuscle,
+      });
+      return mcpTextResult(result);
     },
   );
 }

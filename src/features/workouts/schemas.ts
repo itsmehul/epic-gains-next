@@ -245,6 +245,11 @@ export const updateWorkoutExerciseSchema = z
     { message: "At least one field is required" },
   );
 
+export const listSetsQuerySchema = z.object({
+  workoutId: z.string().min(1).optional(),
+  exerciseId: z.string().min(1).optional(),
+});
+
 export const createSetSchema = z.object({
   reps: z.number().int().nonnegative().nullable().optional(),
   weight: z.number().nonnegative().nullable().optional(),
@@ -272,5 +277,6 @@ export type ImportFullWorkoutInput = z.infer<typeof importFullWorkoutSchema>;
 export type ImportWorkoutStructureInput = z.infer<
   typeof importWorkoutStructureSchema
 >;
+export type ListSetsQuery = z.infer<typeof listSetsQuerySchema>;
 export type CreateSetInput = z.infer<typeof createSetSchema>;
 export type UpdateSetInput = z.infer<typeof updateSetSchema>;

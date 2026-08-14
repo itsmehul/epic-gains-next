@@ -127,6 +127,10 @@ export const set = pgTable(
     workoutId: text("workout_id").notNull(),
     exerciseId: text("exercise_id").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
   },
   (table) => [
     foreignKey({
@@ -143,6 +147,7 @@ export const set = pgTable(
     index("set_exerciseId_idx").on(table.exerciseId),
     index("set_workoutId_exerciseId_idx").on(table.workoutId, table.exerciseId),
     index("set_createdAt_idx").on(table.createdAt),
+    index("set_updatedAt_idx").on(table.updatedAt),
   ],
 );
 

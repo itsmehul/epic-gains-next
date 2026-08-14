@@ -11,14 +11,18 @@ import {
   AppShellScroll,
 } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ExerciseAnalyticsPanel } from "@/components/workouts/exercise-analytics-panel";
 import { ExerciseCommentsPanel } from "@/components/workouts/exercise-comments-panel";
 import { ExerciseSetsPanel } from "@/components/workouts/exercise-sets-panel";
+import { useComments } from "@/features/comments/hooks";
 import { WorkoutChannelLink } from "@/components/workouts/workout-channel-link";
 import { RestDetailsPanel } from "@/components/workouts/rest-details-panel";
 import {
   WorkoutVideoPreview,
   type WorkoutVideoPreviewHandle,
 } from "@/components/workouts/workout-video-preview";
+import type { MetricProfile } from "@/db/schema/workout-schema";
 import {
   useExercises,
   useSets,
@@ -26,6 +30,7 @@ import {
   useWorkoutExercises,
 } from "@/features/workouts/hooks";
 import { muscleGroupLabel } from "@/features/workouts/muscle-group";
+import { dayKey, localDateString } from "@/features/workouts/set-day";
 import type { Set, WorkoutExercise } from "@/features/workouts/types";
 import {
   getItemDurationSeconds,
@@ -76,6 +81,78 @@ function findWorkoutExerciseIdAtTime(
   }
 
   return matchId;
+}
+
+function WorkoutExerciseTabs({
+  workoutId,
+  exerciseId,
+  workoutExerciseId,
+  metricProfile,
+  sets,
+  onExerciseResolved,
+}: {
+  workoutId: string;
+  exerciseId: string;
+  workoutExerciseId: string;
+  metricProfile?: MetricProfile | null;
+  sets: Set[];
+  onExerciseResolved?: (id: string) => void;
+}) {
+  const [tab, setTab] = useState("sets");
+  const commentsQuery = useComments({ exerciseId, workoutId });
+  const commentCount = commentsQuery.data?.items.length ?? 0;
+
+  return (
+    <Tabs
+      value={tab}
+      onValueChange={(value) => {
+        if (typeof value === "string") setTab(value);
+      }}
+      className="gap-0"
+    >
+      <div className="px-4 md:px-0">
+        <TabsList className="w-full">
+          <TabsTrigger value="sets">Sets</TabsTrigger>
+          <TabsTrigger value="comments">
+            Comments
+            {commentCount > 0 ? (
+              <Badge
+                variant="secondary"
+                className="h-4 min-w-4 justify-center px-1.5 text-[10px] tabular-nums"
+              >
+                {commentCount}
+              </Badge>
+            ) : null}
+          </TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        </TabsList>
+      </div>
+      <div className="mt-4">
+        <div hidden={tab !== "sets"}>
+          <ExerciseSetsPanel
+            workoutId={workoutId}
+            exerciseId={exerciseId}
+            workoutExerciseId={workoutExerciseId}
+            metricProfile={metricProfile}
+            sets={sets}
+            onExerciseResolved={onExerciseResolved}
+          />
+        </div>
+        <div hidden={tab !== "comments"}>
+          <ExerciseCommentsPanel
+            exerciseId={exerciseId}
+            workoutId={workoutId}
+          />
+        </div>
+        <div hidden={tab !== "analytics"}>
+          <ExerciseAnalyticsPanel
+            sets={sets}
+            metricProfile={metricProfile}
+          />
+        </div>
+      </div>
+    </Tabs>
+  );
 }
 
 export function WorkoutDetailPageClient() {
@@ -215,7 +292,12 @@ export function WorkoutDetailPageClient() {
                     const isRest = isRestWorkoutItem(item);
                     const setCount = isRest
                       ? 0
-                      : (setsByExerciseId.get(item.exerciseId)?.length ?? 0);
+                      : (setsByExerciseId
+                          .get(item.exerciseId)
+                          ?.filter(
+                            (set) =>
+                              dayKey(set.updatedAt) === localDateString(),
+                          ).length ?? 0);
                     const hasNext = index < workoutExercises.length - 1;
                     const label = itemLabel(item);
 
@@ -294,13 +376,13 @@ export function WorkoutDetailPageClient() {
           {selectedKeyMuscles.length > 0 ? (
             <div className="overflow-x-auto overscroll-x-contain px-4 scrollbar-none md:px-0">
               <ul
-                className="flex w-max items-center gap-2"
+                className="flex w-max items-center gap-3"
                 aria-label="Key muscles"
               >
                 {selectedKeyMuscles.map((muscle) => (
                   <li
                     key={muscle}
-                    className="text-muted-foreground/70 text-[11px] font-normal tracking-wide whitespace-nowrap"
+                    className="text-muted-foreground/70 text-sm font-normal tracking-wide whitespace-nowrap"
                   >
                     {muscle}
                   </li>
@@ -354,24 +436,18 @@ export function WorkoutDetailPageClient() {
                     }
                   />
                 ) : (
-                  <>
-                    <ExerciseSetsPanel
-                      workoutId={workoutId}
-                      exerciseId={selectedItem.exerciseId}
-                      workoutExerciseId={selectedItem.id}
-                      metricProfile={
-                        exerciseById.get(selectedItem.exerciseId)?.metricProfile
-                      }
-                      sets={selectedSets}
-                      onExerciseResolved={(id) => {
-                        setActiveWorkoutExerciseId(id);
-                      }}
-                    />
-                    <ExerciseCommentsPanel
-                      exerciseId={selectedItem.exerciseId}
-                      workoutId={workoutId}
-                    />
-                  </>
+                  <WorkoutExerciseTabs
+                    workoutId={workoutId}
+                    exerciseId={selectedItem.exerciseId}
+                    workoutExerciseId={selectedItem.id}
+                    metricProfile={
+                      exerciseById.get(selectedItem.exerciseId)?.metricProfile
+                    }
+                    sets={selectedSets}
+                    onExerciseResolved={(id) => {
+                      setActiveWorkoutExerciseId(id);
+                    }}
+                  />
                 )}
               </div>
             </div>

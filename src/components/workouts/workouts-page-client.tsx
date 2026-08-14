@@ -3,6 +3,7 @@
 import {
   IconBarbell,
   IconBrandYoutube,
+  IconBrandYoutubeFilled,
   IconDotsVertical,
   IconPlayerPlayFilled,
   IconRefresh,
@@ -447,15 +448,23 @@ export function WorkoutsPageClient() {
       <AppShellHeader
         title="Workouts"
         actions={
-          <div className="flex items-center gap-1.5 md:gap-2">
+          <div className="flex items-center gap-1.5 md:gap-2 h-full">
             <Link
               href="/workouts/import"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+              className={cn(
+                buttonVariants({ variant: "default", size: "sm" }),
+                "flex items-baseline gap-2 h-8"
+              )}
+              style={{ alignItems: "center" }}
             >
-              <IconBrandYoutube className="size-4 text-red-500" data-icon="inline-start" />
-              Import YouTube
+              <span className="flex items-center">
+                <IconBrandYoutubeFilled data-icon="inline-start" />
+              </span>
+              <span className="flex items-center">Import</span>
             </Link>
+
           </div>
+
         }
       />
       <AppShellBody className="max-w-screen-2xl">
