@@ -4,6 +4,8 @@ import {
   IconArrowsMaximize,
   IconArrowsMinimize,
   IconLoader2,
+  IconMaximize,
+  IconMinimize,
   IconPlayerPauseFilled,
   IconPlayerPlayFilled,
 } from "@tabler/icons-react";
@@ -18,6 +20,7 @@ import {
 } from "react";
 
 import { Button } from "@/components/ui/button";
+import { WorkoutChannelLink } from "@/components/workouts/workout-channel-link";
 import {
   formatVideoTimestamp,
   getYouTubeVideoId,
@@ -38,6 +41,7 @@ type YTPlayer = {
   getPlayerState: () => number;
   getCurrentTime: () => number;
   getDuration: () => number;
+  unloadModule: (module: string) => void;
   destroy: () => void;
 };
 
@@ -137,6 +141,8 @@ export type WorkoutVideoPreviewHandle = {
 type WorkoutVideoPreviewProps = {
   videoUrl: string;
   className?: string;
+  author?: string | null;
+  channelUrl?: string | null;
   onTimeUpdate?: (seconds: number) => void;
   ref?: Ref<WorkoutVideoPreviewHandle>;
 };
@@ -144,10 +150,13 @@ type WorkoutVideoPreviewProps = {
 export function WorkoutVideoPreview({
   videoUrl,
   className,
+  author,
+  channelUrl,
   onTimeUpdate,
   ref,
 }: WorkoutVideoPreviewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const playerFrameRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const pendingSeekRef = useRef<number | null>(null);
   const scrubbingRef = useRef(false);
@@ -168,6 +177,7 @@ export function WorkoutVideoPreview({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [minimized, setMinimized] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
 
   const videoId = getYouTubeVideoId(videoUrl);
   // iOS/WebKit blocks playVideo() from overlays until the iframe itself
@@ -301,6 +311,7 @@ export function WorkoutVideoPreview({
           height: "100%",
           playerVars: {
             autoplay: 0,
+            cc_load_policy: 0,
             controls: 0,
             disablekb: 1,
             fs: 0,
@@ -314,6 +325,12 @@ export function WorkoutVideoPreview({
             onReady: (event) => {
               if (cancelled) return;
               playerRef.current = event.target;
+              try {
+                event.target.unloadModule("captions");
+                event.target.unloadModule("cc");
+              } catch {
+                // Caption modules may already be unavailable.
+              }
               setReady(true);
               setDuration(event.target.getDuration() || 0);
 
@@ -374,6 +391,16 @@ export function WorkoutVideoPreview({
       host.replaceChildren();
     };
   }, [videoId]);
+
+  useEffect(() => {
+    function syncFullscreen() {
+      const frame = playerFrameRef.current;
+      setFullscreen(Boolean(frame && document.fullscreenElement === frame));
+    }
+
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreen);
+  }, []);
 
   useEffect(() => {
     if (!ready || !playing) return;
@@ -468,8 +495,29 @@ export function WorkoutVideoPreview({
 
   const progress = duration > 0 ? Math.min(1, currentTime / duration) : 0;
 
+  async function toggleFullscreen() {
+    const frame = playerFrameRef.current;
+    if (!frame) return;
+
+    try {
+      if (document.fullscreenElement === frame) {
+        await document.exitFullscreen();
+        return;
+      }
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      }
+      await frame.requestFullscreen();
+    } catch {
+      // Fullscreen may be blocked by the browser.
+    }
+  }
+
   function minimizePlayer() {
     const player = playerRef.current;
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+    }
     try {
       player?.pauseVideo();
     } catch {
@@ -567,11 +615,14 @@ export function WorkoutVideoPreview({
       ) : null}
 
       <div
+        ref={playerFrameRef}
         className={cn(
           "bg-muted group/player relative overflow-hidden rounded-xl select-none [&_iframe]:absolute [&_iframe]:inset-0 [&_iframe]:size-full",
           minimized
             ? "pointer-events-none invisible absolute size-px overflow-hidden"
-            : "aspect-video",
+            : fullscreen
+              ? "h-dvh w-full rounded-none"
+              : "aspect-video",
           needsNativeFirstTap
             ? "[&_iframe]:pointer-events-auto [&_iframe]:z-20"
             : "[&_iframe]:pointer-events-none",
@@ -618,6 +669,27 @@ export function WorkoutVideoPreview({
             </div>
           ) : null}
 
+          <button
+            type="button"
+            className={cn(
+              "absolute top-2 right-2 z-30 flex size-8 items-center justify-center rounded-full text-white shadow-sm transition-opacity duration-200 hover:bg-black/40",
+              controlsVisible || showPlayPrompt
+                ? "opacity-100"
+                : "pointer-events-none opacity-0",
+            )}
+            aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
+            onClick={(event) => {
+              event.stopPropagation();
+              void toggleFullscreen();
+            }}
+          >
+            {fullscreen ? (
+              <IconMinimize className="size-4" />
+            ) : (
+              <IconMaximize className="size-4" />
+            )}
+          </button>
+
           <div
             className={cn(
               "absolute inset-x-0 bottom-0 z-30 bg-linear-to-t from-black/75 via-black/35 to-transparent px-3 pt-10 pb-3 transition-opacity duration-200",
@@ -626,6 +698,18 @@ export function WorkoutVideoPreview({
                 : "pointer-events-none opacity-0",
             )}
           >
+            {author || channelUrl ? (
+              <div
+                className="mb-1.5 min-w-0"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <WorkoutChannelLink
+                  author={author}
+                  channelUrl={channelUrl}
+                  className="max-w-full text-xs text-white/90 hover:text-white"
+                />
+              </div>
+            ) : null}
             <div className="flex items-center gap-2">
               <button
                 type="button"

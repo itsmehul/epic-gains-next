@@ -11,7 +11,6 @@ import { useEffect, useId, useRef, useState } from "react";
 import useMeasure from "react-use-measure";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -21,7 +20,7 @@ import {
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ExerciseResolveCard } from "@/components/workouts/exercise-resolve-card";
-import type { MetricProfile, MuscleGroup } from "@/db/schema/workout-schema";
+import type { MetricProfile } from "@/db/schema/workout-schema";
 import {
   useCreateSet,
   useDeleteSet,
@@ -32,7 +31,6 @@ import {
   fieldsForMetricProfile,
   type SetFieldKey,
 } from "@/features/workouts/metric-profile";
-import { muscleGroupLabel } from "@/features/workouts/muscle-group";
 import type { Set } from "@/features/workouts/types";
 import { cn } from "@/shared/utils";
 
@@ -307,8 +305,6 @@ type ExerciseSetsPanelProps = {
   exerciseId: string;
   workoutExerciseId: string;
   metricProfile?: MetricProfile | null;
-  muscleGroup?: MuscleGroup | null;
-  keyMuscles?: string[] | null;
   sets: Set[];
   onExerciseResolved?: (workoutExerciseId: string) => void;
 };
@@ -318,8 +314,6 @@ export function ExerciseSetsPanel({
   exerciseId,
   workoutExerciseId,
   metricProfile,
-  muscleGroup,
-  keyMuscles,
   sets,
   onExerciseResolved,
 }: ExerciseSetsPanelProps) {
@@ -780,31 +774,15 @@ export function ExerciseSetsPanel({
   }
 
   return (
-    <div>
-      <div className="mx-2">
-        <SwapSize
-          swapKey={showEmpty ? "empty" : "list"}
-          transition={transition}
-        >
+    <div className="px-4 md:px-0">
+      <SwapSize
+        swapKey={showEmpty ? "empty" : "list"}
+        transition={transition}
+      >
           {showEmpty ? (
             <Card size="sm">
               <CardHeader>
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle>No sets yet</CardTitle>
-                  {muscleGroupLabel(muscleGroup) ? (
-                    <Badge
-                      variant="outline"
-                      className="h-5 shrink-0 text-[10px]"
-                    >
-                      {muscleGroupLabel(muscleGroup)}
-                    </Badge>
-                  ) : null}
-                </div>
-                {keyMuscles && keyMuscles.length > 0 ? (
-                  <p className="text-muted-foreground text-xs">
-                    {keyMuscles.join(", ")}
-                  </p>
-                ) : null}
+                <CardTitle>No sets yet</CardTitle>
                 <CardDescription>
                   Add a set to start logging, or link this move to an existing
                   exercise to unify history.
@@ -938,9 +916,8 @@ export function ExerciseSetsPanel({
             </ul>
           )}
         </SwapSize>
-      </div>
 
-      <div className="mx-2 flex justify-center pt-2">
+      <div className="flex justify-center pt-2">
         <Button
           type="button"
           variant="secondary"
@@ -961,7 +938,7 @@ export function ExerciseSetsPanel({
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={transition}
-            className="text-destructive mx-2 overflow-clip px-3 text-xs"
+            className="text-destructive overflow-clip px-3 text-xs"
           >
             {error}
           </motion.p>

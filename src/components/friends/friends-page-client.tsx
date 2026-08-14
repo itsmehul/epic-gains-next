@@ -42,11 +42,17 @@ export function FriendsPageClient() {
       <AppShellBody>
         <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:p-6">
           <Tabs onValueChange={setTab} value={tab}>
-            <TabsList className="w-full">
-              <TabsTrigger value="search">Search</TabsTrigger>
-              <TabsTrigger value="followers">Followers</TabsTrigger>
-              <TabsTrigger value="following">Following</TabsTrigger>
-              <TabsTrigger value="requests">
+            <TabsList className="w-full justify-start overflow-x-auto scrollbar-none">
+              <TabsTrigger className="flex-none" value="search">
+                Search
+              </TabsTrigger>
+              <TabsTrigger className="flex-none" value="followers">
+                Followers
+              </TabsTrigger>
+              <TabsTrigger className="flex-none" value="following">
+                Following
+              </TabsTrigger>
+              <TabsTrigger className="flex-none" value="requests">
                 Requests
                 {pendingCount > 0 ? (
                   <Badge className="ml-1" variant="secondary">
