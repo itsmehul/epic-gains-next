@@ -138,17 +138,7 @@ function InputUrlView() {
     <form onSubmit={handleSubmit}>
       <FamilyDrawerHeader icon={<IconVideo />} title="Import YouTube Workout" />
       <FamilyDrawerBody className="space-y-3 pt-1">
-        <p className="text-sm text-muted-foreground">
-          Enter the link to a follow-along YouTube workout video to generate an
-          extraction prompt.
-        </p>
         <div className="flex flex-col gap-2">
-          <Label
-            className="text-sm font-medium text-muted-foreground"
-            htmlFor={urlId}
-          >
-            YouTube Video URL
-          </Label>
           <Input
             id={urlId}
             type="url"
@@ -194,8 +184,7 @@ function PromptView() {
       <FamilyDrawerHeader icon={<IconSparkles />} title="Copy Extraction Prompt" />
       <FamilyDrawerBody className="space-y-3 pt-1">
         <p className="text-sm text-muted-foreground">
-          Copy this prompt and run it with ChatGPT, Claude, or Gemini to extract
-          the workout JSON, then proceed to the next step.
+          Copy this prompt and paste it in Gemini, then copy the result and paste it in the next step.
         </p>
         <pre className="bg-muted/60 max-h-48 overflow-y-auto rounded-xl p-3 font-mono text-xs whitespace-pre-wrap select-all">
           {promptText}

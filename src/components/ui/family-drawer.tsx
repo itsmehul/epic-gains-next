@@ -150,11 +150,81 @@ function FamilyDrawerRoot({
 
   return (
     <FamilyDrawerContext.Provider value={contextValue}>
-      <Drawer.Root open={isOpen} onOpenChange={setIsOpen}>
+      <Drawer.Root
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        // Vaul's default keyboard handler leaves a stale `bottom` after dismiss.
+        repositionInputs={false}
+      >
         {children}
       </Drawer.Root>
     </FamilyDrawerContext.Provider>
   )
+}
+
+const KEYBOARD_INSET_THRESHOLD_PX = 100
+
+function getKeyboardInsetPx() {
+  const viewport = window.visualViewport
+  if (!viewport) return 0
+  return Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+}
+
+function isEditableElement(element: Element | null) {
+  if (!(element instanceof HTMLElement)) return false
+  return (
+    element.tagName === "INPUT" ||
+    element.tagName === "TEXTAREA" ||
+    element.tagName === "SELECT" ||
+    element.isContentEditable
+  )
+}
+
+function useDrawerKeyboardInset(isOpen: boolean) {
+  const [node, setNode] = useState<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!isOpen || !node) return
+
+    const viewport = window.visualViewport
+    let timeoutId = 0
+
+    const apply = () => {
+      const inputFocused =
+        isEditableElement(document.activeElement) &&
+        node.contains(document.activeElement)
+      const inset = getKeyboardInsetPx()
+      node.style.bottom =
+        inputFocused && inset > KEYBOARD_INSET_THRESHOLD_PX
+          ? `${inset}px`
+          : "0px"
+    }
+
+    const sync = () => {
+      apply()
+      window.clearTimeout(timeoutId)
+      timeoutId = window.setTimeout(apply, 300)
+    }
+
+    apply()
+    viewport?.addEventListener("resize", sync)
+    viewport?.addEventListener("scroll", sync)
+    window.addEventListener("orientationchange", sync)
+    document.addEventListener("focusin", sync)
+    document.addEventListener("focusout", sync)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+      viewport?.removeEventListener("resize", sync)
+      viewport?.removeEventListener("scroll", sync)
+      window.removeEventListener("orientationchange", sync)
+      document.removeEventListener("focusin", sync)
+      document.removeEventListener("focusout", sync)
+      node.style.bottom = ""
+    }
+  }, [isOpen, node])
+
+  return setNode
 }
 
 // ============================================================================
@@ -249,6 +319,7 @@ function FamilyDrawerContent({
   asChild = false,
 }: FamilyDrawerContentProps) {
   const { bounds, isOpen } = useFamilyDrawer()
+  const contentRef = useDrawerKeyboardInset(isOpen)
   const frozenHeightRef = useRef(0)
 
   const maxHeight =
@@ -292,13 +363,15 @@ function FamilyDrawerContent({
   if (asChild) {
     return (
       <Drawer.Content asChild className={contentClassName}>
-        <Slot>{heightShell}</Slot>
+        <Slot ref={contentRef}>{heightShell}</Slot>
       </Drawer.Content>
     )
   }
 
   return (
-    <Drawer.Content className={contentClassName}>{heightShell}</Drawer.Content>
+    <Drawer.Content ref={contentRef} className={contentClassName}>
+      {heightShell}
+    </Drawer.Content>
   )
 }
 
