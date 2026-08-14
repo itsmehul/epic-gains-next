@@ -60,7 +60,7 @@ export function OAuthConsentClient() {
         return;
       }
 
-      router.push("/dashboard");
+      router.push("/workouts");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Consent failed");
       setPending(false);

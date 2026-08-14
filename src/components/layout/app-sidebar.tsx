@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  IconBarbell,
-  IconLayoutDashboard,
-  IconUsers,
-  IconX,
-} from "@tabler/icons-react";
+import { IconBarbell, IconUsers, IconX } from "@tabler/icons-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -96,7 +91,7 @@ function SidebarBrand({ closeOnNavigate = false }: { closeOnNavigate?: boolean }
   }
 
   return (
-    <Link className={className} href="/dashboard">
+    <Link className={className} href="/workouts">
       {content}
     </Link>
   );
@@ -129,14 +124,6 @@ function AppSidebarContent({
       </div>
 
       <div className="shrink-0 space-y-2 p-3">
-        <SidebarNavItem
-          active={pathname.startsWith("/dashboard")}
-          closeOnNavigate={showCloseButton}
-          href="/dashboard"
-        >
-          <IconLayoutDashboard className="size-4 shrink-0" />
-          Home
-        </SidebarNavItem>
         <SidebarNavItem
           active={pathname.startsWith("/workouts")}
           closeOnNavigate={showCloseButton}

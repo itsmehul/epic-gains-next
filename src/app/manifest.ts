@@ -13,10 +13,10 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: APP_SHORT_NAME,
     description: APP_DESCRIPTION,
     display: "standalone",
-    start_url: "/dashboard",
+    start_url: "/workouts",
     scope: "/",
     orientation: "portrait",
-    id: "/dashboard",
+    id: "/workouts",
     lang: "en",
     dir: "auto",
     background_color: APP_THEME_COLOR,
@@ -56,11 +56,6 @@ export default function manifest(): MetadataRoute.Manifest {
     prefer_related_applications: false,
     display_override: ["standalone", "fullscreen"],
     shortcuts: [
-      {
-        name: "Dashboard",
-        url: "/dashboard",
-        description: "Open your dashboard",
-      },
       {
         name: "Workouts",
         url: "/workouts",

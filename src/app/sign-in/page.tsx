@@ -24,7 +24,7 @@ function safeNextPath(next: string | null) {
   if (next && next.startsWith("/") && !next.startsWith("//")) {
     return next;
   }
-  return "/dashboard";
+  return "/workouts";
 }
 
 /** Better Auth MCP authorize redirects here with OAuth query params + oidc_login_prompt cookie. */
