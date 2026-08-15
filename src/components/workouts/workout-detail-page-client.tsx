@@ -22,7 +22,7 @@ import {
   WorkoutVideoPreview,
   type WorkoutVideoPreviewHandle,
 } from "@/components/workouts/workout-video-preview";
-import type { MetricProfile } from "@/db/schema/workout-schema";
+import type { MetricProfile, TargetSet } from "@/db/schema/workout-schema";
 import { useComments } from "@/features/comments/hooks";
 import {
   useExercises,
@@ -39,6 +39,10 @@ import {
 } from "@/features/workouts/workout-item";
 import { getYouTubeVideoId } from "@/features/workouts/youtube";
 import { cn } from "@/shared/utils";
+
+function googleImagesSearchUrl(query: string): string {
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}&tbm=isch`;
+}
 
 function resolveWorkoutVideoUrl(items: WorkoutExercise[]): string | null {
   for (const item of items) {
@@ -183,14 +187,18 @@ function WorkoutExerciseTabs({
   exerciseId,
   workoutExerciseId,
   metricProfile,
+  targetSets,
   sets,
+  setsReady,
   onExerciseResolved,
 }: {
   workoutId: string;
   exerciseId: string;
   workoutExerciseId: string;
   metricProfile?: MetricProfile | null;
+  targetSets?: TargetSet[] | null;
   sets: Set[];
+  setsReady?: boolean;
   onExerciseResolved?: (id: string) => void;
 }) {
   const [tab, setTab] = useState("sets");
@@ -238,7 +246,9 @@ function WorkoutExerciseTabs({
             exerciseId={exerciseId}
             workoutExerciseId={workoutExerciseId}
             metricProfile={metricProfile}
+            targetSets={targetSets}
             sets={sets}
+            setsReady={setsReady}
             onExerciseResolved={onExerciseResolved}
           />
         </div>
@@ -492,11 +502,15 @@ export function WorkoutDetailPageClient() {
                     aria-label="Key muscles"
                   >
                     {selectedKeyMuscles.map((muscle) => (
-                      <li
-                        key={muscle}
-                        className="text-muted-foreground/70 text-sm font-normal tracking-wide whitespace-nowrap"
-                      >
-                        {muscle}
+                      <li key={muscle}>
+                        <a
+                          href={googleImagesSearchUrl(muscle)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-muted-foreground/70 hover:text-foreground text-sm font-normal tracking-wide whitespace-nowrap underline-offset-2 hover:underline"
+                        >
+                          {muscle}
+                        </a>
                       </li>
                     ))}
                   </ul>
@@ -528,7 +542,9 @@ export function WorkoutDetailPageClient() {
                     metricProfile={
                       exerciseById.get(selectedItem.exerciseId)?.metricProfile
                     }
+                    targetSets={selectedItem.metaData?.targets}
                     sets={selectedSets}
+                    setsReady={setsQuery.isSuccess}
                     onExerciseResolved={(id) => {
                       setActiveWorkoutExerciseId(id);
                     }}

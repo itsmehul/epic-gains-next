@@ -11,6 +11,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import useMeasure from "react-use-measure";
 
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Card,
   CardContent,
@@ -20,7 +21,10 @@ import {
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ExerciseResolveCard } from "@/components/workouts/exercise-resolve-card";
-import type { MetricProfile } from "@/db/schema/workout-schema";
+import type {
+  MetricProfile,
+  TargetSet,
+} from "@/db/schema/workout-schema";
 import {
   useCreateSet,
   useDeleteSet,
@@ -127,6 +131,20 @@ function createDraftId() {
   const randomUUID = globalThis.crypto?.randomUUID?.bind(globalThis.crypto);
   if (randomUUID) return randomUUID();
   return `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function draftsFromTargets(targets: TargetSet[] | undefined | null): DraftRow[] {
+  if (!targets?.length) return [];
+  return targets.map((t) => ({
+    id: createDraftId(),
+    values: {
+      reps: t.reps != null ? String(t.reps) : "",
+      weight: t.weight != null ? String(t.weight) : "",
+      time: t.time != null ? String(t.time) : "",
+      distance: t.distance != null ? String(t.distance) : "",
+    },
+    shouldFocus: false,
+  }));
 }
 
 function emptyValues(): RowValues {
@@ -336,7 +354,9 @@ type ExerciseSetsPanelProps = {
   exerciseId: string;
   workoutExerciseId: string;
   metricProfile?: MetricProfile | null;
+  targetSets?: TargetSet[] | null;
   sets: Set[];
+  setsReady?: boolean;
   onExerciseResolved?: (workoutExerciseId: string) => void;
 };
 
@@ -345,7 +365,9 @@ export function ExerciseSetsPanel({
   exerciseId,
   workoutExerciseId,
   metricProfile,
+  targetSets,
   sets,
+  setsReady = true,
   onExerciseResolved,
 }: ExerciseSetsPanelProps) {
   const createSet = useCreateSet();
@@ -362,29 +384,28 @@ export function ExerciseSetsPanel({
 
   const workoutExerciseQuery = useWorkoutExercise(workoutExerciseId);
   const targetDraftsInitializedRef = useRef(false);
-  const [drafts, setDrafts] = useState<DraftRow[]>([]);
+  const [drafts, setDrafts] = useState<DraftRow[]>(() =>
+    draftsFromTargets(targetSets),
+  );
 
   useEffect(() => {
     if (targetDraftsInitializedRef.current) return;
     if (sets.length > 0) return;
-    const metaData = workoutExerciseQuery.data?.metaData;
-    const targets = metaData?.targets;
-    if (targets && targets.length > 0) {
+    if (drafts.length > 0) {
       targetDraftsInitializedRef.current = true;
-      setDrafts(
-        targets.map((t) => ({
-          id: createDraftId(),
-          values: {
-            reps: t.reps != null ? String(t.reps) : "",
-            weight: t.weight != null ? String(t.weight) : "",
-            time: t.time != null ? String(t.time) : "",
-            distance: t.distance != null ? String(t.distance) : "",
-          },
-          shouldFocus: false,
-        })),
-      );
+      return;
     }
-  }, [sets.length, workoutExerciseQuery.data?.metaData]);
+    const targets =
+      workoutExerciseQuery.data?.metaData?.targets ?? targetSets ?? null;
+    if (!targets?.length) return;
+    targetDraftsInitializedRef.current = true;
+    setDrafts(draftsFromTargets(targets));
+  }, [
+    drafts.length,
+    sets.length,
+    targetSets,
+    workoutExerciseQuery.data?.metaData?.targets,
+  ]);
 
   const [savedValues, setSavedValues] = useState<Record<string, RowValues>>(
     () => Object.fromEntries(sets.map((set) => [set.id, valuesFromSet(set)])),
@@ -517,6 +538,12 @@ export function ExerciseSetsPanel({
 
   const todayRows = rowsForDay(today, todaySets);
   const showEmpty = visibleSets.length === 0 && liveDrafts.length === 0;
+  const isContentLoading =
+    showEmpty &&
+    (!setsReady ||
+      (workoutExerciseQuery.isPending &&
+        drafts.length === 0 &&
+        !targetSets?.length));
   const hasExtraValues =
     extraKeys.some((key) =>
       visibleSets.some((set) => set[key] != null),
@@ -1025,10 +1052,20 @@ export function ExerciseSetsPanel({
   return (
     <div className="px-4 md:px-0">
       <SwapSize
-        swapKey={showEmpty ? "empty" : "list"}
+        swapKey={isContentLoading ? "loading" : showEmpty ? "empty" : "list"}
         transition={transition}
       >
-        {showEmpty ? (
+        {isContentLoading ? (
+          <div
+            aria-busy="true"
+            aria-live="polite"
+            className="text-muted-foreground flex items-center justify-center gap-2 py-12"
+            role="status"
+          >
+            <Spinner className="size-5" />
+            <span className="text-sm">Loading sets…</span>
+          </div>
+        ) : showEmpty ? (
           <Card size="sm">
             <CardHeader>
               <CardTitle>No sets yet</CardTitle>
