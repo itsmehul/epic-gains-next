@@ -70,25 +70,30 @@ function SidebarNavItem({
 
 function SidebarBrand({ closeOnNavigate = false }: { closeOnNavigate?: boolean }) {
   const className = cn(
-    "flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-1.5 py-1",
+    "group/brand flex min-w-0 flex-1 items-center gap-3 rounded-lg py-0.5",
     !closeOnNavigate &&
-      "outline-none ring-sidebar-ring transition-colors hover:bg-sidebar-accent/60 focus-visible:ring-2",
+      "outline-none ring-sidebar-ring focus-visible:ring-2",
   );
 
   const content = (
     <>
-      <span className="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full">
+      <span className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-sidebar-accent/70 shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--sidebar-primary)_28%,transparent)] ring-1 ring-black/5 transition-transform duration-200 ease-[cubic-bezier(0.2,0,0,1)] group-hover/brand:scale-[1.04] dark:ring-white/8">
         <Image
           src={BRAND_ICON}
           alt=""
-          width={32}
-          height={32}
-          className="size-8 object-contain"
+          width={36}
+          height={36}
+          className="size-9 object-cover"
           aria-hidden
         />
       </span>
-      <span className="min-w-0 truncate text-[15px] font-semibold leading-none tracking-tight text-sidebar-foreground [font-family:var(--font-heading)]">
-        {APP_NAME}
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate font-heading text-[15px] font-semibold leading-none tracking-[-0.03em] text-sidebar-foreground">
+          {APP_NAME}
+        </span>
+        <span className="mt-1 truncate text-[11px] font-medium leading-none tracking-wide text-sidebar-foreground/45">
+          Log every lift
+        </span>
       </span>
     </>
   );
@@ -98,7 +103,7 @@ function SidebarBrand({ closeOnNavigate = false }: { closeOnNavigate?: boolean }
   }
 
   return (
-    <Link className={className} href="/workouts">
+    <Link aria-label={`${APP_NAME} home`} className={className} href="/workouts">
       {content}
     </Link>
   );
@@ -121,7 +126,7 @@ function AppSidebarContent({
         className="pointer-events-none absolute -top-24 left-0 size-40 rounded-full bg-sidebar-primary/8 blur-3xl"
       />
 
-      <div className="relative flex h-14 shrink-0 items-center justify-between gap-2 px-4">
+      <div className="relative flex h-16 shrink-0 items-center justify-between gap-2 border-b border-sidebar-border/70 px-3.5">
         <SidebarBrand closeOnNavigate={showCloseButton} />
         {showCloseButton ? (
           <SheetClose
@@ -185,7 +190,7 @@ function AppSidebarContent({
 }
 
 const sidebarSurfaceClassName =
-  "relative isolate overflow-hidden bg-sidebar text-sidebar-foreground border-sidebar-border";
+  "isolate overflow-hidden bg-sidebar text-sidebar-foreground border-sidebar-border";
 
 export function AppSidebar({
   accountProfile,
@@ -198,7 +203,7 @@ export function AppSidebar({
     <>
       <aside
         className={cn(
-          "hidden h-full w-72 shrink-0 flex-col border-r md:flex",
+          "relative hidden h-full w-72 shrink-0 flex-col border-r md:flex",
           sidebarSurfaceClassName,
         )}
       >
