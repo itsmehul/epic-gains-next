@@ -168,9 +168,6 @@ export function WorkoutVideoPreview({
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [buffering, setBuffering] = useState(false);
-  const [mediaUnlocked, setMediaUnlocked] = useState(false);
-  // Assume touch until measured so the first paint never mounts a blocking
-  // overlay that steals the gesture iOS needs on the YouTube iframe.
   const [touchDevice, setTouchDevice] = useState(true);
   const [showPlayPrompt, setShowPlayPrompt] = useState(true);
   const [controlsVisible, setControlsVisible] = useState(true);
@@ -180,9 +177,16 @@ export function WorkoutVideoPreview({
   const [fullscreen, setFullscreen] = useState(false);
 
   const videoId = getYouTubeVideoId(videoUrl);
-  // iOS/WebKit blocks playVideo() from overlays until the iframe itself
-  // receives a user gesture. Keep the iframe interactive until then.
-  const needsNativeFirstTap = !mediaUnlocked && touchDevice;
+
+  function allowIframeAutoplay(playerHost: HTMLElement | null) {
+    const iframe = playerHost?.querySelector("iframe");
+    if (!iframe) return;
+    iframe.setAttribute(
+      "allow",
+      "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen",
+    );
+    iframe.setAttribute("allowfullscreen", "true");
+  }
 
   useEffect(() => {
     const coarse = window.matchMedia("(pointer: coarse)");
@@ -242,7 +246,6 @@ export function WorkoutVideoPreview({
   const markMediaUnlocked = useEffectEvent(() => {
     if (mediaUnlockedRef.current) return;
     mediaUnlockedRef.current = true;
-    setMediaUnlocked(true);
   });
 
   const applySeek = useEffectEvent((seconds: number, { pause }: { pause: boolean }) => {
@@ -294,7 +297,6 @@ export function WorkoutVideoPreview({
     setReady(false);
     setPlaying(false);
     setBuffering(false);
-    setMediaUnlocked(false);
     setShowPlayPrompt(true);
     setControlsVisible(true);
     setCurrentTime(0);
@@ -333,6 +335,7 @@ export function WorkoutVideoPreview({
               }
               setReady(true);
               setDuration(event.target.getDuration() || 0);
+              allowIframeAutoplay(host);
 
               const pending = pendingSeekRef.current;
               if (pending != null) {
@@ -420,6 +423,15 @@ export function WorkoutVideoPreview({
       const state = player.getPlayerState();
       if (state === YT_PLAYING || state === YT_BUFFERING) {
         player.pauseVideo();
+        return;
+      }
+      allowIframeAutoplay(hostRef.current);
+      // Same-gesture mute/play/unmute unlocks iOS when a custom overlay
+      // (not the iframe) receives the tap.
+      if (!mediaUnlockedRef.current) {
+        player.mute();
+        player.playVideo();
+        player.unMute();
         return;
       }
       player.playVideo();
@@ -621,9 +633,7 @@ export function WorkoutVideoPreview({
             : fullscreen
               ? "h-dvh w-full rounded-none"
               : "aspect-video",
-          needsNativeFirstTap
-            ? "[&_iframe]:pointer-events-auto [&_iframe]:z-20"
-            : "[&_iframe]:pointer-events-none",
+          "[&_iframe]:pointer-events-none",
           !minimized && className,
         )}
       onPointerMove={(event) => {
@@ -642,17 +652,23 @@ export function WorkoutVideoPreview({
 
       {!error ? (
         <>
-          {!needsNativeFirstTap ? (
-            <button
-              type="button"
-              className="absolute inset-0 z-10"
-              aria-label={playing ? "Pause video" : "Play video"}
-              onClick={handleSurfaceClick}
-            />
-          ) : null}
+          <button
+            type="button"
+            className="absolute inset-0 z-10"
+            aria-label={playing ? "Pause video" : "Play video"}
+            onClick={handleSurfaceClick}
+          />
 
           {showPlayPrompt ? (
-            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/35">
+            <button
+              type="button"
+              className="absolute inset-0 z-20 flex items-center justify-center bg-black/35"
+              aria-label="Play video"
+              onClick={(event) => {
+                event.stopPropagation();
+                togglePlayback();
+              }}
+            >
               <span className="flex size-14 items-center justify-center rounded-full bg-white text-black shadow-lg">
                 {buffering && !playing ? (
                   <IconLoader2 className="size-7 animate-spin" />
@@ -660,7 +676,7 @@ export function WorkoutVideoPreview({
                   <IconPlayerPlayFilled className="size-7 translate-x-0.5" />
                 )}
               </span>
-            </div>
+            </button>
           ) : null}
 
           {playing && buffering ? (

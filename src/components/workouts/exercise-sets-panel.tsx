@@ -1003,9 +1003,14 @@ export function ExerciseSetsPanel({
         ) : (
           <div className="flex flex-col gap-4">
             <section className="flex flex-col gap-2">
-              <h3 className="text-muted-foreground px-1 text-[11px] font-medium tracking-wide uppercase">
-                {formatDayHeading(today)}
-              </h3>
+              <div className="flex items-baseline justify-between gap-3 px-1">
+                <h3 className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+                  {formatDayHeading(today)}
+                </h3>
+                <span className="text-muted-foreground text-[11px] tabular-nums">
+                  {todayRows.length} {todayRows.length === 1 ? "set" : "sets"}
+                </span>
+              </div>
               {todayRows.length > 0 ? (
                 renderSetRows(todayRows)
               ) : (
