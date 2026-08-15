@@ -1,22 +1,24 @@
 export function WorkoutPreview() {
   return (
-    <div className="relative mx-auto w-full max-w-[280px]">
-      <div className="overflow-hidden rounded-[2.25rem] border border-black/8 bg-white shadow-[0_24px_60px_-20px_rgba(32,33,36,0.28)]">
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <p className="text-[0.7rem] font-medium tracking-wide text-[#5f6368]">
+    <div className="relative mx-auto w-full max-w-[300px]">
+      <div className="relative isolate overflow-hidden rounded-[28px] bg-card text-card-foreground ring-1 ring-foreground/8 dark:ring-foreground/12">
+        <div
+          aria-hidden
+          className="pattern-diagonal pointer-events-none absolute inset-0 opacity-40 mix-blend-multiply dark:mix-blend-screen dark:opacity-25"
+        />
+        <div className="relative flex items-center justify-between px-5 pt-5 pb-3">
+          <p className="text-[0.7rem] font-medium tracking-[0.4px] text-muted-foreground uppercase">
             Today
           </p>
-          <p className="text-[0.7rem] font-semibold text-[#137333]">
-            +12% vs last
+          <p className="text-[0.7rem] font-medium text-primary">+12% vs last</p>
+        </div>
+        <div className="relative px-5 pb-3">
+          <p className="text-2xl font-medium tracking-tight">Push day</p>
+          <p className="text-muted-foreground mt-1 text-sm">
+            4 exercises · 16 sets
           </p>
         </div>
-        <div className="px-5 pb-2">
-          <p className="text-2xl font-medium tracking-tight text-[#202124]">
-            Push day
-          </p>
-          <p className="mt-1 text-sm text-[#5f6368]">4 exercises · 16 sets</p>
-        </div>
-        <div className="space-y-2 px-4 pb-6">
+        <div className="relative space-y-2 px-4 pb-6">
           {[
             { name: "Bench press", detail: "4 × 85 kg" },
             { name: "Overhead press", detail: "3 × 50 kg" },
@@ -25,12 +27,18 @@ export function WorkoutPreview() {
           ].map((row) => (
             <div
               key={row.name}
-              className="flex items-center justify-between rounded-2xl bg-[#f8f9fa] px-3.5 py-2.5"
+              className="relative overflow-hidden rounded-xl bg-muted/70 px-3.5 py-2.5"
             >
-              <span className="text-sm font-medium text-[#202124]">
-                {row.name}
-              </span>
-              <span className="text-xs text-[#5f6368]">{row.detail}</span>
+              <div
+                aria-hidden
+                className="pattern-graph pointer-events-none absolute inset-0 opacity-70"
+              />
+              <div className="relative flex items-center justify-between gap-3">
+                <span className="text-sm font-medium">{row.name}</span>
+                <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+                  {row.detail}
+                </span>
+              </div>
             </div>
           ))}
         </div>

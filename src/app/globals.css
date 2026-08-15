@@ -290,3 +290,18 @@
   background-size: 18px 18px;
   mask-image: radial-gradient(ellipse 80% 90% at 100% 0%, black 20%, transparent 72%);
 }
+
+.pattern-plus-ink {
+  background-image:
+    linear-gradient(
+      color-mix(in oklch, var(--foreground) 8%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--foreground) 8%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 18px 18px;
+  mask-image: radial-gradient(ellipse 70% 80% at 85% 10%, black 15%, transparent 75%);
+}

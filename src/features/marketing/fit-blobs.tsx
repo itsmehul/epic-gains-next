@@ -8,30 +8,78 @@ export function FitBlobField({ className = "" }: { className?: string }) {
       xmlns="http://www.w3.org/2000/svg"
     >
       <g className="fit-blob-drift">
-        <ellipse cx="180" cy="220" rx="280" ry="240" fill="#7EE0D6" />
-        <ellipse cx="420" cy="160" rx="210" ry="190" fill="#D4F07A" />
-        <ellipse cx="320" cy="340" rx="170" ry="150" fill="#FFB074" />
+        <ellipse
+          cx="180"
+          cy="220"
+          rx="280"
+          ry="240"
+          fill="oklch(0.837 0.128 66.29 / 0.55)"
+        />
+        <ellipse
+          cx="420"
+          cy="160"
+          rx="210"
+          ry="190"
+          fill="oklch(0.705 0.213 47.604 / 0.42)"
+        />
+        <ellipse
+          cx="320"
+          cy="340"
+          rx="170"
+          ry="150"
+          fill="oklch(0.646 0.222 41.116 / 0.38)"
+        />
       </g>
       <g className="fit-blob-drift-slow">
-        <ellipse cx="980" cy="480" rx="260" ry="220" fill="#8EE8DE" />
-        <ellipse cx="1080" cy="280" rx="180" ry="200" fill="#FFE27A" />
-        <ellipse cx="860" cy="360" rx="140" ry="130" fill="#FF9A7A" />
+        <ellipse
+          cx="980"
+          cy="480"
+          rx="260"
+          ry="220"
+          fill="oklch(0.837 0.128 66.29 / 0.4)"
+        />
+        <ellipse
+          cx="1080"
+          cy="280"
+          rx="180"
+          ry="200"
+          fill="oklch(0.553 0.195 38.402 / 0.35)"
+        />
+        <ellipse
+          cx="860"
+          cy="360"
+          rx="140"
+          ry="130"
+          fill="oklch(0.705 0.213 47.604 / 0.45)"
+        />
       </g>
     </svg>
   );
 }
 
 export function FitBlobCluster({
-  palette = "teal",
+  palette = "ember",
 }: {
-  palette?: "teal" | "lime" | "coral";
+  palette?: "ember" | "amber" | "ink";
 }) {
   const fills =
-    palette === "lime"
-      ? ["#D4F07A", "#A8E6CF", "#FFE27A"]
-      : palette === "coral"
-        ? ["#FFB074", "#FF9A7A", "#FFE27A"]
-        : ["#7EE0D6", "#B8F0C8", "#FFE27A"];
+    palette === "amber"
+      ? [
+          "oklch(0.837 0.128 66.29 / 0.7)",
+          "oklch(0.705 0.213 47.604 / 0.55)",
+          "oklch(0.97 0.012 70 / 0.9)",
+        ]
+      : palette === "ink"
+        ? [
+            "oklch(0.646 0.222 41.116 / 0.45)",
+            "oklch(0.553 0.195 38.402 / 0.4)",
+            "oklch(0.837 0.128 66.29 / 0.5)",
+          ]
+        : [
+            "oklch(0.705 0.213 47.604 / 0.65)",
+            "oklch(0.646 0.222 41.116 / 0.5)",
+            "oklch(0.837 0.128 66.29 / 0.55)",
+          ];
 
   return (
     <svg
