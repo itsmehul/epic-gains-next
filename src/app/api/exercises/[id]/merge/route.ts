@@ -11,6 +11,7 @@ import {
   requireApiSession,
   unauthorizedResponse,
 } from "@/infrastructure/auth/api";
+import { isCatalogAdmin } from "@/shared/env";
 
 type RouteParams = {
   id: string;
@@ -29,18 +30,21 @@ export async function GET(
     const { id } = await params;
     const { searchParams } = new URL(req.url);
     const targetExerciseId = searchParams.get("targetExerciseId");
-    const workoutId = searchParams.get("workoutId");
-    if (!targetExerciseId || !workoutId) {
-      return apiError("targetExerciseId and workoutId are required", 400);
+    const workoutId = searchParams.get("workoutId") ?? undefined;
+    if (!targetExerciseId) {
+      return apiError("targetExerciseId is required", 400);
     }
 
-    const workout = await getWorkoutByIdForUser(workoutId, session.user.id);
-    if (!workout) {
-      return apiError("Workout not found", 404);
+    if (workoutId) {
+      const workout = await getWorkoutByIdForUser(workoutId, session.user.id);
+      if (!workout && !isCatalogAdmin(session.user.id)) {
+        return apiError("Workout not found", 404);
+      }
+    } else if (!isCatalogAdmin(session.user.id)) {
+      return apiError("Forbidden", 403);
     }
 
     const impact = await getMergeExerciseImpact({
-      userId: session.user.id,
       sourceExerciseId: id,
       targetExerciseId,
       workoutId,
@@ -76,11 +80,12 @@ export async function POST(
       return apiError("Invalid body", 400);
     }
 
+    const admin = isCatalogAdmin(session.user.id);
     const workout = await getWorkoutByIdForUser(
       parsed.data.workoutId,
       session.user.id,
     );
-    if (!workout) {
+    if (!workout && !admin) {
       return apiError("Workout not found", 404);
     }
 
@@ -90,6 +95,7 @@ export async function POST(
       targetExerciseId: parsed.data.targetExerciseId,
       workoutId: parsed.data.workoutId,
       workoutExerciseId: parsed.data.workoutExerciseId,
+      global: admin && !workout,
     });
 
     return NextResponse.json(result);

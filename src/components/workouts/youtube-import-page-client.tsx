@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useImportFullWorkout } from "@/features/workouts/hooks";
 import { importWorkoutStructureSchema } from "@/features/workouts/schemas";
 import { getYouTubeVideoId } from "@/features/workouts/youtube";
+import { ApiError } from "@/shared/api";
 import { cn } from "@/shared/utils";
 
 function generateAiPrompt(url: string) {
@@ -199,6 +200,21 @@ export function YoutubeImportPageClient() {
       const workout = await importWorkout.mutateAsync(validated.data);
       router.push(`/workouts/${workout.id}`);
     } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        const existingId =
+          err.body &&
+          typeof err.body === "object" &&
+          "existingWorkoutId" in err.body
+            ? String(
+                (err.body as { existingWorkoutId?: string }).existingWorkoutId ??
+                  "",
+              )
+            : "";
+        if (existingId) {
+          router.push(`/workouts/${existingId}`);
+          return;
+        }
+      }
       setError(err instanceof Error ? err.message : "Failed to import workout");
     }
   }

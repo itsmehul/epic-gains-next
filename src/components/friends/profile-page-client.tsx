@@ -1,6 +1,6 @@
 "use client";
 
-import { IconChevronRight, IconLock } from "@tabler/icons-react";
+import { IconChevronRight } from "@tabler/icons-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
@@ -39,10 +39,7 @@ export function ProfilePageClient() {
   const profile = profileQuery.data;
   const follow = useFollowUser();
   const unfollow = useUnfollowUser();
-  const workoutsQuery = useProfileWorkouts(
-    username,
-    Boolean(profile?.canViewWorkouts),
-  );
+  const workoutsQuery = useProfileWorkouts(username, Boolean(profile));
   const followersQuery = useFollowers(username);
   const followingQuery = useFollowing(username);
 
@@ -116,15 +113,7 @@ export function ProfilePageClient() {
                 </TabsList>
 
                 <TabsContent className="mt-4" value="workouts">
-                  {!profile.canViewWorkouts ? (
-                    <div className="text-muted-foreground flex flex-col items-center gap-2 py-10 text-center text-sm">
-                      <IconLock className="size-6" />
-                      <p className="font-medium text-foreground">
-                        This account is private
-                      </p>
-                      <p>Follow to see their workouts.</p>
-                    </div>
-                  ) : workoutsQuery.isLoading ? (
+                  {workoutsQuery.isLoading ? (
                     <AppShellLoading
                       className="min-h-0 py-10"
                       label="Loading workouts…"
@@ -146,6 +135,9 @@ export function ProfilePageClient() {
                             <div className="min-w-0 flex-1">
                               <p className="font-medium leading-snug">
                                 {workout.name}
+                              </p>
+                              <p className="text-muted-foreground text-xs">
+                                {workout.role === "OWNER" ? "Owner" : "Member"}
                               </p>
                             </div>
                             <IconChevronRight className="text-muted-foreground size-4 shrink-0" />

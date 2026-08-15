@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getExerciseByIdForUser } from "@/db/repositories/exercise.repository";
+import { getExerciseById } from "@/db/repositories/exercise.repository";
 import { getVisibleWorkoutById } from "@/db/repositories/feed.repository";
 import {
   createWorkoutExercise,
@@ -89,11 +89,10 @@ export async function POST(req: Request) {
       return apiError("Workout not found", 404);
     }
 
-    const ownedExercise = await getExerciseByIdForUser(
+    const catalogExercise = await getExerciseById(
       parsed.data.exerciseId,
-      session.user.id,
     );
-    if (!ownedExercise) {
+    if (!catalogExercise) {
       return apiError("Exercise not found", 404);
     }
 

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 
 import {
   createWorkout,
-  listWorkoutsForUser,
+  listCatalogWorkouts,
+  listMyWorkouts,
 } from "@/db/repositories/workout.repository";
 import {
   createWorkoutSchema,
@@ -25,16 +26,21 @@ export async function GET(req: Request) {
     const muscleGroup = searchParams.getAll("muscleGroup");
     const parsed = listWorkoutsQuerySchema.safeParse({
       q: searchParams.get("q") ?? undefined,
+      scope: searchParams.get("scope") ?? undefined,
       muscleGroup: muscleGroup.length > 0 ? muscleGroup : undefined,
     });
     if (!parsed.success) {
       return apiError("Invalid query", 400);
     }
 
-    const items = await listWorkoutsForUser(session.user.id, {
+    const options = {
       q: parsed.data.q,
       muscleGroups: parsed.data.muscleGroup,
-    });
+    };
+    const items =
+      parsed.data.scope === "catalog"
+        ? await listCatalogWorkouts(session.user.id, options)
+        : await listMyWorkouts(session.user.id, options);
     return NextResponse.json({ items });
   } catch (error) {
     const message =

@@ -6,12 +6,10 @@ import {
   createComment,
   listVisibleComments,
 } from "@/db/repositories/comment.repository";
-import { getUserById } from "@/db/repositories/social.repository";
 import {
   createCommentSchema,
   listCommentsQuerySchema,
 } from "@/features/comments/schemas";
-import { canViewUserWorkouts } from "@/features/social/privacy";
 import {
   apiError,
   requireApiSession,
@@ -68,10 +66,6 @@ export async function GET(req: Request) {
       if (!exercise) {
         return apiError("Exercise not found", 404);
       }
-      const owner = await getUserById(exercise.userId);
-      if (!owner || !(await canViewUserWorkouts(session.user.id, owner))) {
-        return apiError("Exercise not found", 404);
-      }
     }
 
     const items = await listVisibleComments({
@@ -111,11 +105,6 @@ export async function POST(req: Request) {
       const workout = await getVisibleWorkoutById(session.user.id, workoutId);
       if (!workout) {
         return apiError("Workout not found", 404);
-      }
-    } else {
-      const owner = await getUserById(exercise.userId);
-      if (!owner || !(await canViewUserWorkouts(session.user.id, owner))) {
-        return apiError("Exercise not found", 404);
       }
     }
 

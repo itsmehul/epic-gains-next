@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 
-import { getExerciseByIdForUser } from "@/db/repositories/exercise.repository";
+import { getExerciseById } from "@/db/repositories/exercise.repository";
 import {
   deleteSet,
   getSetById,
   updateSet,
 } from "@/db/repositories/set.repository";
-import { getWorkoutByIdForUser } from "@/db/repositories/workout.repository";
+import { dropMemberIfNoSets } from "@/db/repositories/workout-membership.repository";
+import { getWorkoutById } from "@/db/repositories/workout.repository";
 import { updateSetSchema } from "@/features/workouts/schemas";
 import {
   apiError,
@@ -30,15 +31,7 @@ export async function GET(
   try {
     const { id } = await params;
     const item = await getSetById(id);
-    if (!item) {
-      return apiError("Set not found", 404);
-    }
-
-    const workout = await getWorkoutByIdForUser(
-      item.workoutId,
-      session.user.id,
-    );
-    if (!workout) {
+    if (!item || item.userId !== session.user.id) {
       return apiError("Set not found", 404);
     }
 
@@ -62,15 +55,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const existing = await getSetById(id);
-    if (!existing) {
-      return apiError("Set not found", 404);
-    }
-
-    const owned = await getWorkoutByIdForUser(
-      existing.workoutId,
-      session.user.id,
-    );
-    if (!owned) {
+    if (!existing || existing.userId !== session.user.id) {
       return apiError("Set not found", 404);
     }
 
@@ -83,19 +68,13 @@ export async function PATCH(
     const nextWorkoutId = parsed.data.workoutId ?? existing.workoutId;
     const nextExerciseId = parsed.data.exerciseId ?? existing.exerciseId;
 
-    const nextWorkout = await getWorkoutByIdForUser(
-      nextWorkoutId,
-      session.user.id,
-    );
+    const nextWorkout = await getWorkoutById(nextWorkoutId);
     if (!nextWorkout) {
       return apiError("Workout not found", 404);
     }
 
     if (parsed.data.exerciseId) {
-      const exercise = await getExerciseByIdForUser(
-        nextExerciseId,
-        session.user.id,
-      );
+      const exercise = await getExerciseById(nextExerciseId);
       if (!exercise) {
         return apiError("Exercise not found", 404);
       }
@@ -125,15 +104,7 @@ export async function DELETE(
   try {
     const { id } = await params;
     const existing = await getSetById(id);
-    if (!existing) {
-      return apiError("Set not found", 404);
-    }
-
-    const workout = await getWorkoutByIdForUser(
-      existing.workoutId,
-      session.user.id,
-    );
-    if (!workout) {
+    if (!existing || existing.userId !== session.user.id) {
       return apiError("Set not found", 404);
     }
 
@@ -141,6 +112,7 @@ export async function DELETE(
     if (!item) {
       return apiError("Set not found", 404);
     }
+    await dropMemberIfNoSets(existing.workoutId, session.user.id);
     return NextResponse.json(item);
   } catch (error) {
     const message =

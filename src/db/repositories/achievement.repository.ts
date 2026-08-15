@@ -7,7 +7,6 @@ import {
   exercise,
   set as workoutSet,
   userAchievement,
-  workout,
 } from "@/db/schema";
 import {
   ACHIEVEMENT_BY_ID,
@@ -39,9 +38,8 @@ async function loadSetRows(userId: string) {
       updatedAt: workoutSet.updatedAt,
     })
     .from(workoutSet)
-    .innerJoin(workout, eq(workout.id, workoutSet.workoutId))
     .innerJoin(exercise, eq(exercise.id, workoutSet.exerciseId))
-    .where(eq(workout.userId, userId));
+    .where(eq(workoutSet.userId, userId));
 }
 
 async function listUnlocks(userId: string) {

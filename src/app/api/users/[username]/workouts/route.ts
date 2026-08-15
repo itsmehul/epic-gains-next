@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { listVisibleWorkoutsForUser } from "@/db/repositories/feed.repository";
+import { listWorkoutsForProfile } from "@/db/repositories/workout.repository";
 import { getUserByUsername } from "@/db/repositories/social.repository";
 import {
   apiError,
@@ -22,12 +22,13 @@ export async function GET(
     const profile = await getUserByUsername(username);
     if (!profile) return apiError("User not found", 404);
 
-    const items = await listVisibleWorkoutsForUser(session.user.id, profile);
-    if (items === null) {
-      return apiError("This account is private", 403);
-    }
-
-    return NextResponse.json({ items });
+    const items = await listWorkoutsForProfile(profile.id);
+    return NextResponse.json({
+      items: items.map((item) => ({
+        ...item,
+        createdAt: item.createdAt.toISOString(),
+      })),
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to list workouts";

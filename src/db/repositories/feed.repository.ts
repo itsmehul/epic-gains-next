@@ -1,17 +1,16 @@
 import "server-only";
 
-import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import { follow, user, workout } from "@/db/schema";
-import { canViewUserWorkouts } from "@/features/social/privacy";
-import type { PublicUser } from "@/db/repositories/social.repository";
+import { follow, user, workout, workoutMembership } from "@/db/schema";
 import {
   getUserById,
   listFollowing,
 } from "@/db/repositories/social.repository";
 import {
   enrichWorkoutsWithStats,
+  getWorkoutById,
   sqlContainsPattern,
   workoutContentSearchCondition,
   workoutMuscleGroupCondition,
@@ -19,14 +18,10 @@ import {
 } from "@/db/repositories/workout.repository";
 
 export async function listVisibleWorkoutsForUser(
-  viewerId: string,
-  owner: PublicUser,
+  _viewerId: string,
+  owner: { id: string },
 ) {
-  if (!(await canViewUserWorkouts(viewerId, owner))) {
-    return null;
-  }
-
-  return db
+  const rows = await db
     .select({
       id: workout.id,
       name: workout.name,
@@ -34,36 +29,33 @@ export async function listVisibleWorkoutsForUser(
       createdAt: workout.createdAt,
     })
     .from(workout)
-    .where(eq(workout.userId, owner.id))
+    .innerJoin(
+      workoutMembership,
+      eq(workoutMembership.workoutId, workout.id),
+    )
+    .where(eq(workoutMembership.userId, owner.id))
     .orderBy(desc(workout.createdAt));
+  return rows;
 }
 
 export async function getVisibleWorkoutById(
-  viewerId: string,
+  _viewerId: string,
   workoutId: string,
 ) {
-  const [row] = await db
-    .select({
-      id: workout.id,
-      name: workout.name,
-      author: workout.author,
-      channelUrl: workout.channelUrl,
-      userId: workout.userId,
-      createdAt: workout.createdAt,
-    })
-    .from(workout)
-    .where(eq(workout.id, workoutId))
-    .limit(1);
-
+  const row = await getWorkoutById(workoutId);
   if (!row) return null;
 
-  const owner = await getUserById(row.userId);
-  if (!owner) return null;
-  if (!(await canViewUserWorkouts(viewerId, owner))) {
-    return null;
-  }
-
-  return { ...row, owner };
+  const owner = row.userId ? await getUserById(row.userId) : null;
+  return {
+    ...row,
+    owner: owner ?? {
+      id: row.userId ?? "",
+      name: "Unknown",
+      username: "",
+      image: null,
+      isPrivate: false,
+    },
+  };
 }
 
 export async function listFollowingFeed(
@@ -76,7 +68,10 @@ export async function listFollowingFeed(
   const followingIds = following.map((u) => u.id);
   const q = options?.q?.trim() ?? "";
   const muscleGroups = options?.muscleGroups ?? [];
-  const conditions = [inArray(workout.userId, followingIds)];
+  const conditions = [
+    isNull(workout.archivedAt),
+    inArray(workoutMembership.userId, followingIds),
+  ];
 
   if (q) {
     const pattern = sqlContainsPattern(q);
@@ -98,19 +93,26 @@ export async function listFollowingFeed(
       name: workout.name,
       author: workout.author,
       channelUrl: workout.channelUrl,
+      youtubeVideoId: workout.youtubeVideoId,
       userId: workout.userId,
+      archivedAt: workout.archivedAt,
       createdAt: workout.createdAt,
+      memberUserId: workoutMembership.userId,
       ownerName: user.name,
       ownerUsername: user.username,
       ownerImage: user.image,
       ownerIsPrivate: user.isPrivate,
     })
     .from(workout)
-    .innerJoin(user, eq(user.id, workout.userId))
+    .innerJoin(
+      workoutMembership,
+      eq(workoutMembership.workoutId, workout.id),
+    )
+    .innerJoin(user, eq(user.id, workoutMembership.userId))
     .innerJoin(
       follow,
       and(
-        eq(follow.followingId, workout.userId),
+        eq(follow.followingId, workoutMembership.userId),
         eq(follow.followerId, viewerId),
       ),
     )
@@ -119,10 +121,12 @@ export async function listFollowingFeed(
 
   const rows = options?.limit ? await query.limit(options.limit) : await query;
 
-  const visible = rows.flatMap((row) => {
-    if (!row.ownerUsername) return [];
-    return [row];
-  });
+  const uniqueWorkouts = new Map<string, (typeof rows)[number]>();
+  for (const row of rows) {
+    if (!row.ownerUsername) continue;
+    if (!uniqueWorkouts.has(row.id)) uniqueWorkouts.set(row.id, row);
+  }
+  const visible = [...uniqueWorkouts.values()];
   if (visible.length === 0) return [];
 
   const enriched = await enrichWorkoutsWithStats(
@@ -131,16 +135,19 @@ export async function listFollowingFeed(
       name: row.name,
       author: row.author,
       channelUrl: row.channelUrl,
+      youtubeVideoId: row.youtubeVideoId,
       userId: row.userId,
+      archivedAt: row.archivedAt,
       createdAt: row.createdAt,
     })),
+    { viewerId },
   );
 
   const ownerById = new Map(
     visible.map((row) => [
       row.id,
       {
-        id: row.userId,
+        id: row.userId ?? row.memberUserId,
         name: row.ownerName,
         username: row.ownerUsername!,
         image: row.ownerImage,

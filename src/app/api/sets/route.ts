@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { unlockNewAchievementsForUser } from "@/db/repositories/achievement.repository";
-import { getExerciseByIdForUser } from "@/db/repositories/exercise.repository";
+import { getExerciseById } from "@/db/repositories/exercise.repository";
 import { getVisibleWorkoutById } from "@/db/repositories/feed.repository";
 import { createSet, listSets } from "@/db/repositories/set.repository";
-import { getWorkoutByIdForUser } from "@/db/repositories/workout.repository";
+import { ensureMemberFromSet } from "@/db/repositories/workout-membership.repository";
+import { getWorkoutById } from "@/db/repositories/workout.repository";
 import {
   createSetSchema,
   listSetsQuerySchema,
@@ -39,19 +40,11 @@ export async function GET(req: Request) {
       }
     }
 
-    const items = await listSets({ workoutId, exerciseId });
-
-    if (!workoutId) {
-      const visible: typeof items = [];
-      for (const item of items) {
-        const workout = await getVisibleWorkoutById(
-          session.user.id,
-          item.workoutId,
-        );
-        if (workout) visible.push(item);
-      }
-      return NextResponse.json({ items: visible });
-    }
+    const items = await listSets({
+      workoutId,
+      exerciseId,
+      viewerId: session.user.id,
+    });
 
     return NextResponse.json({ items });
   } catch (error) {
@@ -74,24 +67,19 @@ export async function POST(req: Request) {
       return apiError("Invalid body", 400);
     }
 
-    const workout = await getWorkoutByIdForUser(
-      parsed.data.workoutId,
-      session.user.id,
-    );
+    const workout = await getWorkoutById(parsed.data.workoutId);
     if (!workout) {
       return apiError("Workout not found", 404);
     }
 
-    const exercise = await getExerciseByIdForUser(
-      parsed.data.exerciseId,
-      session.user.id,
-    );
+    const exercise = await getExerciseById(parsed.data.exerciseId);
     if (!exercise) {
       return apiError("Exercise not found", 404);
     }
 
     const item = await createSet({
       id: crypto.randomUUID(),
+      userId: session.user.id,
       reps: parsed.data.reps ?? null,
       weight: parsed.data.weight ?? null,
       time: parsed.data.time ?? null,
@@ -99,6 +87,8 @@ export async function POST(req: Request) {
       workoutId: parsed.data.workoutId,
       exerciseId: parsed.data.exerciseId,
     });
+
+    await ensureMemberFromSet(parsed.data.workoutId, session.user.id);
 
     const unlockedAchievements = await unlockNewAchievementsForUser(
       session.user.id,

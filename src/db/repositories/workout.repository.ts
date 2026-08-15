@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { SQL } from "drizzle-orm";
 import {
   and,
   count,
@@ -9,6 +10,7 @@ import {
   exists,
   ilike,
   inArray,
+  isNull,
   max,
   or,
   sql,
@@ -20,9 +22,12 @@ import {
   set as workoutSet,
   workout,
   workoutExercise,
+  workoutMembership,
 } from "@/db/schema";
 import type { MuscleGroup } from "@/db/schema/workout-schema";
 import { isRestWorkoutItem } from "@/features/workouts/workout-item";
+import { getUserById } from "@/db/repositories/social.repository";
+import { insertWorkoutMembership } from "@/db/repositories/workout-membership.repository";
 
 export type WorkoutInsert = typeof workout.$inferInsert;
 export type WorkoutUpdate = Partial<
@@ -84,10 +89,17 @@ export function workoutMuscleGroupCondition(muscleGroups: MuscleGroup[]) {
 
 export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
   workouts: T[],
+  options?: { viewerId?: string },
 ) {
   if (workouts.length === 0) return [];
 
   const ids = workouts.map((item) => item.id);
+  const setViewerFilter = options?.viewerId
+    ? and(
+        inArray(workoutSet.workoutId, ids),
+        eq(workoutSet.userId, options.viewerId),
+      )
+    : inArray(workoutSet.workoutId, ids);
 
   const [exerciseRows, setRows] = await Promise.all([
     db
@@ -114,7 +126,7 @@ export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
         lastLoggedAt: max(workoutSet.createdAt),
       })
       .from(workoutSet)
-      .where(inArray(workoutSet.workoutId, ids))
+      .where(setViewerFilter)
       .groupBy(workoutSet.workoutId),
   ]);
 
@@ -144,9 +156,10 @@ export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
 
   const byOwner = new Map<string, T[]>();
   for (const item of workouts) {
-    const list = byOwner.get(item.userId) ?? [];
+    const ownerKey = item.userId ?? item.id;
+    const list = byOwner.get(ownerKey) ?? [];
     list.push(item);
-    byOwner.set(item.userId, list);
+    byOwner.set(ownerKey, list);
   }
 
   const volumeChangeById = new Map<string, number | null>();
@@ -187,20 +200,59 @@ export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
   });
 }
 
+function applyListFilters(conditions: SQL[], options?: ListWorkoutsOptions) {
+  const q = options?.q?.trim() ?? "";
+  const muscleGroups = options?.muscleGroups ?? [];
+  if (q) conditions.push(workoutContentSearchCondition(q));
+  if (muscleGroups.length > 0) {
+    conditions.push(workoutMuscleGroupCondition(muscleGroups));
+  }
+  return conditions;
+}
+
+export async function listMyWorkouts(
+  userId: string,
+  options?: ListWorkoutsOptions,
+) {
+  const conditions = [eq(workoutMembership.userId, userId)];
+  applyListFilters(conditions, options);
+
+  const workouts = await db
+    .select({
+      id: workout.id,
+      name: workout.name,
+      author: workout.author,
+      channelUrl: workout.channelUrl,
+      youtubeVideoId: workout.youtubeVideoId,
+      userId: workout.userId,
+      archivedAt: workout.archivedAt,
+      createdAt: workout.createdAt,
+    })
+    .from(workout)
+    .innerJoin(
+      workoutMembership,
+      eq(workoutMembership.workoutId, workout.id),
+    )
+    .where(and(...conditions))
+    .orderBy(desc(workout.createdAt));
+
+  return enrichWorkoutsWithStats(workouts, { viewerId: userId });
+}
+
+/** @deprecated use listMyWorkouts */
 export async function listWorkoutsForUser(
   userId: string,
   options?: ListWorkoutsOptions,
 ) {
-  const q = options?.q?.trim() ?? "";
-  const muscleGroups = options?.muscleGroups ?? [];
-  const conditions = [eq(workout.userId, userId)];
+  return listMyWorkouts(userId, options);
+}
 
-  if (q) {
-    conditions.push(workoutContentSearchCondition(q));
-  }
-  if (muscleGroups.length > 0) {
-    conditions.push(workoutMuscleGroupCondition(muscleGroups));
-  }
+export async function listCatalogWorkouts(
+  viewerId: string,
+  options?: ListWorkoutsOptions,
+) {
+  const conditions = [isNull(workout.archivedAt)];
+  applyListFilters(conditions, options);
 
   const workouts = await db
     .select()
@@ -208,21 +260,68 @@ export async function listWorkoutsForUser(
     .where(and(...conditions))
     .orderBy(desc(workout.createdAt));
 
-  return enrichWorkoutsWithStats(workouts);
+  return enrichWorkoutsWithStats(workouts, { viewerId });
+}
+
+export async function listWorkoutsForProfile(profileUserId: string) {
+  return db
+    .select({
+      id: workout.id,
+      name: workout.name,
+      userId: workout.userId,
+      role: workoutMembership.role,
+      createdAt: workout.createdAt,
+    })
+    .from(workout)
+    .innerJoin(
+      workoutMembership,
+      eq(workoutMembership.workoutId, workout.id),
+    )
+    .where(eq(workoutMembership.userId, profileUserId))
+    .orderBy(desc(workout.createdAt));
+}
+
+export async function getWorkoutById(id: string) {
+  const [row] = await db
+    .select()
+    .from(workout)
+    .where(eq(workout.id, id))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function getWorkoutByYoutubeVideoId(youtubeVideoId: string) {
+  const [row] = await db
+    .select()
+    .from(workout)
+    .where(eq(workout.youtubeVideoId, youtubeVideoId))
+    .limit(1);
+  return row ?? null;
 }
 
 export async function getWorkoutByIdForUser(id: string, userId: string) {
   const [row] = await db
     .select()
     .from(workout)
-    .where(and(eq(workout.id, id), eq(workout.userId, userId)))
+    .where(
+      and(eq(workout.id, id), eq(workout.userId, userId), isNull(workout.archivedAt)),
+    )
     .limit(1);
   return row ?? null;
 }
 
 export async function createWorkout(data: WorkoutInsert) {
-  const [row] = await db.insert(workout).values(data).returning();
-  return row;
+  return db.transaction(async (tx) => {
+    const [row] = await tx.insert(workout).values(data).returning();
+    if (!row) throw new Error("Failed to create workout");
+    if (data.userId) {
+      await insertWorkoutMembership(
+        { workoutId: row.id, userId: data.userId, role: "OWNER" },
+        tx,
+      );
+    }
+    return row;
+  });
 }
 
 export async function updateWorkoutForUser(
@@ -233,15 +332,37 @@ export async function updateWorkoutForUser(
   const [row] = await db
     .update(workout)
     .set(data)
-    .where(and(eq(workout.id, id), eq(workout.userId, userId)))
+    .where(
+      and(
+        eq(workout.id, id),
+        eq(workout.userId, userId),
+        isNull(workout.archivedAt),
+      ),
+    )
+    .returning();
+  return row ?? null;
+}
+
+export async function archiveWorkoutForUser(id: string, userId: string) {
+  const [row] = await db
+    .update(workout)
+    .set({ archivedAt: new Date() })
+    .where(
+      and(
+        eq(workout.id, id),
+        eq(workout.userId, userId),
+        isNull(workout.archivedAt),
+      ),
+    )
     .returning();
   return row ?? null;
 }
 
 export async function deleteWorkoutForUser(id: string, userId: string) {
-  const [row] = await db
-    .delete(workout)
-    .where(and(eq(workout.id, id), eq(workout.userId, userId)))
-    .returning();
-  return row ?? null;
+  return archiveWorkoutForUser(id, userId);
+}
+
+export async function getWorkoutOwnerPublic(userId: string | null) {
+  if (!userId) return null;
+  return getUserById(userId);
 }

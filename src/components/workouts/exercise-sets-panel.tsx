@@ -1,13 +1,12 @@
 "use client";
 
 import {
-  IconChevronDown,
   IconLoader2,
   IconPlus,
   IconTrash,
 } from "@tabler/icons-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useEffect, useId, useRef, useState } from "react";
+import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import useMeasure from "react-use-measure";
 
 import { Button } from "@/components/ui/button";
@@ -19,8 +18,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { ExerciseResolveCard } from "@/components/workouts/exercise-resolve-card";
+import {
+  collapseGridClass,
+  IconChevronDown as SetRowChevronDown,
+  SetRowCard,
+  springSnappy as setRowSpringSnappy,
+  type SetRowPhase,
+} from "@/components/workouts/set-row-card";
 import type {
   MetricProfile,
   TargetSet,
@@ -29,7 +34,6 @@ import {
   useCreateSet,
   useDeleteSet,
   useSimilarExercises,
-  useUpdateSet,
   useWorkoutExercise,
 } from "@/features/workouts/hooks";
 import {
@@ -38,11 +42,12 @@ import {
   type SetFieldKey,
 } from "@/features/workouts/metric-profile";
 import {
+  dayKey,
   formatDayHeading,
   groupSetsByDay,
   localDateString,
 } from "@/features/workouts/set-day";
-import type { Set } from "@/features/workouts/types";
+import type { Set as WorkoutSet } from "@/features/workouts/types";
 import { cn } from "@/shared/utils";
 
 type FieldKey = SetFieldKey;
@@ -51,17 +56,15 @@ type RowValues = Record<FieldKey, string>;
 
 type DraftRow = {
   id: string;
+  source: "target" | "custom";
+  targetIndex?: number;
   values: RowValues;
   shouldFocus?: boolean;
-  committed?: Set;
 };
 
-const springSnappy = { type: "spring" as const, stiffness: 520, damping: 36 };
 const sizeEase = [0.22, 1, 0.36, 1] as const;
 const sizeTransition = { duration: 0.28, ease: sizeEase };
 const FOCUS_AFTER_MS = 280;
-const collapseGridClass =
-  "grid transition-[grid-template-rows] duration-280 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none";
 
 type SizeTransition = typeof sizeTransition | { duration: number };
 
@@ -133,25 +136,30 @@ function createDraftId() {
   return `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function draftsFromTargets(targets: TargetSet[] | undefined | null): DraftRow[] {
-  if (!targets?.length) return [];
-  return targets.map((t) => ({
+function valuesFromTarget(target: TargetSet): RowValues {
+  return {
+    reps: target.reps != null ? String(target.reps) : "",
+    weight: target.weight != null ? String(target.weight) : "",
+    time: target.time != null ? String(target.time) : "",
+    distance: target.distance != null ? String(target.distance) : "",
+  };
+}
+
+function draftFromTarget(target: TargetSet, targetIndex: number): DraftRow {
+  return {
     id: createDraftId(),
-    values: {
-      reps: t.reps != null ? String(t.reps) : "",
-      weight: t.weight != null ? String(t.weight) : "",
-      time: t.time != null ? String(t.time) : "",
-      distance: t.distance != null ? String(t.distance) : "",
-    },
+    source: "target",
+    targetIndex,
+    values: valuesFromTarget(target),
     shouldFocus: false,
-  }));
+  };
 }
 
 function emptyValues(): RowValues {
   return { reps: "", weight: "", time: "", distance: "" };
 }
 
-function valuesFromSet(set: Set): RowValues {
+function valuesFromSet(set: WorkoutSet): RowValues {
   return {
     reps: set.reps != null ? String(set.reps) : "",
     weight: set.weight != null ? String(set.weight) : "",
@@ -161,7 +169,7 @@ function valuesFromSet(set: Set): RowValues {
 }
 
 function valuesFromLast(
-  set: Set | undefined,
+  set: WorkoutSet | undefined,
   draft: DraftRow | undefined,
 ): RowValues {
   if (draft) return { ...draft.values };
@@ -236,6 +244,73 @@ function formatSetSummary(values: RowValues): string {
     return `${values.weight.trim()} kg × ${values.reps.trim()}`;
   }
   return parts.join(" · ");
+}
+
+function setMatchesTarget(set: WorkoutSet, target: TargetSet): boolean {
+  return (
+    (set.reps ?? null) === (target.reps ?? null) &&
+    (set.weight ?? null) === (target.weight ?? null) &&
+    (set.time ?? null) === (target.time ?? null) &&
+    (set.distance ?? null) === (target.distance ?? null)
+  );
+}
+
+function inferConsumedTargetIndices(
+  targets: TargetSet[],
+  loggedSets: WorkoutSet[],
+): Set<number> {
+  const consumed = new Set<number>();
+  const sorted = [...loggedSets].sort((a, b) => {
+    const aTime = new Date(a.createdAt ?? a.updatedAt).getTime();
+    const bTime = new Date(b.createdAt ?? b.updatedAt).getTime();
+    return aTime - bTime;
+  });
+
+  for (const logged of sorted) {
+    for (let index = 0; index < targets.length; index += 1) {
+      if (consumed.has(index)) continue;
+      if (setMatchesTarget(logged, targets[index]!)) {
+        consumed.add(index);
+        break;
+      }
+    }
+  }
+
+  return consumed;
+}
+
+function syncTargetDrafts(
+  prev: DraftRow[],
+  targets: TargetSet[],
+  consumedTargetIndices: Set<number>,
+): DraftRow[] {
+  const customDrafts = prev.filter((draft) => draft.source === "custom");
+  const existingTargetDrafts = new Map(
+    prev
+      .filter(
+        (draft) =>
+          draft.source === "target" && draft.targetIndex != null,
+      )
+      .map((draft) => [draft.targetIndex!, draft]),
+  );
+
+  const nextTargetDrafts: DraftRow[] = [];
+  for (let index = 0; index < targets.length; index += 1) {
+    if (consumedTargetIndices.has(index)) continue;
+    const existing = existingTargetDrafts.get(index);
+    nextTargetDrafts.push(
+      existing ?? draftFromTarget(targets[index]!, index),
+    );
+  }
+
+  const next = [...nextTargetDrafts, ...customDrafts];
+  if (
+    next.length === prev.length &&
+    next.every((row, index) => row === prev[index])
+  ) {
+    return prev;
+  }
+  return next;
 }
 
 function SetMetricInput({
@@ -355,9 +430,10 @@ type ExerciseSetsPanelProps = {
   workoutExerciseId: string;
   metricProfile?: MetricProfile | null;
   targetSets?: TargetSet[] | null;
-  sets: Set[];
+  sets: WorkoutSet[];
   setsReady?: boolean;
   readOnly?: boolean;
+  canResolve?: boolean;
   onExerciseResolved?: (workoutExerciseId: string) => void;
 };
 
@@ -370,103 +446,110 @@ export function ExerciseSetsPanel({
   sets,
   setsReady = true,
   readOnly = false,
+  canResolve = !readOnly,
   onExerciseResolved,
 }: ExerciseSetsPanelProps) {
   const createSet = useCreateSet();
-  const updateSet = useUpdateSet();
   const deleteSet = useDeleteSet();
   const reduceMotion = useReducedMotion();
   const transition = reduceMotion ? { duration: 0 } : sizeTransition;
+  const today = localDateString();
   const showResolve = sets.length === 0;
   const similarQuery = useSimilarExercises(exerciseId, {
     workoutId,
     workoutExerciseId,
-    enabled: showResolve && !readOnly,
+    enabled: showResolve && canResolve,
   });
 
   const workoutExerciseQuery = useWorkoutExercise(workoutExerciseId, {
-    enabled: !readOnly,
+    enabled: canResolve,
   });
-  const targetDraftsInitializedRef = useRef(false);
-  const [drafts, setDrafts] = useState<DraftRow[]>(() =>
-    draftsFromTargets(targetSets),
-  );
 
-  useEffect(() => {
-    if (targetDraftsInitializedRef.current) return;
-    if (sets.length > 0) return;
-    if (drafts.length > 0) {
-      targetDraftsInitializedRef.current = true;
-      return;
-    }
-    const targets =
-      workoutExerciseQuery.data?.metaData?.targets ?? targetSets ?? null;
-    if (!targets?.length) return;
-    targetDraftsInitializedRef.current = true;
-    setDrafts(draftsFromTargets(targets));
-  }, [
-    drafts.length,
-    sets.length,
-    targetSets,
-    workoutExerciseQuery.data?.metaData?.targets,
-  ]);
-
-  const [savedValues, setSavedValues] = useState<Record<string, RowValues>>(
-    () => Object.fromEntries(sets.map((set) => [set.id, valuesFromSet(set)])),
-  );
-  const savedValuesRef = useRef(savedValues);
-  const [completedDraftIds, setCompletedDraftIds] = useState(
-    () => new Set<string>(),
-  );
-  const [checkedAtById, setCheckedAtById] = useState<Record<string, number>>(
-    {},
-  );
-  const [checkedIds, setCheckedIds] = useState(() => new Set<string>());
-  const [removedIds, setRemovedIds] = useState(() => new Set<string>());
+  const [drafts, setDrafts] = useState<DraftRow[]>([]);
+  const [rowOrder, setRowOrder] = useState<string[]>([]);
   const [rowKeyBySetId, setRowKeyBySetId] = useState<Record<string, string>>(
     {},
   );
+  const [promotedByRowKey, setPromotedByRowKey] = useState<
+    Record<string, { setId: string; values: RowValues }>
+  >({});
+  const [enteringRowKeys, setEnteringRowKeys] = useState(
+    () => new Set<string>(),
+  );
+  const [approvingRowKeys, setApprovingRowKeys] = useState(
+    () => new Set<string>(),
+  );
+  const [removedIds, setRemovedIds] = useState(() => new Set<string>());
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showExtras, setShowExtras] = useState(false);
-  const focusedFieldRef = useRef<string | null>(null);
   const baseId = useId().replace(/:/g, "");
   const profileFields = fieldsForMetricProfile(metricProfile);
   const primaryFields = profileFields.primary.map((key) => FIELD_BY_KEY[key]);
   const extraFields = profileFields.extra.map((key) => FIELD_BY_KEY[key]);
   const firstPrimaryKey = primaryFields[0]?.key;
 
+  const visibleSets = useMemo(
+    () => sets.filter((set) => !removedIds.has(set.id)),
+    [sets, removedIds],
+  );
+  const resolvedTargets =
+    workoutExerciseQuery.data?.metaData?.targets ?? targetSets ?? null;
+  const todayLoggedSets = useMemo(
+    () => visibleSets.filter((set) => dayKey(set.updatedAt) === today),
+    [visibleSets, today],
+  );
+  const todayLoggedRowKeys = useMemo(
+    () =>
+      todayLoggedSets
+        .map((set) => rowKeyBySetId[set.id] ?? set.id)
+        .sort()
+        .join(","),
+    [todayLoggedSets, rowKeyBySetId],
+  );
+  const draftRowKeys = useMemo(
+    () => drafts.map((draft) => draft.id).join(","),
+    [drafts],
+  );
+  const promotedRowKeys = useMemo(
+    () => Object.keys(promotedByRowKey).sort().join(","),
+    [promotedByRowKey],
+  );
+  const approvingRowKeyStr = useMemo(
+    () => [...approvingRowKeys].sort().join(","),
+    [approvingRowKeys],
+  );
+  const rowKeyBySetIdKey = useMemo(
+    () =>
+      Object.entries(rowKeyBySetId)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([setId, rowKey]) => `${setId}:${rowKey}`)
+        .join("|"),
+    [rowKeyBySetId],
+  );
+  const targetDraftSyncKey = useMemo(() => {
+    if (!resolvedTargets?.length) return "";
+    const consumed = inferConsumedTargetIndices(resolvedTargets, todayLoggedSets);
+    return `${resolvedTargets.length}:${[...consumed].sort((a, b) => a - b).join(",")}`;
+  }, [resolvedTargets, todayLoggedSets]);
+
   useEffect(() => {
-    savedValuesRef.current = savedValues;
-  }, [savedValues]);
+    if (!setsReady) return;
+    if (!resolvedTargets?.length) return;
+
+    const consumedTargetIndices = inferConsumedTargetIndices(
+      resolvedTargets,
+      todayLoggedSets,
+    );
+
+    setDrafts((prev) =>
+      syncTargetDrafts(prev, resolvedTargets, consumedTargetIndices),
+    );
+  }, [setsReady, targetDraftSyncKey]);
 
   useEffect(() => {
     const ids = new Set(sets.map((set) => set.id));
-
-    setSavedValues((prev) => {
-      const next: Record<string, RowValues> = {};
-      for (const set of sets) {
-        const focusKeyPrefix = `${set.id}:`;
-        const isFocused = focusedFieldRef.current?.startsWith(focusKeyPrefix);
-        next[set.id] =
-          isFocused && prev[set.id] ? prev[set.id] : valuesFromSet(set);
-      }
-      return next;
-    });
-    setCheckedIds((prev) => {
-      const next = new Set<string>();
-      for (const id of prev) {
-        if (ids.has(id)) next.add(id);
-      }
-      return next;
-    });
-    setDrafts((prev) => {
-      const next = prev.filter(
-        (draft) => !draft.committed || !ids.has(draft.committed.id),
-      );
-      return next.length === prev.length ? prev : next;
-    });
     setRemovedIds((prev) => {
       const next = new Set<string>();
       for (const id of prev) {
@@ -476,72 +559,167 @@ export function ExerciseSetsPanel({
     });
   }, [sets]);
 
-  const extraKeys = profileFields.extra;
-  const today = localDateString();
-  const liveDrafts = drafts.filter((draft) => !draft.committed);
-  const visibleSets = [
-    ...sets.filter((set) => !removedIds.has(set.id)),
-    ...drafts.flatMap((draft) => {
-      if (!draft.committed) return [];
-      if (removedIds.has(draft.committed.id)) return [];
-      if (sets.some((set) => set.id === draft.committed?.id)) return [];
-      return [draft.committed];
-    }),
-  ];
+  useEffect(() => {
+    setPromotedByRowKey((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const [rowKey, promoted] of Object.entries(prev)) {
+        const logged = todayLoggedSets.find((set) => set.id === promoted.setId);
+        if (!logged) continue;
+        const stableKey = rowKeyBySetId[promoted.setId] ?? promoted.setId;
+        if (stableKey !== rowKey) continue;
+        delete next[rowKey];
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [todayLoggedRowKeys, rowKeyBySetIdKey, rowKeyBySetId, todayLoggedSets]);
+
+  useEffect(() => {
+    setRowOrder((prev) => {
+      const activeKeys = new Set<string>();
+
+      for (const set of todayLoggedSets) {
+        activeKeys.add(rowKeyBySetId[set.id] ?? set.id);
+      }
+      for (const draft of drafts) {
+        activeKeys.add(draft.id);
+      }
+      for (const rowKey of Object.keys(promotedByRowKey)) {
+        activeKeys.add(rowKey);
+      }
+
+      const next: string[] = [];
+      for (const rowKey of prev) {
+        if (activeKeys.has(rowKey)) {
+          next.push(rowKey);
+          activeKeys.delete(rowKey);
+        }
+      }
+      for (const rowKey of activeKeys) {
+        next.push(rowKey);
+      }
+      return next.length === prev.length &&
+        next.every((key, index) => key === prev[index])
+        ? prev
+        : next;
+    });
+  }, [draftRowKeys, promotedRowKeys, rowKeyBySetIdKey, todayLoggedRowKeys]);
+
   const dayGroups = groupSetsByDay(visibleSets);
   const todaySets =
     dayGroups.find((group) => group.day === today)?.sets ?? [];
   const pastGroups = dayGroups.filter((group) => group.day !== today);
 
-  type SetRow = {
-    kind: "saved" | "draft";
-    rowId: string;
-    setId: string;
+  type TodayRowEntry = {
+    rowKey: string;
+    phase: SetRowPhase;
+    setId?: string;
     values: RowValues;
-    createdAt: Date | string | undefined;
-    index: number;
+    draftSource?: DraftRow["source"];
     shouldFocus: boolean;
-    previous: RowValues | null;
+    index: number;
   };
 
-  function rowsForDay(day: string, daySets: Set[]): SetRow[] {
+  function resolveTodayRow(rowKey: string, index: number): TodayRowEntry | null {
+    const promoted = promotedByRowKey[rowKey];
+    if (promoted) {
+      return {
+        rowKey,
+        phase: "logged",
+        setId: promoted.setId,
+        values: promoted.values,
+        shouldFocus: false,
+        index,
+      };
+    }
+
+    const draft = drafts.find((row) => row.id === rowKey);
+    if (draft) {
+      return {
+        rowKey,
+        phase: approvingRowKeys.has(draft.id)
+          ? ("approving" as const)
+          : ("draft" as const),
+        values: draft.values,
+        draftSource: draft.source,
+        shouldFocus: Boolean(draft.shouldFocus),
+        index,
+      };
+    }
+
+    const logged = todaySets.find(
+      (set) => (rowKeyBySetId[set.id] ?? set.id) === rowKey,
+    );
+    if (logged) {
+      return {
+        rowKey,
+        phase: "logged",
+        setId: logged.id,
+        values: valuesFromSet(logged),
+        shouldFocus: false,
+        index,
+      };
+    }
+
+    return null;
+  }
+
+  const todayRowKeys = useMemo(() => {
+    const keys: string[] = [];
+    const seen = new Set<string>();
+    const addKey = (key: string) => {
+      if (seen.has(key)) return;
+      seen.add(key);
+      keys.push(key);
+    };
+
+    for (const key of rowOrder) addKey(key);
+    for (const key of Object.keys(promotedByRowKey)) addKey(key);
+    for (const key of approvingRowKeys) addKey(key);
+    for (const draft of drafts) addKey(draft.id);
+    for (const set of todaySets) {
+      addKey(rowKeyBySetId[set.id] ?? set.id);
+    }
+
+    return keys;
+  }, [
+    approvingRowKeyStr,
+    draftRowKeys,
+    promotedRowKeys,
+    rowKeyBySetIdKey,
+    rowOrder,
+    todayLoggedRowKeys,
+    approvingRowKeys,
+    drafts,
+    promotedByRowKey,
+    rowKeyBySetId,
+    todaySets,
+  ]);
+
+  const todayRows = todayRowKeys
+    .map((rowKey, index) => resolveTodayRow(rowKey, index))
+    .filter((row): row is TodayRowEntry => row != null);
+
+  function rowsForDay(day: string, daySets: WorkoutSet[]) {
     const previousGroup = dayGroups.find((group) => group.day < day);
-    const savedRows = daySets.map((set, index) => {
+    return daySets.map((set, index) => {
       const previousSet = previousGroup?.sets[index];
       return {
-        kind: "saved" as const,
-        rowId: rowKeyBySetId[set.id] ?? set.id,
-        setId: set.id,
-        values: savedValues[set.id] ?? valuesFromSet(set),
-        createdAt: set.createdAt,
-        index,
-        shouldFocus: false as boolean,
+        rowKey: set.id,
+        values: valuesFromSet(set),
         previous: previousSet ? valuesFromSet(previousSet) : null,
       };
     });
-    if (day !== today || readOnly) return savedRows;
-
-    return [
-      ...savedRows,
-      ...liveDrafts.map((draft, draftIndex) => {
-        const index = daySets.length + draftIndex;
-        const previousSet = previousGroup?.sets[index];
-        return {
-          kind: "draft" as const,
-          rowId: draft.id,
-          setId: draft.id,
-          values: draft.values,
-          createdAt: undefined as Date | string | undefined,
-          index,
-          shouldFocus: Boolean(draft.shouldFocus),
-          previous: previousSet ? valuesFromSet(previousSet) : null,
-        };
-      }),
-    ];
   }
-
-  const todayRows = rowsForDay(today, todaySets);
-  const showEmpty = visibleSets.length === 0 && liveDrafts.length === 0;
+  const hasPendingTodayRows =
+    todayRows.length > 0 ||
+    Object.keys(promotedByRowKey).length > 0 ||
+    approvingRowKeys.size > 0;
+  const showEmpty =
+    visibleSets.length === 0 &&
+    drafts.length === 0 &&
+    !hasPendingTodayRows;
   const isContentLoading =
     showEmpty &&
     (!setsReady ||
@@ -550,69 +728,46 @@ export function ExerciseSetsPanel({
         drafts.length === 0 &&
         !targetSets?.length));
   const hasExtraValues =
-    extraKeys.some((key) =>
-      visibleSets.some((set) => set[key] != null),
+    extraFields.some((field) =>
+      visibleSets.some((set) => set[field.key] != null),
     ) ||
-    liveDrafts.some((draft) =>
-      extraKeys.some((key) => draft.values[key].trim() !== ""),
+    drafts.some((draft) =>
+      extraFields.some((field) => draft.values[field.key].trim() !== ""),
     );
   const extrasOpen = extraFields.length > 0 && (showExtras || hasExtraValues);
 
   function handleAddSet() {
     setError(null);
-    const lastSaved = todaySets.at(-1);
-    const lastDraft = liveDrafts.at(-1);
+    const lastLogged = todaySets.at(-1);
+    const lastDraft = drafts.at(-1);
     const id = createDraftId();
     setDrafts((prev) => [
       ...prev,
       {
         id,
-        values: valuesFromLast(lastSaved, lastDraft),
+        source: "custom",
+        values: valuesFromLast(lastLogged, lastDraft),
         shouldFocus: true,
       },
     ]);
+    setEnteringRowKeys((prev) => new Set(prev).add(id));
     setExpandedId(id);
   }
 
-  async function persistSaved(setId: string) {
-    const values = savedValuesRef.current[setId];
-    if (!values) return;
+  useEffect(() => {
+    if (enteringRowKeys.size === 0) return;
+    const timeoutId = window.setTimeout(() => {
+      setEnteringRowKeys(new Set());
+    }, Math.round(transition.duration * 1000) + 48);
+    return () => window.clearTimeout(timeoutId);
+  }, [enteringRowKeys, transition.duration]);
 
-    if (hasInvalidNumber(values)) {
-      setError("Values must be valid numbers");
-      return;
-    }
-
-    const existing =
-      sets.find((set) => set.id === setId) ??
-      drafts.find((draft) => draft.committed?.id === setId)?.committed;
-    if (!existing) return;
-
-    const payload = toPayload(values);
-    const unchanged =
-      (existing.reps ?? null) === payload.reps &&
-      (existing.weight ?? null) === payload.weight &&
-      (existing.time ?? null) === payload.time &&
-      (existing.distance ?? null) === payload.distance;
-    if (unchanged) return;
-
-    setBusyId(setId);
-    setError(null);
-    try {
-      await updateSet.mutateAsync({ id: setId, ...payload });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update set");
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function completeDraft(draftId: string) {
+  async function approveDraft(draftId: string) {
     const draft = drafts.find((row) => row.id === draftId);
-    if (!draft || draft.committed) return;
+    if (!draft) return;
 
     if (!hasLoggedValues(draft.values)) {
-      setError("Enter a value before completing the set");
+      setError("Enter a value before approving the set");
       return;
     }
     if (hasInvalidNumber(draft.values)) {
@@ -622,74 +777,43 @@ export function ExerciseSetsPanel({
 
     setBusyId(draftId);
     setError(null);
-    setCompletedDraftIds((prev) => new Set(prev).add(draftId));
-    setCheckedAtById((prev) => ({ ...prev, [draftId]: Date.now() }));
+    setExpandedId((prev) => (prev === draftId ? null : prev));
+    setApprovingRowKeys((prev) => new Set(prev).add(draftId));
     try {
       const created = await createSet.mutateAsync({
         workoutId,
         exerciseId,
         ...toPayload(draft.values),
       });
+      const values = valuesFromSet(created);
       setRowKeyBySetId((prev) => ({ ...prev, [created.id]: draftId }));
-      setSavedValues((prev) => ({
+      setPromotedByRowKey((prev) => ({
         ...prev,
-        [created.id]: valuesFromSet(created),
+        [draftId]: { setId: created.id, values },
       }));
-      setDrafts((prev) =>
-        prev.map((row) =>
-          row.id === draftId ? { ...row, committed: created } : row,
-        ),
-      );
-      setCompletedDraftIds((prev) => {
-        const next = new Set(prev);
-        next.delete(draftId);
-        return next;
-      });
-      setExpandedId((prev) => (prev === draftId ? null : prev));
+      setDrafts((prev) => prev.filter((row) => row.id !== draftId));
     } catch (err) {
-      setCompletedDraftIds((prev) => {
-        const next = new Set(prev);
-        next.delete(draftId);
-        return next;
-      });
-      setCheckedAtById((prev) => {
-        const next = { ...prev };
-        delete next[draftId];
-        return next;
-      });
       setError(err instanceof Error ? err.message : "Failed to log set");
     } finally {
+      setApprovingRowKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(draftId);
+        return next;
+      });
       setBusyId(null);
     }
   }
 
-  async function handleDeleteSaved(setId: string, rowId: string) {
+  async function handleDeleteLogged(setId: string) {
     setError(null);
     setBusyId(setId);
     try {
       await deleteSet.mutateAsync(setId);
       setRemovedIds((prev) => new Set(prev).add(setId));
-      setExpandedId((prev) => (prev === rowId || prev === setId ? null : prev));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete set");
     } finally {
       setBusyId(null);
-    }
-  }
-
-  function updateSavedValue(setId: string, key: FieldKey, value: string) {
-    setSavedValues((prev) => {
-      const nextRow = { ...(prev[setId] ?? emptyValues()), [key]: value };
-      const next = { ...prev, [setId]: nextRow };
-      savedValuesRef.current = next;
-      return next;
-    });
-    if (checkedIds.has(setId)) {
-      setCheckedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(setId);
-        return next;
-      });
     }
   }
 
@@ -703,24 +827,25 @@ export function ExerciseSetsPanel({
     );
   }
 
+  function removeDraft(draftId: string) {
+    setDrafts((prev) => prev.filter((row) => row.id !== draftId));
+    setExpandedId((prev) => (prev === draftId ? null : prev));
+  }
+
   function toggleExpanded(id: string) {
     setExpandedId((prev) => (prev === id ? null : id));
   }
 
-  function renderEditor({
+  function renderDraftEditor({
     rowId,
-    setId,
     values,
     busy,
-    isDraft,
     index,
     autoFocusWeight,
   }: {
     rowId: string;
-    setId: string;
     values: RowValues;
     busy: boolean;
-    isDraft: boolean;
     index: number;
     autoFocusWeight?: boolean;
   }) {
@@ -752,29 +877,13 @@ export function ExerciseSetsPanel({
                 inputMode={field.inputMode}
                 step={field.step}
                 ariaLabel={field.label}
-                autoFocus={
-                  autoFocusWeight && field.key === firstPrimaryKey && isDraft
-                }
-                onFocus={() => {
-                  focusedFieldRef.current = `${setId}:${field.key}`;
-                }}
-                onChange={(value) => {
-                  focusedFieldRef.current = `${setId}:${field.key}`;
-                  if (isDraft) updateDraftValue(rowId, field.key, value);
-                  else updateSavedValue(setId, field.key, value);
-                }}
-                onBlur={() => {
-                  focusedFieldRef.current = null;
-                  if (!isDraft) void persistSaved(setId);
-                }}
+                autoFocus={autoFocusWeight && field.key === firstPrimaryKey}
+                onChange={(value) => updateDraftValue(rowId, field.key, value)}
+                onBlur={() => {}}
                 onKeyDown={(event) => {
                   if (event.key !== "Enter") return;
-                  if (isDraft) {
-                    event.preventDefault();
-                    void completeDraft(rowId);
-                  } else {
-                    event.currentTarget.blur();
-                  }
+                  event.preventDefault();
+                  void approveDraft(rowId);
                 }}
               />
             </div>
@@ -808,27 +917,14 @@ export function ExerciseSetsPanel({
                       inputMode={field.inputMode}
                       step={field.step}
                       ariaLabel={field.label}
-                      onFocus={() => {
-                        focusedFieldRef.current = `${setId}:${field.key}`;
-                      }}
-                      onChange={(value) => {
-                        focusedFieldRef.current = `${setId}:${field.key}`;
-                        if (isDraft)
-                          updateDraftValue(rowId, field.key, value);
-                        else updateSavedValue(setId, field.key, value);
-                      }}
-                      onBlur={() => {
-                        focusedFieldRef.current = null;
-                        if (!isDraft) void persistSaved(setId);
-                      }}
+                      onChange={(value) =>
+                        updateDraftValue(rowId, field.key, value)
+                      }
+                      onBlur={() => {}}
                       onKeyDown={(event) => {
                         if (event.key !== "Enter") return;
-                        if (isDraft) {
-                          event.preventDefault();
-                          void completeDraft(rowId);
-                        } else {
-                          event.currentTarget.blur();
-                        }
+                        event.preventDefault();
+                        void approveDraft(rowId);
                       }}
                     />
                   </div>
@@ -851,10 +947,10 @@ export function ExerciseSetsPanel({
             >
               <motion.span
                 animate={{ rotate: rowExtrasOpen ? 180 : 0 }}
-                transition={springSnappy}
+                transition={setRowSpringSnappy}
                 className="inline-flex"
               >
-                <IconChevronDown className="size-3.5" />
+                <SetRowChevronDown className="size-3.5" />
               </motion.span>
               {rowExtrasOpen
                 ? "Hide extras"
@@ -865,47 +961,31 @@ export function ExerciseSetsPanel({
           )}
 
           <div className="flex items-center gap-1">
-            {isDraft ? (
-              <Button
-                type="button"
-                size="sm"
-                className="h-8"
-                disabled={busy}
-                onClick={() => {
-                  void completeDraft(rowId);
-                }}
-              >
-                {busy ? (
-                  <IconLoader2
-                    className="animate-spin"
-                    data-icon="inline-start"
-                  />
-                ) : null}
-                Save set
-              </Button>
-            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              className="h-8"
+              disabled={busy}
+              onClick={() => {
+                void approveDraft(rowId);
+              }}
+            >
+              {busy ? (
+                <IconLoader2 className="animate-spin" data-icon="inline-start" />
+              ) : null}
+              Approve
+            </Button>
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              aria-label={`Delete set ${index + 1}`}
+              aria-label={`Discard draft set ${index + 1}`}
               disabled={busy}
               className="text-muted-foreground hover:text-destructive h-8 px-2"
-              onClick={() => {
-                if (isDraft) {
-                  setDrafts((prev) => prev.filter((row) => row.id !== rowId));
-                  setExpandedId((prev) => (prev === rowId ? null : prev));
-                } else {
-                  void handleDeleteSaved(setId, rowId);
-                }
-              }}
+              onClick={() => removeDraft(rowId)}
             >
-              {busy && !isDraft ? (
-                <IconLoader2 className="animate-spin" />
-              ) : (
-                <IconTrash className="size-4" />
-              )}
-              <span className="sr-only md:not-sr-only md:ml-1">Delete</span>
+              <IconTrash className="size-4" />
+              <span className="sr-only md:not-sr-only md:ml-1">Discard</span>
             </Button>
           </div>
         </div>
@@ -913,14 +993,16 @@ export function ExerciseSetsPanel({
     );
   }
 
-  function renderHistoryRows(rows: SetRow[]) {
+  function renderHistoryRows(
+    rows: { rowKey: string; values: RowValues }[],
+  ) {
     return (
       <ul className="text-muted-foreground divide-border/50 divide-y overflow-clip rounded-xl bg-muted/10">
         {rows.map((row) => {
           const summary = formatSetSummary(row.values);
           return (
             <li
-              key={row.rowId}
+              key={row.rowKey}
               className="flex items-center gap-2 px-3 py-1.5"
             >
               <span className="min-w-0 flex-1 truncate text-sm tabular-nums">
@@ -933,124 +1015,61 @@ export function ExerciseSetsPanel({
     );
   }
 
-  function renderSetRows(rows: SetRow[]) {
+  function renderSetRows(rows: TodayRowEntry[]) {
     return (
-      <ul className="divide-border/60 divide-y overflow-clip rounded-xl bg-muted/20">
-        <AnimatePresence initial={false}>
-          {rows.map((row) => {
-            const isDraft = row.kind === "draft";
-            const busy = busyId === row.setId || busyId === row.rowId;
-            const expanded = expandedId === row.rowId;
-            const completed = isDraft
-              ? completedDraftIds.has(row.rowId)
-              : checkedIds.has(row.setId);
-            const summary = formatSetSummary(row.values);
-            const previousLabel = row.previous
-              ? `Previous ${formatSetSummary(row.previous)}`
-              : "Previous —";
-            const subtitle =
-              isDraft && !completed ? "Draft · not saved" : previousLabel;
+      <LayoutGroup id={`${baseId}-today-rows`}>
+        <ul className="divide-border/60 divide-y overflow-clip rounded-xl bg-muted/20">
+          <AnimatePresence initial={false} mode="popLayout">
+            {rows.map((row) => {
+              const busy =
+                busyId === row.rowKey ||
+                (row.setId != null && busyId === row.setId);
+              const expanded = expandedId === row.rowKey;
+              const summary = formatSetSummary(row.values);
+              const subtitle =
+                row.phase === "logged"
+                  ? "Logged"
+                  : row.draftSource === "target"
+                    ? "Draft · approve to log"
+                    : "Draft · custom";
 
-            return (
-              <motion.li
-                key={row.rowId}
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={transition}
-                className={cn(
-                  "overflow-clip transition-colors duration-280",
-                  completed && "bg-primary/8",
-                  expanded && "bg-muted/40",
-                )}
-              >
-                <div className="flex items-center gap-2 px-3 py-1.5">
-                  <button
-                    type="button"
-                    className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-                    aria-expanded={expanded}
-                    onClick={() => toggleExpanded(row.rowId)}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span
-                        className={cn(
-                          "block truncate text-sm font-medium tabular-nums",
-                          summary === "Tap to log" &&
-                            "text-muted-foreground font-normal",
-                        )}
-                      >
-                        {summary}
-                      </span>
-                      {subtitle ? (
-                        <span className="text-muted-foreground text-[11px] tabular-nums">
-                          {subtitle}
-                        </span>
-                      ) : null}
-                    </span>
-                  </button>
-
-                  <motion.div
-                    whileTap={{ scale: 0.9 }}
-                    transition={springSnappy}
-                    className="shrink-0"
-                  >
-                    <Checkbox
-                      checked={completed}
-                      disabled={busy}
-                      aria-label={
-                        isDraft
-                          ? `Complete set ${row.index + 1}`
-                          : `Mark set ${row.index + 1} complete`
-                      }
-                      className="size-5 rounded-md data-checked:bg-primary"
-                      onCheckedChange={(checked) => {
-                        if (isDraft) {
-                          if (checked) void completeDraft(row.rowId);
-                          return;
-                        }
-                        setCheckedIds((prev) => {
-                          const next = new Set(prev);
-                          if (checked) next.add(row.setId);
-                          else next.delete(row.setId);
-                          return next;
-                        });
-                        setCheckedAtById((prev) => {
-                          if (checked) {
-                            return { ...prev, [row.setId]: Date.now() };
-                          }
-                          const next = { ...prev };
-                          delete next[row.setId];
-                          delete next[row.rowId];
-                          return next;
-                        });
-                      }}
-                    />
-                  </motion.div>
-                </div>
-
-                <div
-                  className={cn(
-                    collapseGridClass,
-                    expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-                  )}
-                >
-                  <div className="min-h-0 overflow-clip" inert={!expanded}>
-                    {renderEditor({
-                      rowId: row.rowId,
-                      setId: row.setId,
-                      values: row.values,
-                      busy,
-                      isDraft,
-                      index: row.index,
-                      autoFocusWeight: isDraft && row.shouldFocus,
-                    })}
-                  </div>
-                </div>
-              </motion.li>
-            );
-          })}
-        </AnimatePresence>
-      </ul>
+              return (
+                <SetRowCard
+                  key={row.rowKey}
+                  rowKey={row.rowKey}
+                  phase={row.phase}
+                  summary={summary}
+                  subtitle={subtitle}
+                  expanded={expanded}
+                  busy={busy}
+                  isEntering={enteringRowKeys.has(row.rowKey)}
+                  transition={transition}
+                  onToggleExpanded={() => toggleExpanded(row.rowKey)}
+                  onApprove={() => {
+                    void approveDraft(row.rowKey);
+                  }}
+                  onRemove={() => {
+                    if (row.phase === "logged" && row.setId) {
+                      void handleDeleteLogged(row.setId);
+                      return;
+                    }
+                    if (row.phase === "draft") {
+                      removeDraft(row.rowKey);
+                    }
+                  }}
+                  editor={renderDraftEditor({
+                    rowId: row.rowKey,
+                    values: row.values,
+                    busy,
+                    index: row.index,
+                    autoFocusWeight: row.shouldFocus,
+                  })}
+                />
+              );
+            })}
+          </AnimatePresence>
+        </ul>
+      </LayoutGroup>
     );
   }
 
@@ -1071,7 +1090,7 @@ export function ExerciseSetsPanel({
             <span className="text-sm">Loading sets…</span>
           </div>
         ) : showEmpty ? (
-          readOnly ? (
+          readOnly && !canResolve ? (
             <p className="text-muted-foreground px-1 py-8 text-center text-sm">
               No sets logged yet.
             </p>
@@ -1085,19 +1104,21 @@ export function ExerciseSetsPanel({
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ExerciseResolveCard
-                  workoutId={workoutId}
-                  exerciseId={exerciseId}
-                  workoutExerciseId={workoutExerciseId}
-                  candidates={similarQuery.data?.items ?? []}
-                  onResolved={(id) => {
-                    onExerciseResolved?.(id);
-                  }}
-                />
+                {canResolve ? (
+                  <ExerciseResolveCard
+                    workoutId={workoutId}
+                    exerciseId={exerciseId}
+                    workoutExerciseId={workoutExerciseId}
+                    candidates={similarQuery.data?.items ?? []}
+                    onResolved={(id) => {
+                      onExerciseResolved?.(id);
+                    }}
+                  />
+                ) : null}
                 <Button
                   type="button"
                   variant="secondary"
-                  className="mt-3 w-full"
+                  className={canResolve ? "mt-3 w-full" : "w-full"}
                   onClick={handleAddSet}
                 >
                   <IconPlus data-icon="inline-start" />
@@ -1117,7 +1138,7 @@ export function ExerciseSetsPanel({
                   {todayRows.length} {todayRows.length === 1 ? "set" : "sets"}
                 </span>
               </div>
-              {todayRows.length > 0 ? (
+              {hasPendingTodayRows ? (
                 readOnly ? (
                   renderHistoryRows(todayRows)
                 ) : (

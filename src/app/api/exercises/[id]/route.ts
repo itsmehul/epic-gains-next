@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 
 import {
-  deleteExerciseForUser,
-  getExerciseByIdForUser,
+  deleteExercise,
+  getExerciseById,
 } from "@/db/repositories/exercise.repository";
 import {
   apiError,
   requireApiSession,
   unauthorizedResponse,
 } from "@/infrastructure/auth/api";
+import { isCatalogAdmin } from "@/shared/env";
 
 type RouteParams = {
   id: string;
@@ -25,7 +26,7 @@ export async function GET(
 
   try {
     const { id } = await params;
-    const item = await getExerciseByIdForUser(id, session.user.id);
+    const item = await getExerciseById(id);
     if (!item) {
       return apiError("Exercise not found", 404);
     }
@@ -45,10 +46,13 @@ export async function DELETE(
   if (!session) {
     return unauthorizedResponse();
   }
+  if (!isCatalogAdmin(session.user.id)) {
+    return apiError("Forbidden", 403);
+  }
 
   try {
     const { id } = await params;
-    const item = await deleteExerciseForUser(id, session.user.id);
+    const item = await deleteExercise(id);
     if (!item) {
       return apiError("Exercise not found", 404);
     }

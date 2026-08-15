@@ -34,7 +34,8 @@ export type ListProfileWorkoutsResult = {
   items: Array<{
     id: string;
     name: string;
-    userId: string;
+    userId: string | null;
+    role: "OWNER" | "MEMBER";
     createdAt: string;
   }>;
 };

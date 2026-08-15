@@ -47,6 +47,7 @@ import { useDeleteWorkout, useWorkouts } from "@/features/workouts/hooks";
 import { MUSCLE_GROUP_OPTIONS } from "@/features/workouts/muscle-group";
 import type { WorkoutListStats, WorkoutWithStats } from "@/features/workouts/types";
 import { getYouTubeThumbnailUrl } from "@/features/workouts/youtube";
+import { useSession } from "@/infrastructure/auth/client";
 import { cn } from "@/shared/utils";
 
 const springSoft = { type: "spring" as const, stiffness: 420, damping: 32 };
@@ -355,7 +356,7 @@ function WorkoutFeedCard({
                     onClick={onDelete}
                   >
                     <IconTrash className="size-3.5" data-icon="inline-start" />
-                    Delete
+                    Archive
                   </Button>
                 </PopoverContent>
               </Popover>
@@ -380,6 +381,7 @@ function WorkoutShelf({
   owner,
   workouts,
   emptyHint,
+  archiveUserId,
   onDeleteWorkout,
 }: {
   title: string;
@@ -387,6 +389,7 @@ function WorkoutShelf({
   owner?: SocialUser;
   workouts: WorkoutWithStats[];
   emptyHint?: ReactNode;
+  archiveUserId?: string;
   onDeleteWorkout?: (workout: WorkoutWithStats) => void;
 }) {
   if (workouts.length === 0 && !emptyHint) return null;
@@ -426,7 +429,9 @@ function WorkoutShelf({
                 <WorkoutFeedCard
                   workout={workout}
                   onDelete={
-                    onDeleteWorkout
+                    onDeleteWorkout &&
+                    archiveUserId &&
+                    workout.userId === archiveUserId
                       ? () => onDeleteWorkout(workout)
                       : undefined
                   }
@@ -511,11 +516,11 @@ function DeleteWorkoutDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete workout?</DialogTitle>
+          <DialogTitle>Archive workout?</DialogTitle>
           <DialogDescription>
             {workout
-              ? `“${workout.name}” and its sets will be permanently removed.`
-              : "This workout and its sets will be permanently removed."}
+              ? `“${workout.name}” will leave the catalog. Logged sets stay on each member’s history.`
+              : "This workout will leave the catalog. Logged sets stay on each member’s history."}
           </DialogDescription>
         </DialogHeader>
         {deleteWorkout.isError ? (
@@ -543,10 +548,10 @@ function DeleteWorkoutDialog({
             {deleteWorkout.isPending ? (
               <>
                 <Spinner className="size-4" />
-                Deleting…
+                Archiving…
               </>
             ) : (
-              "Delete"
+              "Archive"
             )}
           </Button>
         </DialogFooter>
@@ -557,6 +562,7 @@ function DeleteWorkoutDialog({
 
 export function WorkoutsPageClient() {
   const searchId = useId();
+  const { data: session } = useSession();
   const [deleteTarget, setDeleteTarget] = useState<WorkoutWithStats | null>(
     null,
   );
@@ -574,6 +580,12 @@ export function WorkoutsPageClient() {
   const mineQuery = useWorkouts({
     q: debouncedSearch,
     muscleGroups,
+    scope: "mine",
+  });
+  const catalogQuery = useWorkouts({
+    q: debouncedSearch,
+    muscleGroups,
+    scope: "catalog",
   });
   const followingQuery = useFollowingFeed({
     q: debouncedSearch,
@@ -584,25 +596,38 @@ export function WorkoutsPageClient() {
     () => sortWorkoutsByCreatedAtAsc(mineQuery.data?.items ?? []),
     [mineQuery.data?.items],
   );
+  const catalogWorkouts = useMemo(
+    () => sortWorkoutsByCreatedAtAsc(catalogQuery.data?.items ?? []),
+    [catalogQuery.data?.items],
+  );
   const followingSections = useMemo(
     () => groupFollowingByOwner(followingQuery.data?.items ?? []),
     [followingQuery.data?.items],
   );
 
-  const isInitialLoading = mineQuery.isPending && followingQuery.isPending;
-  const isError = mineQuery.isError || followingQuery.isError;
-  const error = mineQuery.error ?? followingQuery.error;
-  const isFetching = mineQuery.isFetching || followingQuery.isFetching;
+  const isInitialLoading =
+    mineQuery.isPending && catalogQuery.isPending && followingQuery.isPending;
+  const isError =
+    mineQuery.isError || catalogQuery.isError || followingQuery.isError;
+  const error = mineQuery.error ?? catalogQuery.error ?? followingQuery.error;
+  const isFetching =
+    mineQuery.isFetching || catalogQuery.isFetching || followingQuery.isFetching;
   const hasSearch = debouncedSearch.length > 0;
   const hasFilters = hasSearch || muscleGroups.length > 0;
   const hasSections =
-    personalWorkouts.length > 0 || followingSections.length > 0;
-  const bothReady = !mineQuery.isPending && !followingQuery.isPending;
+    personalWorkouts.length > 0 ||
+    catalogWorkouts.length > 0 ||
+    followingSections.length > 0;
+  const bothReady =
+    !mineQuery.isPending &&
+    !catalogQuery.isPending &&
+    !followingQuery.isPending;
   const showEmpty = bothReady && !isError && !hasSections;
   const showList = !isError && !isInitialLoading && !showEmpty;
 
   function refetchAll() {
     void mineQuery.refetch();
+    void catalogQuery.refetch();
     void followingQuery.refetch();
   }
 
@@ -775,8 +800,27 @@ export function WorkoutsPageClient() {
               )}
             >
               <AnimatePresence initial={false}>
+                {followingQuery.isPending ? (
+                  <WorkoutShelfSkeleton key="following-loading" index={0} />
+                ) : (
+                  followingSections.map((section) => (
+                    <motion.div
+                      key={section.owner.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={springSoft}
+                    >
+                      <WorkoutShelf
+                        href={`/u/${section.owner.username}`}
+                        owner={section.owner}
+                        title={section.owner.name}
+                        workouts={section.workouts}
+                      />
+                    </motion.div>
+                  ))
+                )}
                 {mineQuery.isPending ? (
-                  <WorkoutShelfSkeleton key="personal-loading" index={0} />
+                  <WorkoutShelfSkeleton key="personal-loading" index={1} />
                 ) : (
                   <motion.div
                     key="personal"
@@ -804,28 +848,52 @@ export function WorkoutsPageClient() {
                       }
                       title="Personal"
                       workouts={personalWorkouts}
+                      archiveUserId={session?.user?.id}
                       onDeleteWorkout={setDeleteTarget}
                     />
                   </motion.div>
                 )}
                 {followingQuery.isPending ? (
-                  <WorkoutShelfSkeleton key="following-loading" index={1} />
+                  <WorkoutShelfSkeleton key="followers-loading" index={2} />
+                ) : followingSections.length === 0 ? (
+                  <motion.div
+                    key="followers"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={springSoft}
+                  >
+                    <WorkoutShelf
+                      emptyHint={
+                        hasFilters
+                          ? "No matching workouts from people you follow."
+                          : "Follow friends to see their workouts here."
+                      }
+                      title="Followers"
+                      workouts={[]}
+                    />
+                  </motion.div>
+                ) : null}
+                {catalogQuery.isPending ? (
+                  <WorkoutShelfSkeleton key="public-loading" index={3} />
                 ) : (
-                  followingSections.map((section) => (
-                    <motion.div
-                      key={section.owner.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={springSoft}
-                    >
-                      <WorkoutShelf
-                        href={`/u/${section.owner.username}`}
-                        owner={section.owner}
-                        title={section.owner.name}
-                        workouts={section.workouts}
-                      />
-                    </motion.div>
-                  ))
+                  <motion.div
+                    key="public"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={springSoft}
+                  >
+                    <WorkoutShelf
+                      emptyHint={
+                        catalogWorkouts.length === 0
+                          ? hasFilters
+                            ? "No matching public workouts."
+                            : "No public workouts yet."
+                          : undefined
+                      }
+                      title="Public"
+                      workouts={catalogWorkouts}
+                    />
+                  </motion.div>
                 )}
               </AnimatePresence>
             </div>

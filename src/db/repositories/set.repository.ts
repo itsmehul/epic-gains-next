@@ -3,6 +3,7 @@ import "server-only";
 import { and, asc, desc, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
+import { performanceVisibleToViewer } from "@/db/repositories/visibility";
 import { commentVisibleToViewer, listVisibleCommentsForOwner } from "@/db/repositories/comment.repository";
 import {
   toPublicUser,
@@ -48,6 +49,7 @@ type LoggedSetComment = {
 export async function listSets(filters?: {
   workoutId?: string;
   exerciseId?: string;
+  viewerId?: string;
 }) {
   const conditions = [];
   if (filters?.workoutId) {
@@ -55,6 +57,9 @@ export async function listSets(filters?: {
   }
   if (filters?.exerciseId) {
     conditions.push(eq(workoutSet.exerciseId, filters.exerciseId));
+  }
+  if (filters?.viewerId) {
+    conditions.push(performanceVisibleToViewer(filters.viewerId, workoutSet.userId));
   }
 
   const query = db
@@ -122,6 +127,7 @@ type LoggedSetRow = {
     distance: number | null;
     workoutId: string;
     exerciseId: string;
+    userId: string;
     createdAt: Date;
     updatedAt: Date;
   };
@@ -168,7 +174,7 @@ async function loadLoggedSetRows(
   options: ListSetsInRangeOptions,
 ): Promise<LoggedSetRow[]> {
   const conditions = [
-    eq(workout.userId, userId),
+    eq(workoutSet.userId, userId),
     gte(workoutSet.updatedAt, options.start),
     lt(workoutSet.updatedAt, options.end),
     ...muscleFilterConditions(options),
@@ -184,6 +190,7 @@ async function loadLoggedSetRows(
         distance: workoutSet.distance,
         workoutId: workoutSet.workoutId,
         exerciseId: workoutSet.exerciseId,
+        userId: workoutSet.userId,
         createdAt: workoutSet.createdAt,
         updatedAt: workoutSet.updatedAt,
       },
@@ -389,7 +396,7 @@ async function listAllTimeBestsForExercises(
     .innerJoin(workout, eq(workout.id, workoutSet.workoutId))
     .where(
       and(
-        eq(workout.userId, userId),
+        eq(workoutSet.userId, userId),
         inArray(workoutSet.exerciseId, exerciseIds),
       ),
     )

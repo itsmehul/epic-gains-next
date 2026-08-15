@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 
 import {
   createExercise,
-  listExercisesForUser,
-  searchExercisesForUser,
+  listExercises,
+  searchExercises,
 } from "@/db/repositories/exercise.repository";
 import {
   createExerciseSchema,
@@ -33,8 +33,7 @@ export async function GET(req: Request) {
     }
 
     if (parsed.data.q || parsed.data.excludeId) {
-      const items = await searchExercisesForUser({
-        userId: session.user.id,
+      const items = await searchExercises({
         q: parsed.data.q,
         excludeExerciseId: parsed.data.excludeId,
         limit: parsed.data.limit,
@@ -42,7 +41,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ items });
     }
 
-    const items = await listExercisesForUser(session.user.id);
+    const items = await listExercises();
     return NextResponse.json({ items });
   } catch (error) {
     const message =
@@ -66,7 +65,6 @@ export async function POST(req: Request) {
 
     const item = await createExercise({
       id: crypto.randomUUID(),
-      userId: session.user.id,
       name: parsed.data.name,
       metricProfile: parsed.data.metric_profile ?? "CUSTOM",
       muscleGroup: parsed.data.muscle_group,

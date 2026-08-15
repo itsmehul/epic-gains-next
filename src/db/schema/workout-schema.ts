@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   doublePrecision,
   foreignKey,
@@ -7,8 +7,10 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth-schema";
@@ -56,6 +58,16 @@ export type MuscleGroup = (typeof MUSCLE_GROUP_VALUES)[number];
 
 export const muscleGroupEnum = pgEnum("muscle_group", MUSCLE_GROUP_VALUES);
 
+export const WORKOUT_MEMBERSHIP_ROLE_VALUES = ["OWNER", "MEMBER"] as const;
+
+export type WorkoutMembershipRole =
+  (typeof WORKOUT_MEMBERSHIP_ROLE_VALUES)[number];
+
+export const workoutMembershipRoleEnum = pgEnum(
+  "workout_membership_role",
+  WORKOUT_MEMBERSHIP_ROLE_VALUES,
+);
+
 export const workout = pgTable(
   "workout",
   {
@@ -63,34 +75,60 @@ export const workout = pgTable(
     name: text("name").notNull(),
     author: text("author"),
     channelUrl: text("channel_url"),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    youtubeVideoId: text("youtube_video_id"),
+    /** Owner; null when the owner account was deleted (workout is frozen). */
+    userId: text("user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
     index("workout_userId_idx").on(table.userId),
     index("workout_createdAt_idx").on(table.createdAt),
+    uniqueIndex("workout_youtubeVideoId_unique")
+      .on(table.youtubeVideoId)
+      .where(sql`${table.youtubeVideoId} is not null`),
   ],
 );
 
-/** Canonical exercise identity (per-user). Presentation lives on workout_exercise. */
-export const exercise = pgTable(
-  "exercise",
+export const workoutMembership = pgTable(
+  "workout_membership",
   {
-    id: text("id").primaryKey(),
+    workoutId: text("workout_id").notNull(),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    name: text("name").notNull(),
-    metricProfile: metricProfileEnum("metric_profile")
-      .notNull()
-      .default("CUSTOM"),
-    muscleGroup: muscleGroupEnum("muscle_group"),
-    keyMuscles: text("key_muscles").array().notNull().default([]),
+    role: workoutMembershipRoleEnum("role").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (table) => [index("exercise_userId_idx").on(table.userId)],
+  (table) => [
+    primaryKey({
+      columns: [table.workoutId, table.userId],
+      name: "workout_membership_pk",
+    }),
+    foreignKey({
+      columns: [table.workoutId],
+      foreignColumns: [workout.id],
+      name: "workout_membership_workout_id_fk",
+    }).onDelete("cascade"),
+    index("workout_membership_userId_idx").on(table.userId),
+    uniqueIndex("workout_membership_one_owner_idx")
+      .on(table.workoutId)
+      .where(sql`${table.role} = 'OWNER'`),
+  ],
 );
+
+/** Canonical exercise identity (global catalog). Presentation lives on workout_exercise. */
+export const exercise = pgTable("exercise", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  metricProfile: metricProfileEnum("metric_profile")
+    .notNull()
+    .default("CUSTOM"),
+  muscleGroup: muscleGroupEnum("muscle_group"),
+  keyMuscles: text("key_muscles").array().notNull().default([]),
+});
 
 /** One appearance of an exercise in a workout. The same exercise may appear more than once. */
 export const workoutExercise = pgTable(
@@ -128,6 +166,9 @@ export const set = pgTable(
   "set",
   {
     id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
     reps: integer("reps"),
     weight: doublePrecision("weight"),
     time: doublePrecision("time"),
@@ -151,9 +192,11 @@ export const set = pgTable(
       foreignColumns: [exercise.id],
       name: "set_exercise_id_fk",
     }).onDelete("cascade"),
+    index("set_userId_idx").on(table.userId),
     index("set_workoutId_idx").on(table.workoutId),
     index("set_exerciseId_idx").on(table.exerciseId),
     index("set_workoutId_exerciseId_idx").on(table.workoutId, table.exerciseId),
+    index("set_workoutId_userId_idx").on(table.workoutId, table.userId),
     index("set_createdAt_idx").on(table.createdAt),
     index("set_updatedAt_idx").on(table.updatedAt),
   ],
@@ -196,20 +239,31 @@ export const comments = pgTable(
 );
 
 export const workoutRelations = relations(workout, ({ one, many }) => ({
-  user: one(user, {
+  owner: one(user, {
     fields: [workout.userId],
     references: [user.id],
   }),
+  memberships: many(workoutMembership),
   workoutExercises: many(workoutExercise),
   sets: many(set),
   comments: many(comments),
 }));
 
-export const exerciseRelations = relations(exercise, ({ one, many }) => ({
-  user: one(user, {
-    fields: [exercise.userId],
-    references: [user.id],
+export const workoutMembershipRelations = relations(
+  workoutMembership,
+  ({ one }) => ({
+    workout: one(workout, {
+      fields: [workoutMembership.workoutId],
+      references: [workout.id],
+    }),
+    user: one(user, {
+      fields: [workoutMembership.userId],
+      references: [user.id],
+    }),
   }),
+);
+
+export const exerciseRelations = relations(exercise, ({ many }) => ({
   workoutExercises: many(workoutExercise),
   sets: many(set),
   comments: many(comments),
@@ -230,6 +284,10 @@ export const workoutExerciseRelations = relations(
 );
 
 export const setRelations = relations(set, ({ one }) => ({
+  user: one(user, {
+    fields: [set.userId],
+    references: [user.id],
+  }),
   workout: one(workout, {
     fields: [set.workoutId],
     references: [workout.id],

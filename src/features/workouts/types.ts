@@ -28,7 +28,11 @@ export type WorkoutDetail = Workout & {
     username: string;
     image: string | null;
     isPrivate: boolean;
-  };
+  } | null;
+  membershipRole: "OWNER" | "MEMBER" | null;
+  frozen: boolean;
+  archivedAt: string | null;
+  youtubeVideoId: string | null;
   exercises: Exercise[];
 };
 

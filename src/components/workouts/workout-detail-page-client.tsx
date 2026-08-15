@@ -187,6 +187,7 @@ function WorkoutExerciseTabs({
   sets,
   setsReady,
   readOnly,
+  canResolve,
   onExerciseResolved,
 }: {
   workoutId: string;
@@ -197,6 +198,7 @@ function WorkoutExerciseTabs({
   sets: Set[];
   setsReady?: boolean;
   readOnly?: boolean;
+  canResolve?: boolean;
   onExerciseResolved?: (id: string) => void;
 }) {
   const [tab, setTab] = useState("sets");
@@ -248,6 +250,7 @@ function WorkoutExerciseTabs({
             sets={sets}
             setsReady={setsReady}
             readOnly={readOnly}
+            canResolve={canResolve}
             onExerciseResolved={onExerciseResolved}
           />
         </div>
@@ -294,10 +297,10 @@ export function WorkoutDetailPageClient() {
     ]),
   );
 
-  const readOnly =
-    workoutQuery.data != null &&
-    session?.user?.id != null &&
-    workoutQuery.data.userId !== session.user.id;
+  const canResolve =
+    Boolean(workoutQuery.data) &&
+    !workoutQuery.data?.frozen &&
+    workoutQuery.data?.userId === session?.user?.id;
 
   const workoutExercises = sortWorkoutExercisesByTimestamp(
     (workoutExercisesQuery.data?.items ?? []).filter(
@@ -518,7 +521,8 @@ export function WorkoutDetailPageClient() {
                   targetSets={selectedItem.metaData?.targets}
                   sets={selectedSets}
                   setsReady={setsQuery.isSuccess}
-                  readOnly={readOnly}
+                  readOnly={false}
+                  canResolve={canResolve}
                   onExerciseResolved={(id) => {
                     setActiveWorkoutExerciseId(id);
                   }}

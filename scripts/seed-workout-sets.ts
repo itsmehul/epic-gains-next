@@ -150,6 +150,7 @@ async function main() {
           createdAt.setMinutes(createdAt.getMinutes() + setIndex * 3);
           return {
             id: crypto.randomUUID(),
+            userId: existingUser.id,
             workoutId: appearance.workoutId,
             exerciseId: appearance.exerciseId,
             createdAt,

@@ -19,6 +19,8 @@ const envSchema = z.object({
   S3_ACCESS_KEY_ID: z.string().optional().default(""),
   S3_SECRET_ACCESS_KEY: z.string().optional().default(""),
   S3_ENDPOINT: z.string().optional().default(""),
+  /** App operator who can merge the global exercise catalog. */
+  ADMIN_USER_ID: z.string().optional().default(""),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -45,6 +47,7 @@ export function getEnv(): Env {
     S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID,
     S3_SECRET_ACCESS_KEY: process.env.S3_SECRET_ACCESS_KEY,
     S3_ENDPOINT: process.env.S3_ENDPOINT,
+    ADMIN_USER_ID: process.env.ADMIN_USER_ID,
   });
 
   if (!parsed.success) {
@@ -66,4 +69,9 @@ export function hasGoogleOAuth() {
 /** Public site origin for MCP resource URLs and OAuth. */
 export function getAppUrl() {
   return getEnv().NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
+}
+
+export function isCatalogAdmin(userId: string) {
+  const adminId = getEnv().ADMIN_USER_ID.trim();
+  return Boolean(adminId) && adminId === userId;
 }

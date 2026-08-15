@@ -44,7 +44,7 @@ import { apiFetch } from "@/shared/api";
 export const workoutKeys = {
   all: ["workouts"] as const,
   lists: () => [...workoutKeys.all, "list"] as const,
-  list: (params?: { q?: string; muscleGroups?: string[] }) =>
+  list: (params?: { q?: string; muscleGroups?: string[]; scope?: string }) =>
     [...workoutKeys.lists(), params ?? {}] as const,
   detail: (id: string) => [...workoutKeys.all, "detail", id] as const,
 };
@@ -90,17 +90,20 @@ export const setKeys = {
 export function useWorkouts(options?: {
   q?: string;
   muscleGroups?: string[];
+  scope?: "mine" | "catalog";
   enabled?: boolean;
 }) {
   const q = options?.q?.trim() ?? "";
   const muscleGroups = [...(options?.muscleGroups ?? [])].sort();
+  const scope = options?.scope ?? "mine";
 
   return useQuery({
-    queryKey: workoutKeys.list({ q, muscleGroups }),
+    queryKey: workoutKeys.list({ q, muscleGroups, scope }),
     enabled: options?.enabled ?? true,
     queryFn: () => {
       const params = new URLSearchParams();
       if (q) params.set("q", q);
+      if (scope) params.set("scope", scope);
       for (const group of muscleGroups) {
         params.append("muscleGroup", group);
       }
@@ -405,6 +408,7 @@ export function useSets(options?: {
     queryKey: setKeys.lists(options),
     queryFn: () =>
       apiFetch<ListSetsResult>(`/api/sets${query ? `?${query}` : ""}`),
+    placeholderData: (previousData) => previousData,
   });
 }
 
@@ -430,6 +434,16 @@ export function useCreateSet() {
       }),
     onSuccess: (item) => {
       emitAchievementUnlocks(item.unlockedAchievements ?? []);
+      queryClient.setQueryData<ListSetsResult>(
+        setKeys.lists({ workoutId: item.workoutId }),
+        (previous) => {
+          const items = previous?.items ?? [];
+          if (items.some((set) => set.id === item.id)) {
+            return previous ?? { items };
+          }
+          return { items: [...items, item] };
+        },
+      );
       void queryClient.invalidateQueries({ queryKey: setKeys.all });
       void queryClient.invalidateQueries({ queryKey: workoutKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: achievementKeys.all });

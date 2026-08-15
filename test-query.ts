@@ -11,7 +11,6 @@ async function main() {
     .innerJoin(exercise, eq(exercise.id, workoutExercise.exerciseId))
     .where(
       and(
-        eq(exercise.userId, "test-user"),
         eq(workoutExercise.name, "test"),
         eq(workoutExercise.videoUrl, "http://test.com"),
         sql`${workoutExercise.metaData}->>'videoStartTime' = ${"0"}`,

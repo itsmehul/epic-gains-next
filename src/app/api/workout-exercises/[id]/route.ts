@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { getExerciseByIdForUser } from "@/db/repositories/exercise.repository";
+import { getExerciseById } from "@/db/repositories/exercise.repository";
+import { getVisibleWorkoutById } from "@/db/repositories/feed.repository";
 import {
   deleteWorkoutExercise,
   getWorkoutExerciseById,
@@ -38,7 +39,7 @@ export async function GET(
       return apiError("Workout exercise not found", 404);
     }
 
-    const workout = await assertOwnsWorkout(item.workoutId, session.user.id);
+    const workout = await getVisibleWorkoutById(session.user.id, item.workoutId);
     if (!workout) {
       return apiError("Workout not found", 404);
     }
@@ -94,9 +95,8 @@ export async function PATCH(
     }
 
     if (parsed.data.exerciseId) {
-      const exercise = await getExerciseByIdForUser(
+      const exercise = await getExerciseById(
         parsed.data.exerciseId,
-        session.user.id,
       );
       if (!exercise) {
         return apiError("Exercise not found", 404);

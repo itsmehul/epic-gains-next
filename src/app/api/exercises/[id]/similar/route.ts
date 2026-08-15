@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
 import {
-  findSimilarExercisesForUser,
-  getExerciseByIdForUser,
+  findSimilarExercises,
+  getExerciseById,
 } from "@/db/repositories/exercise.repository";
 import {
   getWorkoutExercise,
@@ -30,7 +30,7 @@ export async function GET(
 
   try {
     const { id } = await params;
-    const exercise = await getExerciseByIdForUser(id, session.user.id);
+    const exercise = await getExerciseById(id);
     if (!exercise) {
       return apiError("Exercise not found", 404);
     }
@@ -54,8 +54,7 @@ export async function GET(
       if (link?.name) queryName = link.name;
     }
 
-    const items = await findSimilarExercisesForUser({
-      userId: session.user.id,
+    const items = await findSimilarExercises({
       query: queryName,
       excludeExerciseId: id,
       limit: parsed.data.limit ?? 3,

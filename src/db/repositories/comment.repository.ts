@@ -20,7 +20,6 @@ const authorColumns = {
 export function commentVisibleToViewer(viewerId: string) {
   return or(
     eq(comments.authorId, viewerId),
-    eq(user.isPrivate, false),
     exists(
       db
         .select({ one: sql`1` })
@@ -93,7 +92,7 @@ export async function listVisibleCommentsForOwner(options: {
   keyMuscle?: string;
 }) {
   const conditions = [
-    eq(exercise.userId, options.ownerId),
+    eq(comments.authorId, options.ownerId),
     commentVisibleToViewer(options.viewerId),
   ];
 

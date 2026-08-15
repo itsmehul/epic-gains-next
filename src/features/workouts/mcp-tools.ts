@@ -1,17 +1,19 @@
 import "server-only";
 
 import type { McpServer } from "@modelcontextprotocol/server";
-import { count, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
-import { db } from "@/db";
+import { isCatalogAdmin } from "@/shared/env";
+
 import {
-  consolidateDuplicateExercisesForUser,
-  deleteExerciseForUser,
-  fillMissingExerciseCatalogFields,
-  getExerciseByIdForUser,
-  listExercisesForUser,
+  deleteExercise,
+  getExerciseById,
+  listExercises,
 } from "@/db/repositories/exercise.repository";
+import {
+  importSharedWorkout,
+  WorkoutImportConflictError,
+} from "@/features/workouts/import-workout";
 import {
   deleteWorkoutExercise,
   getWorkoutExerciseById,
@@ -21,19 +23,13 @@ import {
 import { listSetsByPeriodForUser, getPerformanceMetricsForUser } from "@/db/repositories/set.repository";
 import { getUserByUsername } from "@/db/repositories/social.repository";
 import {
-  deleteWorkoutForUser,
+  archiveWorkoutForUser,
+  getWorkoutById,
   getWorkoutByIdForUser,
-  listWorkoutsForUser,
+  listMyWorkouts,
   updateWorkoutForUser,
 } from "@/db/repositories/workout.repository";
 import { canViewUserWorkouts } from "@/features/social/privacy";
-import { exercise, workout, workoutExercise } from "@/db/schema";
-import { exerciseNameLookupKeys } from "@/features/workouts/exercise-name";
-import {
-  resolveImportKeyMuscles,
-  resolveImportMetricProfile,
-  resolveImportMuscleGroup,
-} from "@/features/workouts/import-structure";
 import {
   exerciseMetaDataSchema,
   importFullWorkoutSchema,
@@ -44,7 +40,6 @@ import {
   parseIsoDate,
   SET_PERIOD_VALUES,
 } from "@/features/workouts/set-day";
-import { isRestWorkoutItem } from "@/features/workouts/workout-item";
 import { getMcpAuth } from "@/infrastructure/mcp/context";
 import {
   mcpErrorResult,
@@ -61,7 +56,7 @@ export function registerWorkoutMcpTools(server: McpServer) {
     },
     async () => {
       const { userId } = getMcpAuth();
-      const items = await listWorkoutsForUser(userId);
+      const items = await listMyWorkouts(userId);
       return mcpTextResult({ items });
     },
   );
@@ -70,14 +65,14 @@ export function registerWorkoutMcpTools(server: McpServer) {
     "get_workout",
     {
       title: "Get workout",
-      description: "Get a workout by id (must belong to the authenticated user).",
+      description: "Get a workout by id.",
       inputSchema: z.object({
         workoutId: z.string().min(1),
       }),
     },
     async ({ workoutId }) => {
       const { userId } = getMcpAuth();
-      const item = await getWorkoutByIdForUser(workoutId, userId);
+      const item = await getWorkoutById(workoutId);
       if (!item) return mcpErrorResult("Workout not found");
       return mcpTextResult(item);
     },
@@ -95,145 +90,14 @@ export function registerWorkoutMcpTools(server: McpServer) {
       const { userId } = getMcpAuth();
 
       try {
-        const result = await db.transaction(async (tx) => {
-          const workoutId = crypto.randomUUID();
-          const [newWorkout] = await tx
-            .insert(workout)
-            .values({
-              id: workoutId,
-              name: args.workoutName,
-              author: args.author ?? null,
-              channelUrl: args.channelUrl ?? null,
-              userId,
-            })
-            .returning();
-
-          const existingExercises = await tx
-            .select()
-            .from(exercise)
-            .where(eq(exercise.userId, userId));
-
-          const existingIds = existingExercises.map((item) => item.id);
-          const usageRows =
-            existingIds.length === 0
-              ? []
-              : await tx
-                .select({
-                  exerciseId: workoutExercise.exerciseId,
-                  n: count(),
-                })
-                .from(workoutExercise)
-                .where(inArray(workoutExercise.exerciseId, existingIds))
-                .groupBy(workoutExercise.exerciseId);
-          const usageById = new Map(
-            usageRows.map((row) => [row.exerciseId, Number(row.n)]),
-          );
-
-          const existingById = new Map(
-            existingExercises.map((item) => [item.id, item] as const),
-          );
-
-          const exerciseIdByName = new Map<string, string>();
-
-          function rememberExercise(name: string, exerciseId: string) {
-            const usage = usageById.get(exerciseId) ?? 0;
-            for (const key of exerciseNameLookupKeys(name)) {
-              const current = exerciseIdByName.get(key);
-              if (!current) {
-                exerciseIdByName.set(key, exerciseId);
-                continue;
-              }
-              const currentUsage = usageById.get(current) ?? 0;
-              if (usage > currentUsage) {
-                exerciseIdByName.set(key, exerciseId);
-              }
-            }
-          }
-
-          for (const item of existingExercises) {
-            if (isRestWorkoutItem(item)) continue;
-            rememberExercise(item.name, item.id);
-          }
-
-          if (existingIds.length > 0) {
-            const aliasRows = await tx
-              .select({
-                exerciseId: workoutExercise.exerciseId,
-                name: workoutExercise.name,
-              })
-              .from(workoutExercise)
-              .where(inArray(workoutExercise.exerciseId, existingIds));
-
-            for (const row of aliasRows) {
-              if (isRestWorkoutItem(row)) continue;
-              rememberExercise(row.name, row.exerciseId);
-            }
-          }
-
-          for (const ex of args.exercises) {
-            if (isRestWorkoutItem({ name: ex.name, tags: ex.tags })) continue;
-
-            const keys = exerciseNameLookupKeys(ex.name);
-            let exerciseId = keys
-              .map((key) => exerciseIdByName.get(key))
-              .find((id): id is string => Boolean(id));
-
-            if (!exerciseId) {
-              exerciseId = crypto.randomUUID();
-              const [created] = await tx
-                .insert(exercise)
-                .values({
-                  id: exerciseId,
-                  userId,
-                  name: ex.name,
-                  metricProfile: resolveImportMetricProfile(ex),
-                  muscleGroup: resolveImportMuscleGroup(ex),
-                  keyMuscles: resolveImportKeyMuscles(ex) ?? [],
-                })
-                .returning();
-              usageById.set(exerciseId, 0);
-              rememberExercise(ex.name, exerciseId);
-              if (created) existingById.set(exerciseId, created);
-            } else {
-              const current = existingById.get(exerciseId);
-              if (current) {
-                const enriched = await fillMissingExerciseCatalogFields(
-                  tx,
-                  current,
-                  {
-                    metricProfile: resolveImportMetricProfile(ex),
-                    muscleGroup: resolveImportMuscleGroup(ex),
-                    keyMuscles: resolveImportKeyMuscles(ex),
-                  },
-                );
-                existingById.set(exerciseId, enriched);
-              }
-            }
-
-            await tx.insert(workoutExercise).values({
-              id: crypto.randomUUID(),
-              workoutId,
-              exerciseId,
-              name: ex.name,
-              videoUrl: args.sourceVideoUrl,
-              metaData: {
-                videoStartTime: ex.videoStartTime,
-                videoEndTime: ex.videoEndTime,
-                targets: ex.sets && ex.sets.length > 0 ? ex.sets : undefined,
-              },
-              tags: ex.tags ?? [],
-            });
-            usageById.set(exerciseId, (usageById.get(exerciseId) ?? 0) + 1);
-            rememberExercise(ex.name, exerciseId);
-          }
-
-          await consolidateDuplicateExercisesForUser(userId, tx);
-
-          return newWorkout;
-        });
-
+        const result = await importSharedWorkout(userId, args);
         return mcpTextResult(result);
       } catch (error) {
+        if (error instanceof WorkoutImportConflictError) {
+          return mcpErrorResult(
+            `${error.message}: ${error.existingWorkoutId}`,
+          );
+        }
         return mcpErrorResult(
           error instanceof Error ? error.message : "Failed to import workout",
         );
@@ -277,15 +141,15 @@ export function registerWorkoutMcpTools(server: McpServer) {
   server.registerTool(
     "delete_workout",
     {
-      title: "Delete workout",
-      description: "Delete a workout owned by the authenticated user.",
+      title: "Archive workout",
+      description: "Archive a workout owned by the authenticated user.",
       inputSchema: z.object({
         workoutId: z.string().min(1),
       }),
     },
     async ({ workoutId }) => {
       const { userId } = getMcpAuth();
-      const item = await deleteWorkoutForUser(workoutId, userId);
+      const item = await archiveWorkoutForUser(workoutId, userId);
       if (!item) return mcpErrorResult("Workout not found");
       return mcpTextResult(item);
     },
@@ -295,12 +159,12 @@ export function registerWorkoutMcpTools(server: McpServer) {
     "list_exercises",
     {
       title: "List exercises",
-      description: "List exercises owned by the authenticated user.",
+      description: "List the shared exercise catalog.",
       inputSchema: z.object({}),
     },
     async () => {
-      const { userId } = getMcpAuth();
-      const items = await listExercisesForUser(userId);
+      getMcpAuth();
+      const items = await listExercises();
       return mcpTextResult({ items });
     },
   );
@@ -309,14 +173,14 @@ export function registerWorkoutMcpTools(server: McpServer) {
     "get_exercise",
     {
       title: "Get exercise",
-      description: "Get an exercise owned by the authenticated user by id.",
+      description: "Get an exercise from the shared catalog by id.",
       inputSchema: z.object({
         exerciseId: z.string().min(1),
       }),
     },
     async ({ exerciseId }) => {
-      const { userId } = getMcpAuth();
-      const item = await getExerciseByIdForUser(exerciseId, userId);
+      getMcpAuth();
+      const item = await getExerciseById(exerciseId);
       if (!item) return mcpErrorResult("Exercise not found");
       return mcpTextResult(item);
     },
@@ -353,15 +217,17 @@ export function registerWorkoutMcpTools(server: McpServer) {
     "delete_exercise",
     {
       title: "Delete exercise",
-      description:
-        "Delete an exercise owned by the authenticated user (removes associations).",
+      description: "Delete an exercise from the shared catalog (admin only).",
       inputSchema: z.object({
         exerciseId: z.string().min(1),
       }),
     },
     async ({ exerciseId }) => {
       const { userId } = getMcpAuth();
-      const item = await deleteExerciseForUser(exerciseId, userId);
+      if (!isCatalogAdmin(userId)) {
+        return mcpErrorResult("Forbidden");
+      }
+      const item = await deleteExercise(exerciseId);
       if (!item) return mcpErrorResult("Exercise not found");
       return mcpTextResult(item);
     },
@@ -372,15 +238,15 @@ export function registerWorkoutMcpTools(server: McpServer) {
     {
       title: "List workout exercises",
       description:
-        "List exercises associated with a workout owned by the authenticated user.",
+        "List exercises associated with a workout.",
       inputSchema: z.object({
         workoutId: z.string().min(1),
       }),
     },
     async ({ workoutId }) => {
-      const { userId } = getMcpAuth();
-      const owned = await getWorkoutByIdForUser(workoutId, userId);
-      if (!owned) return mcpErrorResult("Workout not found");
+      getMcpAuth();
+      const existing = await getWorkoutById(workoutId);
+      if (!existing) return mcpErrorResult("Workout not found");
       const items = await listWorkoutExercises({ workoutId });
       return mcpTextResult({ items });
     },
