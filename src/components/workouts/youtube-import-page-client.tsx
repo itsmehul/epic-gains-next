@@ -56,6 +56,15 @@ Assign a \`muscle_group\` enum to each exercise based on the primary target:
 
 If a move is truly full-body cardio with no primary muscle (e.g., Jumping Jacks, Running), pick the closest dominant group or omit \`muscle_group\`.
 
+### Target/Suggested Performance Data Rules:
+Extract any suggested or prescribed performance parameters mentioned or implied in the video (e.g., on-screen overlay text, trainer cues, description, or interval pattern):
+- \`suggested_sets\`: Number of sets (e.g., 3 if 3 rounds/sets, or 1 for follow-along circuit).
+- \`suggested_reps\`: Repetition count per set if specified (e.g., 10, 12, or 15).
+- \`suggested_weight\`: Prescribed weight in kilograms if specified (e.g., 20 or 50.5; convert lbs to kg if needed).
+- \`suggested_time\`: Target duration in seconds per set if timed/isometric (e.g., 40 for 40s work).
+- \`suggested_distance\`: Target distance in meters if specified (e.g., 100 or 400).
+Omit any metric field if not specified for that exercise.
+
 ### Key Muscles Rules:
 Assign \`key_muscles\` as an array of specific anatomical muscle names that this move actually uses (not the broad group). Use standard Latin/anatomical names when they add precision (e.g. \`Tibialis Anterior\`, \`Peroneus Tertius\`, \`Rectus Abdominis\`, \`Gluteus Medius\`, \`Latissimus Dorsi\`). Include 1–6 muscles, primary first. Omit the field or use \`[]\` when the move is generic cardio with no clear targeted muscles.
 
@@ -81,7 +90,12 @@ Return a JSON object matching this schema inside a markdown code block. Do not i
           "timestamp": "string (EXACT start time of THIS exercise move in MM:SS or HH:MM:SS format, e.g. '01:21')",
           "metric_profile": "string (ONE of: 'WEIGHT_REPS', 'BODYWEIGHT_REPS', 'WEIGHTED_REPS', 'TIMED_HOLD', 'CARDIO_DISTANCE', 'LOADED_CARRY', 'CUSTOM')",
           "muscle_group": "string (ONE of: 'chest', 'back', 'shoulders', 'arms', 'legs', 'core')",
-          "key_muscles": ["string (anatomical names, e.g. 'Tibialis Anterior', 'Peroneus Tertius')"]
+          "key_muscles": ["string (anatomical names, e.g. 'Tibialis Anterior', 'Peroneus Tertius')"],
+          "suggested_sets": "number (optional default number of sets to perform, e.g. 3)",
+          "suggested_reps": "number (optional target repetitions per set, e.g. 10 or 12)",
+          "suggested_weight": "number (optional recommended weight in kg, e.g. 20 or 50.5)",
+          "suggested_time": "number (optional target duration per set in seconds, e.g. 40 or 60)",
+          "suggested_distance": "number (optional target distance per set in meters, e.g. 100 or 400)"
         }
       ]
     }

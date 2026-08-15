@@ -167,6 +167,7 @@ export function WorkoutVideoPreview({
   const progressTrackRef = useRef<HTMLDivElement>(null);
   const hideControlsTimerRef = useRef<number | null>(null);
   const mediaUnlockedRef = useRef(false);
+  const ignoreSurfaceClickRef = useRef(false);
 
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -428,9 +429,17 @@ export function WorkoutVideoPreview({
     try {
       const state = player.getPlayerState();
       if (state === YT_PLAYING || state === YT_BUFFERING) {
+        setPlaying(false);
+        setBuffering(false);
+        setShowPlayPrompt(true);
+        setControlsVisible(true);
+        clearHideControlsTimer();
         player.pauseVideo();
         return;
       }
+      setShowPlayPrompt(false);
+      setBuffering(true);
+      setPlaying(true);
       allowIframeAutoplay(hostRef.current);
       // Same-gesture mute/play/unmute unlocks iOS when a custom overlay
       // (not the iframe) receives the tap.
@@ -446,7 +455,18 @@ export function WorkoutVideoPreview({
     }
   }
 
+  function handlePlayClick(event: { stopPropagation: () => void }) {
+    event.stopPropagation();
+    ignoreSurfaceClickRef.current = true;
+    togglePlayback();
+  }
+
   function handleSurfaceClick() {
+    if (ignoreSurfaceClickRef.current) {
+      ignoreSurfaceClickRef.current = false;
+      return;
+    }
+
     if (!ready) return;
 
     // Phone UX: when playing with hidden controls, first tap only reveals chrome.
@@ -572,80 +592,80 @@ export function WorkoutVideoPreview({
     <div className="relative flex flex-col">
       {minimized ? (
         <div className="bg-muted/70 flex items-center gap-1.5 rounded-xl py-1 pr-1 pl-1.5">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              className="rounded-full"
-              aria-label={playing ? "Pause video" : "Play video"}
-              disabled={!ready || Boolean(error)}
-              onClick={togglePlayback}
-            >
-              {buffering && !playing ? (
-                <IconLoader2 className="animate-spin" />
-              ) : playing ? (
-                <IconPlayerPauseFilled />
-              ) : (
-                <IconPlayerPlayFilled className="translate-x-px" />
-              )}
-            </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="rounded-full"
+            aria-label={playing ? "Pause video" : "Play video"}
+            disabled={!ready || Boolean(error)}
+            onClick={togglePlayback}
+          >
+            {buffering && !playing ? (
+              <IconLoader2 className="animate-spin" />
+            ) : playing ? (
+              <IconPlayerPauseFilled />
+            ) : (
+              <IconPlayerPlayFilled className="translate-x-px" />
+            )}
+          </Button>
 
-            <div
-              ref={progressTrackRef}
-              className="relative h-7 min-w-0 flex-1 cursor-pointer touch-none"
-              onPointerDown={handleProgressPointerDown}
-              onPointerMove={handleProgressPointerMove}
-              onPointerUp={handleProgressPointerUp}
-              onPointerCancel={handleProgressPointerUp}
-              role="slider"
-              aria-label="Seek"
-              aria-valuemin={0}
-              aria-valuemax={Math.floor(duration)}
-              aria-valuenow={Math.floor(currentTime)}
-              tabIndex={0}
-              onKeyDown={(event) => {
-                const player = playerRef.current;
-                if (!player || duration <= 0) return;
-                if (event.key === "ArrowLeft") {
-                  event.preventDefault();
-                  applySeek(Math.max(0, currentTime - 5), {
-                    pause: !playing,
-                  });
-                }
-                if (event.key === "ArrowRight") {
-                  event.preventDefault();
-                  applySeek(Math.min(duration, currentTime + 5), {
-                    pause: !playing,
-                  });
-                }
-              }}
-            >
-              <div className="bg-foreground/10 absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full">
-                <div
-                  className="bg-primary h-full rounded-full"
-                  style={{ width: `${progress * 100}%` }}
-                />
-              </div>
+          <div
+            ref={progressTrackRef}
+            className="relative h-7 min-w-0 flex-1 cursor-pointer touch-none"
+            onPointerDown={handleProgressPointerDown}
+            onPointerMove={handleProgressPointerMove}
+            onPointerUp={handleProgressPointerUp}
+            onPointerCancel={handleProgressPointerUp}
+            role="slider"
+            aria-label="Seek"
+            aria-valuemin={0}
+            aria-valuemax={Math.floor(duration)}
+            aria-valuenow={Math.floor(currentTime)}
+            tabIndex={0}
+            onKeyDown={(event) => {
+              const player = playerRef.current;
+              if (!player || duration <= 0) return;
+              if (event.key === "ArrowLeft") {
+                event.preventDefault();
+                applySeek(Math.max(0, currentTime - 5), {
+                  pause: !playing,
+                });
+              }
+              if (event.key === "ArrowRight") {
+                event.preventDefault();
+                applySeek(Math.min(duration, currentTime + 5), {
+                  pause: !playing,
+                });
+              }
+            }}
+          >
+            <div className="bg-foreground/10 absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full">
               <div
-                className="border-background bg-foreground absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 shadow-sm"
-                style={{ left: `${progress * 100}%` }}
+                className="bg-primary h-full rounded-full"
+                style={{ width: `${progress * 100}%` }}
               />
             </div>
+            <div
+              className="border-background bg-foreground absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 shadow-sm"
+              style={{ left: `${progress * 100}%` }}
+            />
+          </div>
 
-            <span className="text-muted-foreground shrink-0 px-1 font-mono text-[11px] tabular-nums">
-              {timeLabel}
-            </span>
+          <span className="text-muted-foreground shrink-0 px-1 font-mono text-[11px] tabular-nums">
+            {timeLabel}
+          </span>
 
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              className="rounded-full"
-              aria-label="Expand video"
-              onClick={() => setMinimized(false)}
-            >
-              <IconArrowsMaximize />
-            </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="rounded-full"
+            aria-label="Expand video"
+            onClick={() => setMinimized(false)}
+          >
+            <IconArrowsMaximize />
+          </Button>
         </div>
       ) : null}
 
@@ -661,197 +681,195 @@ export function WorkoutVideoPreview({
           "[&_iframe]:pointer-events-none",
           !minimized && className,
         )}
-      onPointerMove={(event) => {
-        // Touch devices fire pointermove during scroll; only mouse should auto-reveal.
-        if (playing && event.pointerType === "mouse") revealControls();
-      }}
-      onPointerLeave={(event) => {
-        if (event.pointerType !== "mouse") return;
-        if (playing && !scrubbingRef.current) {
-          clearHideControlsTimer();
-          setControlsVisible(false);
-        }
-      }}
-    >
-      <div ref={hostRef} className="absolute inset-0 size-full" />
+        onPointerMove={(event) => {
+          // Touch devices fire pointermove during scroll; only mouse should auto-reveal.
+          if (playing && event.pointerType === "mouse") revealControls();
+        }}
+        onPointerLeave={(event) => {
+          if (event.pointerType !== "mouse") return;
+          if (playing && !scrubbingRef.current) {
+            clearHideControlsTimer();
+            setControlsVisible(false);
+          }
+        }}
+      >
+        <div ref={hostRef} className="absolute inset-0 size-full" />
 
-      {!error ? (
-        <>
-          <button
-            type="button"
-            className="absolute inset-0 z-10"
-            aria-label={playing ? "Pause video" : "Play video"}
-            onClick={handleSurfaceClick}
-          />
-
-          {showPlayPrompt ? (
+        {!error ? (
+          <>
             <button
               type="button"
-              className="absolute inset-0 z-20 flex items-center justify-center bg-black/35"
-              aria-label="Play video"
-              onClick={(event) => {
-                event.stopPropagation();
-                togglePlayback();
-              }}
-            >
-              <span className="flex size-14 items-center justify-center rounded-full bg-white text-black shadow-lg">
-                {buffering && !playing ? (
-                  <IconLoader2 className="size-7 animate-spin" />
-                ) : (
-                  <IconPlayerPlayFilled className="size-7 translate-x-0.5" />
-                )}
-              </span>
-            </button>
-          ) : null}
+              className="absolute inset-0 z-10 touch-manipulation"
+              aria-label={playing ? "Pause video" : "Play video"}
+              onClick={handleSurfaceClick}
+            />
 
-          {playing && buffering ? (
-            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
-              <IconLoader2 className="size-8 animate-spin text-white drop-shadow" />
-            </div>
-          ) : null}
-
-          <button
-            type="button"
-            className={cn(
-              "absolute top-2 right-2 z-30 flex size-8 items-center justify-center rounded-full text-white shadow-sm transition-opacity duration-200 hover:bg-black/40",
-              controlsVisible || showPlayPrompt
-                ? "opacity-100"
-                : "pointer-events-none opacity-0",
-            )}
-            aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
-            onClick={(event) => {
-              event.stopPropagation();
-              void toggleFullscreen();
-            }}
-          >
-            {fullscreen ? (
-              <IconMinimize className="size-4" />
-            ) : (
-              <IconMaximize className="size-4" />
-            )}
-          </button>
-
-          <div
-            className={cn(
-              "absolute inset-x-0 bottom-0 z-30 bg-linear-to-t from-black/75 via-black/35 to-transparent px-3 pt-10 pb-3 transition-opacity duration-200",
-              controlsVisible || showPlayPrompt
-                ? "opacity-100"
-                : "pointer-events-none opacity-0",
-            )}
-          >
-            {author || channelUrl ? (
+            {showPlayPrompt ? (
               <div
-                className="mb-1.5 min-w-0"
-                onClick={(event) => event.stopPropagation()}
+                className="absolute inset-0 z-20 flex items-center justify-center bg-black/35 touch-manipulation"
+                onClick={handlePlayClick}
               >
-                <WorkoutChannelLink
-                  author={author}
-                  channelUrl={channelUrl}
-                  className="max-w-full text-xs text-white/90 hover:text-white"
-                />
+                <button
+                  type="button"
+                  className="flex size-14 touch-manipulation items-center justify-center rounded-full bg-white text-black shadow-lg"
+                  aria-label="Play video"
+                  disabled={!ready}
+                  onClick={handlePlayClick}
+                >
+                  {!ready || (buffering && !playing) ? (
+                    <IconLoader2 className="size-7 animate-spin" />
+                  ) : (
+                    <IconPlayerPlayFilled className="size-7 translate-x-0.5" />
+                  )}
+                </button>
               </div>
             ) : null}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="flex size-8 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15"
-                aria-label={playing ? "Pause" : "Play"}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  togglePlayback();
-                }}
-              >
-                {playing ? (
-                  <IconPlayerPauseFilled className="size-4" />
-                ) : (
-                  <IconPlayerPlayFilled className="size-4 translate-x-px" />
-                )}
-              </button>
 
-              <div
-                ref={minimized ? undefined : progressTrackRef}
-                className="relative h-7 flex-1 cursor-pointer touch-none"
-                onPointerDown={handleProgressPointerDown}
-                onPointerMove={handleProgressPointerMove}
-                onPointerUp={handleProgressPointerUp}
-                onPointerCancel={handleProgressPointerUp}
-                role="slider"
-                aria-label="Seek"
-                aria-valuemin={0}
-                aria-valuemax={Math.floor(duration)}
-                aria-valuenow={Math.floor(currentTime)}
-                tabIndex={0}
-                onKeyDown={(event) => {
-                  const player = playerRef.current;
-                  if (!player || duration <= 0) return;
-                  if (event.key === "ArrowLeft") {
-                    event.preventDefault();
-                    applySeek(Math.max(0, currentTime - 5), {
-                      pause: !playing,
-                    });
-                  }
-                  if (event.key === "ArrowRight") {
-                    event.preventDefault();
-                    applySeek(Math.min(duration, currentTime + 5), {
-                      pause: !playing,
-                    });
-                  }
-                }}
-              >
-                <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/25">
-                  <div
-                    className="bg-primary h-full rounded-full"
-                    style={{ width: `${progress * 100}%` }}
+            {playing && buffering ? (
+              <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
+                <IconLoader2 className="size-8 animate-spin text-white drop-shadow" />
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              className={cn(
+                "absolute top-2 right-2 z-30 flex size-8 items-center justify-center rounded-full text-white shadow-sm transition-opacity duration-200 hover:bg-black/40",
+                controlsVisible || showPlayPrompt
+                  ? "opacity-100"
+                  : "pointer-events-none opacity-0",
+              )}
+              aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
+              onClick={(event) => {
+                event.stopPropagation();
+                void toggleFullscreen();
+              }}
+            >
+              {fullscreen ? (
+                <IconMinimize className="size-4" />
+              ) : (
+                <IconMaximize className="size-4" />
+              )}
+            </button>
+
+            <div
+              className={cn(
+                "absolute inset-x-0 bottom-0 z-30 bg-linear-to-t from-black/75 via-black/35 to-transparent px-3 pt-10 pb-3 transition-opacity duration-200",
+                controlsVisible || showPlayPrompt
+                  ? "opacity-100"
+                  : "pointer-events-none opacity-0",
+              )}
+            >
+              {author || channelUrl ? (
+                <div
+                  className="mb-1.5 min-w-0"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <WorkoutChannelLink
+                    author={author}
+                    channelUrl={channelUrl}
+                    className="max-w-full text-xs text-white/90 hover:text-white"
                   />
                 </div>
+              ) : null}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="flex size-8 shrink-0 touch-manipulation items-center justify-center rounded-full text-white transition-colors hover:bg-white/15"
+                  aria-label={playing ? "Pause" : "Play"}
+                  onClick={handlePlayClick}
+                >
+                  {playing ? (
+                    <IconPlayerPauseFilled className="size-4" />
+                  ) : (
+                    <IconPlayerPlayFilled className="size-4 translate-x-px" />
+                  )}
+                </button>
+
                 <div
-                  className="border-background absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white shadow"
-                  style={{ left: `${progress * 100}%` }}
-                />
+                  ref={minimized ? undefined : progressTrackRef}
+                  className="relative h-7 flex-1 cursor-pointer touch-none"
+                  onPointerDown={handleProgressPointerDown}
+                  onPointerMove={handleProgressPointerMove}
+                  onPointerUp={handleProgressPointerUp}
+                  onPointerCancel={handleProgressPointerUp}
+                  role="slider"
+                  aria-label="Seek"
+                  aria-valuemin={0}
+                  aria-valuemax={Math.floor(duration)}
+                  aria-valuenow={Math.floor(currentTime)}
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    const player = playerRef.current;
+                    if (!player || duration <= 0) return;
+                    if (event.key === "ArrowLeft") {
+                      event.preventDefault();
+                      applySeek(Math.max(0, currentTime - 5), {
+                        pause: !playing,
+                      });
+                    }
+                    if (event.key === "ArrowRight") {
+                      event.preventDefault();
+                      applySeek(Math.min(duration, currentTime + 5), {
+                        pause: !playing,
+                      });
+                    }
+                  }}
+                >
+                  <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/25">
+                    <div
+                      className="bg-primary h-full rounded-full"
+                      style={{ width: `${progress * 100}%` }}
+                    />
+                  </div>
+                  <div
+                    className="border-background absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white shadow"
+                    style={{ left: `${progress * 100}%` }}
+                  />
+                </div>
+
+                <span className="min-w-18 text-right font-mono text-[11px] tabular-nums text-white/90">
+                  {timeLabel}
+                </span>
+
+                <button
+                  type="button"
+                  className={cn(
+                    "flex size-8 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15",
+                    captionsOn && "bg-white/20",
+                  )}
+                  aria-label={captionsOn ? "Hide captions" : "Show captions"}
+                  aria-pressed={captionsOn}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleCaptions();
+                  }}
+                >
+                  <IconBadgeCc className="size-4" />
+                </button>
+
+                <button
+                  type="button"
+                  className="flex size-8 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15"
+                  aria-label="Minimize video"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    minimizePlayer();
+                  }}
+                >
+                  <IconArrowsMinimize className="size-4" />
+                </button>
               </div>
-
-              <span className="min-w-18 text-right font-mono text-[11px] tabular-nums text-white/90">
-                {timeLabel}
-              </span>
-
-              <button
-                type="button"
-                className={cn(
-                  "flex size-8 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15",
-                  captionsOn && "bg-white/20",
-                )}
-                aria-label={captionsOn ? "Hide captions" : "Show captions"}
-                aria-pressed={captionsOn}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  toggleCaptions();
-                }}
-              >
-                <IconBadgeCc className="size-4" />
-              </button>
-
-              <button
-                type="button"
-                className="flex size-8 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15"
-                aria-label="Minimize video"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  minimizePlayer();
-                }}
-              >
-                <IconArrowsMinimize className="size-4" />
-              </button>
             </div>
-          </div>
-        </>
-      ) : null}
+          </>
+        ) : null}
 
-      {error ? (
-        <div className="bg-muted text-destructive absolute inset-0 z-40 flex items-center justify-center p-4 text-center text-sm">
-          {error}
-        </div>
-      ) : null}
-    </div>
+        {error ? (
+          <div className="bg-muted text-destructive absolute inset-0 z-40 flex items-center justify-center p-4 text-center text-sm">
+            {error}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

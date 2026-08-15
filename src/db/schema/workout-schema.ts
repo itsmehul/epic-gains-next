@@ -13,9 +13,17 @@ import {
 
 import { user } from "./auth-schema";
 
+export type TargetSet = {
+  reps?: number | null;
+  weight?: number | null;
+  time?: number | null;
+  distance?: number | null;
+};
+
 export type ExerciseMetaData = {
   videoStartTime?: number;
   videoEndTime?: number;
+  targets?: TargetSet[];
 };
 
 export const METRIC_PROFILE_VALUES = [

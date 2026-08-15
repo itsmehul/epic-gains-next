@@ -20,6 +20,12 @@ export type ExpandedImportWorkout = {
     metricProfile?: MetricProfile;
     muscleGroup?: MuscleGroup;
     keyMuscles?: string[];
+    sets?: Array<{
+      reps?: number | null;
+      weight?: number | null;
+      time?: number | null;
+      distance?: number | null;
+    }>;
   }>;
 };
 
@@ -161,6 +167,40 @@ export function expandImportStructure(
       ? Math.min(start + interval.work_seconds, nextStart)
       : nextStart;
 
+    const suggestedSetsCount = current.suggested_sets ?? current.suggestedSets;
+    const suggestedRepsVal = current.suggested_reps ?? current.suggestedReps;
+    const suggestedWeightVal = current.suggested_weight ?? current.suggestedWeight;
+    const suggestedTimeVal =
+      current.suggested_time ??
+      current.suggestedTime ??
+      (current.suggested_reps == null &&
+      current.suggestedReps == null &&
+      current.suggested_weight == null &&
+      current.suggestedWeight == null &&
+      current.suggested_distance == null &&
+      current.suggestedDistance == null &&
+      interval
+        ? interval.work_seconds
+        : undefined);
+    const suggestedDistanceVal = current.suggested_distance ?? current.suggestedDistance;
+
+    let initialSets: Array<{ reps?: number | null; weight?: number | null; time?: number | null; distance?: number | null }> | undefined;
+    if (
+      suggestedRepsVal != null ||
+      suggestedWeightVal != null ||
+      suggestedTimeVal != null ||
+      suggestedDistanceVal != null ||
+      suggestedSetsCount != null
+    ) {
+      const numSets = suggestedSetsCount ?? 1;
+      initialSets = Array.from({ length: numSets }, () => ({
+        reps: suggestedRepsVal ?? null,
+        weight: suggestedWeightVal ?? null,
+        time: suggestedTimeVal ?? null,
+        distance: suggestedDistanceVal ?? null,
+      }));
+    }
+
     exercises.push({
       name: current.name,
       videoStartTime: start,
@@ -169,6 +209,7 @@ export function expandImportStructure(
       metricProfile: current.metric_profile ?? current.metricProfile,
       muscleGroup: current.muscle_group ?? current.muscleGroup,
       keyMuscles: current.key_muscles ?? current.keyMuscles,
+      sets: initialSets,
     });
 
     if (workEnd < nextStart) {

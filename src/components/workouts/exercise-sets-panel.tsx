@@ -26,6 +26,7 @@ import {
   useDeleteSet,
   useSimilarExercises,
   useUpdateSet,
+  useWorkoutExercise,
 } from "@/features/workouts/hooks";
 import {
   fieldsForMetricProfile,
@@ -334,6 +335,31 @@ export function ExerciseSetsPanel({
     enabled: showResolve,
   });
 
+  const workoutExerciseQuery = useWorkoutExercise(workoutExerciseId);
+  const targetDraftsInitializedRef = useRef(false);
+
+  useEffect(() => {
+    if (targetDraftsInitializedRef.current) return;
+    if (sets.length > 0) return;
+    const metaData = workoutExerciseQuery.data?.metaData;
+    const targets = metaData?.targets;
+    if (targets && targets.length > 0) {
+      targetDraftsInitializedRef.current = true;
+      setDrafts(
+        targets.map((t) => ({
+          id: createDraftId(),
+          values: {
+            reps: t.reps != null ? String(t.reps) : "",
+            weight: t.weight != null ? String(t.weight) : "",
+            time: t.time != null ? String(t.time) : "",
+            distance: t.distance != null ? String(t.distance) : "",
+          },
+          shouldFocus: false,
+        })),
+      );
+    }
+  }, [sets.length, workoutExerciseQuery.data?.metaData]);
+
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
   const [savedValues, setSavedValues] = useState<Record<string, RowValues>>(
     () => Object.fromEntries(sets.map((set) => [set.id, valuesFromSet(set)])),
@@ -345,7 +371,7 @@ export function ExerciseSetsPanel({
   const [checkedAtById, setCheckedAtById] = useState<Record<string, number>>(
     {},
   );
-  const [uncheckedIds, setUncheckedIds] = useState(() => new Set<string>());
+  const [checkedIds, setCheckedIds] = useState(() => new Set<string>());
   const [removedIds, setRemovedIds] = useState(() => new Set<string>());
   const [rowKeyBySetId, setRowKeyBySetId] = useState<Record<string, string>>(
     {},
@@ -378,7 +404,7 @@ export function ExerciseSetsPanel({
       }
       return next;
     });
-    setUncheckedIds((prev) => {
+    setCheckedIds((prev) => {
       const next = new Set<string>();
       for (const id of prev) {
         if (ids.has(id)) next.add(id);
@@ -603,8 +629,8 @@ export function ExerciseSetsPanel({
       savedValuesRef.current = next;
       return next;
     });
-    if (uncheckedIds.has(setId)) {
-      setUncheckedIds((prev) => {
+    if (checkedIds.has(setId)) {
+      setCheckedIds((prev) => {
         const next = new Set(prev);
         next.delete(setId);
         return next;
@@ -853,7 +879,7 @@ export function ExerciseSetsPanel({
             const expanded = expandedId === row.rowId;
             const completed = isDraft
               ? completedDraftIds.has(row.rowId)
-              : !uncheckedIds.has(row.setId);
+              : checkedIds.has(row.setId);
             const summary = formatSetSummary(row.values);
             const previousLabel = row.previous
               ? `Previous ${formatSetSummary(row.previous)}`
@@ -918,10 +944,10 @@ export function ExerciseSetsPanel({
                           if (checked) void completeDraft(row.rowId);
                           return;
                         }
-                        setUncheckedIds((prev) => {
+                        setCheckedIds((prev) => {
                           const next = new Set(prev);
-                          if (checked) next.delete(row.setId);
-                          else next.add(row.setId);
+                          if (checked) next.add(row.setId);
+                          else next.delete(row.setId);
                           return next;
                         });
                         setCheckedAtById((prev) => {

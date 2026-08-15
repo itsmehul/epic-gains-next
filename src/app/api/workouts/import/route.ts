@@ -195,6 +195,7 @@ export async function POST(req: Request) {
           metaData: {
             videoStartTime: ex.videoStartTime,
             videoEndTime: ex.videoEndTime,
+            targets: ex.sets && ex.sets.length > 0 ? ex.sets : undefined,
           },
           tags: ex.tags ?? [],
         });

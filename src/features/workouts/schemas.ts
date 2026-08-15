@@ -5,6 +5,13 @@ import {
   MUSCLE_GROUP_VALUES,
 } from "@/db/schema/workout-schema";
 
+export const targetSetSchema = z.object({
+  reps: z.number().int().nonnegative().nullable().optional(),
+  weight: z.number().nonnegative().nullable().optional(),
+  time: z.number().nonnegative().nullable().optional(),
+  distance: z.number().nonnegative().nullable().optional(),
+});
+
 export const exerciseMetaDataSchema = z
   .object({
     videoStartTime: z
@@ -21,6 +28,7 @@ export const exerciseMetaDataSchema = z
       .describe(
         "This move's end in the source video, in seconds. Use the next chapter timestamp (which is also the next move's start), or video duration for the last move.",
       ),
+    targets: z.array(targetSetSchema).optional(),
   })
   .strict();
 
@@ -165,6 +173,22 @@ export const importFullWorkoutSchema = z.object({
         key_muscles: keyMusclesSchema.optional().describe(
           "Specific anatomical muscles used (e.g. Tibialis Anterior, Peroneus Tertius).",
         ),
+        sets: z
+          .array(
+            z.object({
+              reps: z.number().int().nonnegative().nullable().optional(),
+              weight: z.number().nonnegative().nullable().optional(),
+              time: z.number().nonnegative().nullable().optional(),
+              distance: z.number().nonnegative().nullable().optional(),
+            }),
+          )
+          .optional()
+          .describe("Preset sets to record for this exercise"),
+        suggested_sets: z.number().int().positive().optional(),
+        suggested_reps: z.number().int().nonnegative().optional(),
+        suggested_weight: z.number().nonnegative().optional(),
+        suggested_time: z.number().nonnegative().optional(),
+        suggested_distance: z.number().nonnegative().optional(),
       }),
     )
     .min(1)
@@ -205,6 +229,16 @@ export const importWorkoutStructureSchema = z.object({
               muscleGroup: muscleGroupEnum.optional(),
               key_muscles: keyMusclesSchema.optional(),
               keyMuscles: keyMusclesSchema.optional(),
+              suggested_sets: z.number().int().positive().optional(),
+              suggestedSets: z.number().int().positive().optional(),
+              suggested_reps: z.number().int().nonnegative().optional(),
+              suggestedReps: z.number().int().nonnegative().optional(),
+              suggested_weight: z.number().nonnegative().optional(),
+              suggestedWeight: z.number().nonnegative().optional(),
+              suggested_time: z.number().nonnegative().optional(),
+              suggestedTime: z.number().nonnegative().optional(),
+              suggested_distance: z.number().nonnegative().optional(),
+              suggestedDistance: z.number().nonnegative().optional(),
             }),
           )
           .min(1),
