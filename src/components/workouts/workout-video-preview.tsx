@@ -754,12 +754,19 @@ export function WorkoutVideoPreview({
 
             <div
               className={cn(
-                "absolute inset-x-0 bottom-0 z-30 bg-linear-to-t from-black/75 via-black/35 to-transparent px-3 pt-10 pb-3 transition-opacity duration-200",
+                "pointer-events-none absolute inset-x-0 bottom-0 z-30 bg-linear-to-t from-black/75 via-black/35 to-transparent px-3 pt-10 pb-3 transition-opacity duration-200",
                 controlsVisible || showPlayPrompt
                   ? "opacity-100"
-                  : "pointer-events-none opacity-0",
+                  : "opacity-0",
               )}
             >
+              <div
+                className={cn(
+                  controlsVisible || showPlayPrompt
+                    ? "pointer-events-auto"
+                    : "pointer-events-none",
+                )}
+              >
               {author || channelUrl ? (
                 <div
                   className="mb-1.5 min-w-0"
@@ -859,6 +866,7 @@ export function WorkoutVideoPreview({
                 >
                   <IconArrowsMinimize className="size-4" />
                 </button>
+              </div>
               </div>
             </div>
           </>

@@ -1,8 +1,9 @@
 "use client";
 
-import { IconChevronRight } from "@tabler/icons-react";
+import { IconChevronRight, IconCircleCheckFilled } from "@tabler/icons-react";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { LuChartLine, LuListChecks, LuMessageSquare } from "react-icons/lu";
 
 import {
   AppShellBody,
@@ -15,14 +16,14 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExerciseAnalyticsPanel } from "@/components/workouts/exercise-analytics-panel";
 import { ExerciseCommentsPanel } from "@/components/workouts/exercise-comments-panel";
 import { ExerciseSetsPanel } from "@/components/workouts/exercise-sets-panel";
-import { useComments } from "@/features/comments/hooks";
-import { WorkoutChannelLink } from "@/components/workouts/workout-channel-link";
 import { RestDetailsPanel } from "@/components/workouts/rest-details-panel";
+import { WorkoutChannelLink } from "@/components/workouts/workout-channel-link";
 import {
   WorkoutVideoPreview,
   type WorkoutVideoPreviewHandle,
 } from "@/components/workouts/workout-video-preview";
 import type { MetricProfile } from "@/db/schema/workout-schema";
+import { useComments } from "@/features/comments/hooks";
 import {
   useExercises,
   useSets,
@@ -67,6 +68,100 @@ function sortWorkoutExercisesByTimestamp(
   });
 }
 
+type ExerciseSetProgress =
+  | { kind: "partial"; logged: number; target: number; fraction: number }
+  | { kind: "complete"; logged: number; target: number };
+
+function exerciseSetProgress(
+  item: WorkoutExercise,
+  loggedCount: number,
+): ExerciseSetProgress | null {
+  if (loggedCount <= 0) return null;
+
+  const targetCount = item.metaData?.targets?.length ?? 0;
+  if (targetCount <= 0) {
+    return { kind: "complete", logged: loggedCount, target: loggedCount };
+  }
+
+  if (loggedCount >= targetCount) {
+    return { kind: "complete", logged: loggedCount, target: targetCount };
+  }
+
+  return {
+    kind: "partial",
+    logged: loggedCount,
+    target: targetCount,
+    fraction: loggedCount / targetCount,
+  };
+}
+
+function TinySetPieProgress({
+  fraction,
+  className,
+}: {
+  fraction: number;
+  className?: string;
+}) {
+  const t = Math.min(Math.max(fraction, 0), 1);
+  const radius = 7;
+  const center = 8;
+  const startAngle = -Math.PI / 2;
+  const endAngle = startAngle + t * 2 * Math.PI;
+  const x1 = center + radius * Math.cos(startAngle);
+  const y1 = center + radius * Math.sin(startAngle);
+  const x2 = center + radius * Math.cos(endAngle);
+  const y2 = center + radius * Math.sin(endAngle);
+  const largeArc = t > 0.5 ? 1 : 0;
+  const wedge = `M ${center} ${center} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className={cn("size-4 shrink-0", className)}
+      aria-hidden
+    >
+      <circle cx={center} cy={center} r={radius} className="fill-muted" />
+      {t > 0 ? <path d={wedge} className="fill-primary" /> : null}
+    </svg>
+  );
+}
+
+function ExerciseSetProgressIndicator({
+  progress,
+  isActive,
+}: {
+  progress: ExerciseSetProgress;
+  isActive: boolean;
+}) {
+  const ariaLabel =
+    progress.kind === "complete"
+      ? progress.logged === progress.target
+        ? `${progress.target} ${progress.target === 1 ? "set" : "sets"} complete`
+        : `${progress.logged} ${progress.logged === 1 ? "set" : "sets"} logged`
+      : `${progress.logged} of ${progress.target} sets logged`;
+
+  if (progress.kind === "complete") {
+    return (
+      <IconCircleCheckFilled
+        aria-label={ariaLabel}
+        className={cn(
+          "size-4 shrink-0",
+          isActive ? "text-primary" : "text-primary/80",
+        )}
+      />
+    );
+  }
+
+  return (
+    <span aria-label={ariaLabel} className="inline-flex shrink-0">
+      <TinySetPieProgress
+        fraction={progress.fraction}
+        className={isActive ? undefined : "opacity-80"}
+      />
+    </span>
+  );
+}
+
 function findWorkoutExerciseIdAtTime(
   items: WorkoutExercise[],
   seconds: number,
@@ -101,6 +196,8 @@ function WorkoutExerciseTabs({
   const [tab, setTab] = useState("sets");
   const commentsQuery = useComments({ exerciseId, workoutId });
   const commentCount = commentsQuery.data?.items.length ?? 0;
+  const tabTriggerClassName =
+    "gap-1.5 px-2 py-1 text-xs text-primary/55 hover:text-primary/75 data-active:text-primary data-active:after:bg-primary/55 [&_svg]:size-3.5";
 
   return (
     <Tabs
@@ -111,9 +208,13 @@ function WorkoutExerciseTabs({
       className="gap-0"
     >
       <div className="px-4 md:px-0">
-        <TabsList className="w-full">
-          <TabsTrigger value="sets">Sets</TabsTrigger>
-          <TabsTrigger value="comments">
+        <TabsList className="h-7 w-full gap-0 p-0" variant="line">
+          <TabsTrigger value="sets" className={tabTriggerClassName}>
+            <LuListChecks aria-hidden />
+            Sets
+          </TabsTrigger>
+          <TabsTrigger value="comments" className={tabTriggerClassName}>
+            <LuMessageSquare aria-hidden />
             Comments
             {commentCount > 0 ? (
               <Badge
@@ -124,7 +225,10 @@ function WorkoutExerciseTabs({
               </Badge>
             ) : null}
           </TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="analytics" className={tabTriggerClassName}>
+            <LuChartLine aria-hidden />
+            Analytics
+          </TabsTrigger>
         </TabsList>
       </div>
       <div className="mt-4">
@@ -211,8 +315,8 @@ export function WorkoutDetailPageClient() {
   const nextExerciseItem =
     selectedIndex >= 0
       ? (workoutExercises
-          .slice(selectedIndex + 1)
-          .find((item) => !isRestWorkoutItem(item)) ?? null)
+        .slice(selectedIndex + 1)
+        .find((item) => !isRestWorkoutItem(item)) ?? null)
       : null;
 
   function itemLabel(item: WorkoutExercise) {
@@ -271,126 +375,6 @@ export function WorkoutDetailPageClient() {
             !showVideo && "gap-6 py-4 pb-10",
           )}
         >
-          {showExercises && selectedItem ? (
-            <div
-              className="relative"
-              role="navigation"
-              aria-label="Workout timeline"
-            >
-              <div
-                aria-hidden
-                className="from-content-panel pointer-events-none absolute inset-y-0 left-0 z-10 w-4 bg-linear-to-r to-transparent md:hidden"
-              />
-              <div
-                aria-hidden
-                className="from-content-panel pointer-events-none absolute inset-y-0 right-0 z-10 w-4 bg-linear-to-l to-transparent md:hidden"
-              />
-              <div className="overflow-x-auto overscroll-x-contain px-4 scrollbar-none md:px-0">
-                <div className="flex w-max items-stretch gap-3">
-                  {workoutExercises.map((item, index) => {
-                    const isActive = selectedItem?.id === item.id;
-                    const isRest = isRestWorkoutItem(item);
-                    const setCount = isRest
-                      ? 0
-                      : (setsByExerciseId
-                          .get(item.exerciseId)
-                          ?.filter(
-                            (set) =>
-                              dayKey(set.updatedAt) === localDateString(),
-                          ).length ?? 0);
-                    const hasNext = index < workoutExercises.length - 1;
-                    const label = itemLabel(item);
-
-                    const muscleLabel = isRest
-                      ? null
-                      : muscleGroupLabel(
-                          exerciseById.get(item.exerciseId)?.muscleGroup,
-                        );
-
-                    return (
-                      <button
-                        key={item.id}
-                        ref={isActive ? activeChipRef : undefined}
-                        type="button"
-                        aria-current={isActive ? "true" : undefined}
-                        className={cn(
-                          "group relative flex w-max shrink-0 items-center gap-1.5 rounded-xl py-1 text-left transition-colors duration-200",
-                          "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-content-panel focus-visible:outline-none",
-                          isActive
-                            ? "text-primary"
-                            : "text-muted-foreground hover:text-foreground",
-                        )}
-                        onClick={() => {
-                          selectExercise(item);
-                        }}
-                      >
-                        <span className="flex h-5 items-center whitespace-nowrap text-sm font-medium leading-none">
-                          {label}
-                        </span>
-                        {muscleLabel ? (
-                          <Badge
-                            variant="secondary"
-                            aria-label={`Muscle group ${muscleLabel}`}
-                            className={cn(
-                              "h-5 shrink-0 items-center justify-center rounded-md px-2 py-0 text-xs font-semibold leading-none",
-                              isActive
-                                ? "border-primary/25 bg-primary/20 text-primary"
-                                : "border-transparent bg-muted text-muted-foreground group-hover:bg-muted/80 group-hover:text-foreground",
-                            )}
-                          >
-                            {muscleLabel}
-                          </Badge>
-                        ) : null}
-                        {setCount > 0 ? (
-                          <Badge
-                            variant={isActive ? "default" : "secondary"}
-                            aria-label={`${setCount} ${setCount === 1 ? "set" : "sets"}`}
-                            className={cn(
-                              "h-4 min-w-4 shrink-0 justify-center px-1.5 text-[10px] tabular-nums",
-                              !isActive &&
-                                "bg-muted text-muted-foreground group-hover:bg-muted/80",
-                            )}
-                          >
-                            {setCount}
-                          </Badge>
-                        ) : null}
-                        {hasNext ? (
-                          <IconChevronRight
-                            aria-hidden
-                            className={cn(
-                              "size-3.5 shrink-0 opacity-50",
-                              isActive
-                                ? "text-primary"
-                                : "text-muted-foreground group-hover:text-foreground",
-                            )}
-                          />
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {selectedKeyMuscles.length > 0 ? (
-            <div className="overflow-x-auto overscroll-x-contain px-4 scrollbar-none md:px-0">
-              <ul
-                className="flex w-max items-center gap-3"
-                aria-label="Key muscles"
-              >
-                {selectedKeyMuscles.map((muscle) => (
-                  <li
-                    key={muscle}
-                    className="text-muted-foreground/70 text-sm font-normal tracking-wide whitespace-nowrap"
-                  >
-                    {muscle}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
           {showVideo ? (
             <div className="px-4 md:px-0">
               <WorkoutVideoPreview
@@ -403,22 +387,123 @@ export function WorkoutDetailPageClient() {
             </div>
           ) : null}
 
-          {!showVideo &&
-          (workoutQuery.data?.author || workoutQuery.data?.channelUrl) ? (
-            <p className="text-muted-foreground px-4 text-sm md:px-0">
-              <WorkoutChannelLink
-                author={workoutQuery.data.author}
-                channelUrl={workoutQuery.data.channelUrl}
-              />
-            </p>
-          ) : null}
-
           {showExercises && selectedItem ? (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
               <div
-                key={selectedItem.id}
-                className="flex flex-col gap-6"
+                className="relative"
+                role="navigation"
+                aria-label="Workout timeline"
               >
+                <div
+                  aria-hidden
+                  className="from-content-panel pointer-events-none absolute inset-y-0 left-0 z-10 w-4 bg-linear-to-r to-transparent md:hidden"
+                />
+                <div
+                  aria-hidden
+                  className="from-content-panel pointer-events-none absolute inset-y-0 right-0 z-10 w-4 bg-linear-to-l to-transparent md:hidden"
+                />
+                <div className="overflow-x-auto overscroll-x-contain px-4 scrollbar-none md:px-0">
+                  <div className="flex w-max items-stretch gap-3">
+                    {workoutExercises.map((item, index) => {
+                      const isActive = selectedItem?.id === item.id;
+                      const isRest = isRestWorkoutItem(item);
+                      const loggedSetCount = isRest
+                        ? 0
+                        : (setsByExerciseId
+                            .get(item.exerciseId)
+                            ?.filter(
+                              (set) =>
+                                dayKey(set.updatedAt) === localDateString(),
+                            ).length ?? 0);
+                      const setProgress = isRest
+                        ? null
+                        : exerciseSetProgress(item, loggedSetCount);
+                      const hasNext = index < workoutExercises.length - 1;
+                      const label = itemLabel(item);
+
+                      const muscleLabel = isRest
+                        ? null
+                        : muscleGroupLabel(
+                            exerciseById.get(item.exerciseId)?.muscleGroup,
+                          );
+
+                      return (
+                        <button
+                          key={item.id}
+                          ref={isActive ? activeChipRef : undefined}
+                          type="button"
+                          aria-current={isActive ? "true" : undefined}
+                          className={cn(
+                            "group relative flex w-max shrink-0 items-center gap-1.5 rounded-xl py-1 text-left transition-colors duration-200",
+                            "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-content-panel focus-visible:outline-none",
+                            isActive
+                              ? "text-primary"
+                              : "text-muted-foreground hover:text-foreground",
+                          )}
+                          onClick={() => {
+                            selectExercise(item);
+                          }}
+                        >
+                          <span className="flex h-5 items-center whitespace-nowrap text-sm font-medium leading-none">
+                            {label}
+                          </span>
+                          {muscleLabel ? (
+                            <Badge
+                              variant="secondary"
+                              aria-label={`Muscle group ${muscleLabel}`}
+                              className={cn(
+                                "h-5 shrink-0 items-center justify-center rounded-md px-2 py-0 text-xs font-semibold leading-none",
+                                isActive
+                                  ? "border-primary/25 bg-primary/20 text-primary"
+                                  : "border-transparent bg-muted text-muted-foreground group-hover:bg-muted/80 group-hover:text-foreground",
+                              )}
+                            >
+                              {muscleLabel}
+                            </Badge>
+                          ) : null}
+                          {setProgress ? (
+                            <ExerciseSetProgressIndicator
+                              progress={setProgress}
+                              isActive={isActive}
+                            />
+                          ) : null}
+                          {hasNext ? (
+                            <IconChevronRight
+                              aria-hidden
+                              className={cn(
+                                "size-3.5 shrink-0 opacity-50",
+                                isActive
+                                  ? "text-primary"
+                                  : "text-muted-foreground group-hover:text-foreground",
+                              )}
+                            />
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {selectedKeyMuscles.length > 0 ? (
+                <div className="overflow-x-auto overscroll-x-contain px-4 scrollbar-none md:px-0">
+                  <ul
+                    className="flex w-max items-center gap-2"
+                    aria-label="Key muscles"
+                  >
+                    {selectedKeyMuscles.map((muscle) => (
+                      <li
+                        key={muscle}
+                        className="text-muted-foreground/70 text-sm font-normal tracking-wide whitespace-nowrap"
+                      >
+                        {muscle}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              <div key={selectedItem.id} className="mt-1">
                 {isRestWorkoutItem(selectedItem) ? (
                   <RestDetailsPanel
                     workoutExerciseId={selectedItem.id}
@@ -453,37 +538,47 @@ export function WorkoutDetailPageClient() {
             </div>
           ) : null}
 
+          {!showVideo &&
+            (workoutQuery.data?.author || workoutQuery.data?.channelUrl) ? (
+            <p className="text-muted-foreground px-4 text-sm md:px-0">
+              <WorkoutChannelLink
+                author={workoutQuery.data.author}
+                channelUrl={workoutQuery.data.channelUrl}
+              />
+            </p>
+          ) : null}
+
           {(isLoading ||
             workoutQuery.isError ||
             (!showExercises && Boolean(workoutQuery.data))) && (
-            <div
-              className={cn(
-                "flex flex-col gap-6 px-4 md:px-0",
-                showVideo && "py-4 md:py-0",
-              )}
-            >
-              {isLoading ? (
-                <AppShellLoading label="Loading details…" />
-              ) : null}
+              <div
+                className={cn(
+                  "flex flex-col gap-6 px-4 md:px-0",
+                  showVideo && "py-4 md:py-0",
+                )}
+              >
+                {isLoading ? (
+                  <AppShellLoading label="Loading details…" />
+                ) : null}
 
-              {workoutQuery.isError ? (
-                <p className="text-destructive text-sm" role="alert">
-                  {workoutQuery.error instanceof Error
-                    ? workoutQuery.error.message
-                    : "Failed to load workout"}
-                </p>
-              ) : null}
+                {workoutQuery.isError ? (
+                  <p className="text-destructive text-sm" role="alert">
+                    {workoutQuery.error instanceof Error
+                      ? workoutQuery.error.message
+                      : "Failed to load workout"}
+                  </p>
+                ) : null}
 
-              {!isLoading &&
-              !workoutQuery.isError &&
-              workoutQuery.data &&
-              workoutExercises.length === 0 ? (
-                <p className="text-muted-foreground text-sm">
-                  No exercises in this workout yet.
-                </p>
-              ) : null}
-            </div>
-          )}
+                {!isLoading &&
+                  !workoutQuery.isError &&
+                  workoutQuery.data &&
+                  workoutExercises.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">
+                    No exercises in this workout yet.
+                  </p>
+                ) : null}
+              </div>
+            )}
         </div>
       </AppShellBody>
     </AppShellScroll>

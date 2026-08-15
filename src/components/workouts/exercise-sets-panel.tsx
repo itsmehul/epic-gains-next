@@ -30,6 +30,7 @@ import {
 } from "@/features/workouts/hooks";
 import {
   fieldsForMetricProfile,
+  type MetricProfileFields,
   type SetFieldKey,
 } from "@/features/workouts/metric-profile";
 import {
@@ -180,6 +181,30 @@ function hasInvalidNumber(values: RowValues) {
       ? parseOptionalInt(raw) == null
       : parseOptionalNumber(raw) == null;
   });
+}
+
+function hasLoggedValues(values: RowValues): boolean {
+  return formatSetSummary(values) !== "Tap to log";
+}
+
+function offProfileValueKeys(
+  values: RowValues,
+  fields: MetricProfileFields,
+): FieldKey[] {
+  const profileKeys = new Set<FieldKey>([...fields.primary, ...fields.extra]);
+  return (Object.keys(values) as FieldKey[]).filter(
+    (key) => !profileKeys.has(key) && values[key].trim() !== "",
+  );
+}
+
+function extraFieldsForValues(
+  values: RowValues,
+  fields: MetricProfileFields,
+): FieldDef[] {
+  const keys = [
+    ...new Set([...fields.extra, ...offProfileValueKeys(values, fields)]),
+  ];
+  return keys.map((key) => FIELD_BY_KEY[key]);
 }
 
 function formatSetSummary(values: RowValues): string {
@@ -337,6 +362,7 @@ export function ExerciseSetsPanel({
 
   const workoutExerciseQuery = useWorkoutExercise(workoutExerciseId);
   const targetDraftsInitializedRef = useRef(false);
+  const [drafts, setDrafts] = useState<DraftRow[]>([]);
 
   useEffect(() => {
     if (targetDraftsInitializedRef.current) return;
@@ -360,7 +386,6 @@ export function ExerciseSetsPanel({
     }
   }, [sets.length, workoutExerciseQuery.data?.metaData]);
 
-  const [drafts, setDrafts] = useState<DraftRow[]>([]);
   const [savedValues, setSavedValues] = useState<Record<string, RowValues>>(
     () => Object.fromEntries(sets.map((set) => [set.id, valuesFromSet(set)])),
   );
@@ -554,9 +579,7 @@ export function ExerciseSetsPanel({
     const draft = drafts.find((row) => row.id === draftId);
     if (!draft || draft.committed) return;
 
-    if (
-      !profileFields.primary.some((key) => draft.values[key].trim() !== "")
-    ) {
+    if (!hasLoggedValues(draft.values)) {
       setError("Enter a value before completing the set");
       return;
     }
@@ -669,6 +692,13 @@ export function ExerciseSetsPanel({
     index: number;
     autoFocusWeight?: boolean;
   }) {
+    const rowExtraFields = extraFieldsForValues(values, profileFields);
+    const rowExtrasOpen =
+      rowExtraFields.length > 0 &&
+      (showExtras ||
+        hasExtraValues ||
+        offProfileValueKeys(values, profileFields).length > 0);
+
     return (
       <div className="space-y-3 px-3 pb-2 pt-1">
         <div className="grid grid-cols-2 gap-2">
@@ -719,16 +749,16 @@ export function ExerciseSetsPanel({
           ))}
         </div>
 
-        {extraFields.length > 0 ? (
+        {rowExtraFields.length > 0 ? (
           <div
             className={cn(
               collapseGridClass,
-              extrasOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+              rowExtrasOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
             )}
           >
             <div className="min-h-0 overflow-clip">
               <div className="grid grid-cols-2 gap-2 pb-0.5">
-                {extraFields.map((field) => (
+                {rowExtraFields.map((field) => (
                   <div key={field.key} className="space-y-1">
                     <label
                       htmlFor={`${baseId}-${rowId}-${field.key}`}
@@ -777,7 +807,9 @@ export function ExerciseSetsPanel({
         ) : null}
 
         <div className="flex items-center justify-between gap-2 pt-0.5">
-          {extraFields.length > 0 && !hasExtraValues ? (
+          {rowExtraFields.length > 0 &&
+          !hasExtraValues &&
+          offProfileValueKeys(values, profileFields).length === 0 ? (
             <Button
               type="button"
               variant="ghost"
@@ -786,15 +818,15 @@ export function ExerciseSetsPanel({
               onClick={() => setShowExtras((prev) => !prev)}
             >
               <motion.span
-                animate={{ rotate: extrasOpen ? 180 : 0 }}
+                animate={{ rotate: rowExtrasOpen ? 180 : 0 }}
                 transition={springSnappy}
                 className="inline-flex"
               >
                 <IconChevronDown className="size-3.5" />
               </motion.span>
-              {extrasOpen
+              {rowExtrasOpen
                 ? "Hide extras"
-                : extraFields.map((f) => f.label).join(" / ")}
+                : rowExtraFields.map((f) => f.label).join(" / ")}
             </Button>
           ) : (
             <span />
