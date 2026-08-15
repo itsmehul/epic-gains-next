@@ -3,6 +3,7 @@
 import {
   IconArrowsMaximize,
   IconArrowsMinimize,
+  IconBadgeCc,
   IconLoader2,
   IconMaximize,
   IconMinimize,
@@ -38,9 +39,12 @@ type YTPlayer = {
   seekTo: (seconds: number, allowSeekAhead: boolean) => void;
   playVideo: () => void;
   pauseVideo: () => void;
+  mute: () => void;
+  unMute: () => void;
   getPlayerState: () => number;
   getCurrentTime: () => number;
   getDuration: () => number;
+  loadModule: (module: string) => void;
   unloadModule: (module: string) => void;
   destroy: () => void;
 };
@@ -175,6 +179,7 @@ export function WorkoutVideoPreview({
   const [duration, setDuration] = useState(0);
   const [minimized, setMinimized] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [captionsOn, setCaptionsOn] = useState(false);
 
   const videoId = getYouTubeVideoId(videoUrl);
 
@@ -301,6 +306,7 @@ export function WorkoutVideoPreview({
     setControlsVisible(true);
     setCurrentTime(0);
     setDuration(0);
+    setCaptionsOn(false);
     setError(null);
 
     void loadYouTubeApi()
@@ -522,6 +528,25 @@ export function WorkoutVideoPreview({
       await frame.requestFullscreen();
     } catch {
       // Fullscreen may be blocked by the browser.
+    }
+  }
+
+  function toggleCaptions() {
+    const player = playerRef.current;
+    if (!player || !ready) return;
+
+    try {
+      if (captionsOn) {
+        player.unloadModule("captions");
+        player.unloadModule("cc");
+        setCaptionsOn(false);
+        return;
+      }
+      player.loadModule("captions");
+      player.loadModule("cc");
+      setCaptionsOn(true);
+    } catch {
+      // Caption modules are unavailable on some videos.
     }
   }
 
@@ -788,6 +813,22 @@ export function WorkoutVideoPreview({
               <span className="min-w-18 text-right font-mono text-[11px] tabular-nums text-white/90">
                 {timeLabel}
               </span>
+
+              <button
+                type="button"
+                className={cn(
+                  "flex size-8 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15",
+                  captionsOn && "bg-white/20",
+                )}
+                aria-label={captionsOn ? "Hide captions" : "Show captions"}
+                aria-pressed={captionsOn}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  toggleCaptions();
+                }}
+              >
+                <IconBadgeCc className="size-4" />
+              </button>
 
               <button
                 type="button"
