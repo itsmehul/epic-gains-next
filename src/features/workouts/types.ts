@@ -21,6 +21,17 @@ export type WorkoutWithStats = Workout & {
   stats: WorkoutListStats;
 };
 
+export type WorkoutDetail = Workout & {
+  owner: {
+    id: string;
+    name: string;
+    username: string;
+    image: string | null;
+    isPrivate: boolean;
+  };
+  exercises: Exercise[];
+};
+
 export type SimilarExerciseCandidate = {
   id: string;
   name: string;

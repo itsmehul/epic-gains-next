@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { listExercisesByIds } from "@/db/repositories/exercise.repository";
 import { getVisibleWorkoutById } from "@/db/repositories/feed.repository";
+import { listWorkoutExercises } from "@/db/repositories/workout-exercise.repository";
 import {
   deleteWorkoutForUser,
   updateWorkoutForUser,
@@ -31,6 +33,10 @@ export async function GET(
     if (!item) {
       return apiError("Workout not found", 404);
     }
+    const workoutExercises = await listWorkoutExercises({ workoutId: id });
+    const exercises = await listExercisesByIds(
+      workoutExercises.map((row) => row.exerciseId),
+    );
     return NextResponse.json({
       id: item.id,
       name: item.name,
@@ -39,6 +45,7 @@ export async function GET(
       userId: item.userId,
       createdAt: item.createdAt.toISOString(),
       owner: item.owner,
+      exercises,
     });
   } catch (error) {
     const message =

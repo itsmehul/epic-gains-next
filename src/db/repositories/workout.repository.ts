@@ -34,66 +34,57 @@ export type ListWorkoutsOptions = {
   muscleGroups?: MuscleGroup[];
 };
 
-export async function listWorkoutsForUser(
-  userId: string,
-  options?: ListWorkoutsOptions,
-) {
-  const q = options?.q?.trim() ?? "";
-  const muscleGroups = options?.muscleGroups ?? [];
-  const conditions = [eq(workout.userId, userId)];
+export type WorkoutRow = typeof workout.$inferSelect;
 
-  if (q) {
-    const pattern = `%${q.replace(/[%_]/g, "\\$&")}%`;
-    conditions.push(
-      or(
-        ilike(workout.name, pattern),
-        ilike(workout.author, pattern),
-        exists(
-          db
-            .select({ one: sql`1` })
-            .from(workoutExercise)
-            .innerJoin(exercise, eq(exercise.id, workoutExercise.exerciseId))
-            .where(
-              and(
-                eq(workoutExercise.workoutId, workout.id),
-                or(
-                  sql`${exercise.muscleGroup}::text ilike ${pattern} escape '\\'`,
-                  sql`exists (
-                    select 1
-                    from unnest(${exercise.keyMuscles}) as muscle
-                    where muscle ilike ${pattern} escape '\\'
-                  )`,
-                ),
-              ),
-            ),
-        ),
-      )!,
-    );
-  }
+export function sqlContainsPattern(q: string) {
+  return `%${q.replace(/[%_]/g, "\\$&")}%`;
+}
 
-  if (muscleGroups.length > 0) {
-    conditions.push(
-      exists(
-        db
-          .select({ one: sql`1` })
-          .from(workoutExercise)
-          .innerJoin(exercise, eq(exercise.id, workoutExercise.exerciseId))
-          .where(
-            and(
-              eq(workoutExercise.workoutId, workout.id),
-              inArray(exercise.muscleGroup, muscleGroups),
+export function workoutContentSearchCondition(q: string) {
+  const pattern = sqlContainsPattern(q);
+  return or(
+    ilike(workout.name, pattern),
+    ilike(workout.author, pattern),
+    exists(
+      db
+        .select({ one: sql`1` })
+        .from(workoutExercise)
+        .innerJoin(exercise, eq(exercise.id, workoutExercise.exerciseId))
+        .where(
+          and(
+            eq(workoutExercise.workoutId, workout.id),
+            or(
+              sql`${exercise.muscleGroup}::text ilike ${pattern} escape '\\'`,
+              sql`exists (
+                select 1
+                from unnest(${exercise.keyMuscles}) as muscle
+                where muscle ilike ${pattern} escape '\\'
+              )`,
             ),
           ),
+        ),
+    ),
+  )!;
+}
+
+export function workoutMuscleGroupCondition(muscleGroups: MuscleGroup[]) {
+  return exists(
+    db
+      .select({ one: sql`1` })
+      .from(workoutExercise)
+      .innerJoin(exercise, eq(exercise.id, workoutExercise.exerciseId))
+      .where(
+        and(
+          eq(workoutExercise.workoutId, workout.id),
+          inArray(exercise.muscleGroup, muscleGroups),
+        ),
       ),
-    );
-  }
+  );
+}
 
-  const workouts = await db
-    .select()
-    .from(workout)
-    .where(and(...conditions))
-    .orderBy(desc(workout.createdAt));
-
+export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
+  workouts: T[],
+) {
   if (workouts.length === 0) return [];
 
   const ids = workouts.map((item) => item.id);
@@ -151,25 +142,32 @@ export async function listWorkoutsForUser(
     ]),
   );
 
-  // Chronological order (oldest → newest) for volume progression vs prior session.
-  const chronological = [...workouts].sort(
-    (a, b) =>
-      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-  );
-  const volumeChangeById = new Map<string, number | null>();
-  let previousVolume: number | null = null;
+  const byOwner = new Map<string, T[]>();
+  for (const item of workouts) {
+    const list = byOwner.get(item.userId) ?? [];
+    list.push(item);
+    byOwner.set(item.userId, list);
+  }
 
-  for (const item of chronological) {
-    const volume = setByWorkout.get(item.id)?.volume ?? 0;
-    if (previousVolume != null && previousVolume > 0 && volume > 0) {
-      volumeChangeById.set(
-        item.id,
-        ((volume - previousVolume) / previousVolume) * 100,
-      );
-    } else {
-      volumeChangeById.set(item.id, null);
+  const volumeChangeById = new Map<string, number | null>();
+  for (const ownerWorkouts of byOwner.values()) {
+    const chronological = [...ownerWorkouts].sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+    let previousVolume: number | null = null;
+    for (const item of chronological) {
+      const volume = setByWorkout.get(item.id)?.volume ?? 0;
+      if (previousVolume != null && previousVolume > 0 && volume > 0) {
+        volumeChangeById.set(
+          item.id,
+          ((volume - previousVolume) / previousVolume) * 100,
+        );
+      } else {
+        volumeChangeById.set(item.id, null);
+      }
+      if (volume > 0) previousVolume = volume;
     }
-    if (volume > 0) previousVolume = volume;
   }
 
   return workouts.map((item) => {
@@ -187,6 +185,30 @@ export async function listWorkoutsForUser(
       },
     };
   });
+}
+
+export async function listWorkoutsForUser(
+  userId: string,
+  options?: ListWorkoutsOptions,
+) {
+  const q = options?.q?.trim() ?? "";
+  const muscleGroups = options?.muscleGroups ?? [];
+  const conditions = [eq(workout.userId, userId)];
+
+  if (q) {
+    conditions.push(workoutContentSearchCondition(q));
+  }
+  if (muscleGroups.length > 0) {
+    conditions.push(workoutMuscleGroupCondition(muscleGroups));
+  }
+
+  const workouts = await db
+    .select()
+    .from(workout)
+    .where(and(...conditions))
+    .orderBy(desc(workout.createdAt));
+
+  return enrichWorkoutsWithStats(workouts);
 }
 
 export async function getWorkoutByIdForUser(id: string, userId: string) {

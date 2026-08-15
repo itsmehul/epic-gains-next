@@ -26,7 +26,8 @@ export const socialKeys = {
   profileWorkouts: (username: string) =>
     [...socialKeys.all, "profile-workouts", username] as const,
   requests: () => [...socialKeys.all, "requests"] as const,
-  feed: () => [...socialKeys.all, "feed"] as const,
+  feed: (params?: { q?: string; muscleGroups?: string[] }) =>
+    [...socialKeys.all, "feed", params ?? {}] as const,
 };
 
 export type MeSocialProfile = SocialUser & { pendingRequestCount: number };
@@ -105,10 +106,27 @@ export function useFollowRequests() {
   });
 }
 
-export function useFollowingFeed() {
+export function useFollowingFeed(options?: {
+  q?: string;
+  muscleGroups?: string[];
+  enabled?: boolean;
+}) {
+  const q = options?.q?.trim() ?? "";
+  const muscleGroups = [...(options?.muscleGroups ?? [])].sort();
+
   return useQuery({
-    queryKey: socialKeys.feed(),
-    queryFn: () => apiFetch<ListFeedResult>("/api/feed"),
+    queryKey: socialKeys.feed({ q, muscleGroups }),
+    enabled: options?.enabled ?? true,
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (q) params.set("q", q);
+      for (const group of muscleGroups) {
+        params.append("muscleGroup", group);
+      }
+      const query = params.toString();
+      return apiFetch<ListFeedResult>(`/api/feed${query ? `?${query}` : ""}`);
+    },
+    placeholderData: (previousData) => previousData,
   });
 }
 

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import { follow, user, workout } from "@/db/schema";
@@ -10,6 +10,13 @@ import {
   getUserById,
   listFollowing,
 } from "@/db/repositories/social.repository";
+import {
+  enrichWorkoutsWithStats,
+  sqlContainsPattern,
+  workoutContentSearchCondition,
+  workoutMuscleGroupCondition,
+  type ListWorkoutsOptions,
+} from "@/db/repositories/workout.repository";
 
 export async function listVisibleWorkoutsForUser(
   viewerId: string,
@@ -59,15 +66,38 @@ export async function getVisibleWorkoutById(
   return { ...row, owner };
 }
 
-export async function listFollowingFeed(viewerId: string, limit = 50) {
+export async function listFollowingFeed(
+  viewerId: string,
+  options?: ListWorkoutsOptions & { limit?: number },
+) {
   const following = await listFollowing(viewerId);
   if (following.length === 0) return [];
 
   const followingIds = following.map((u) => u.id);
-  const rows = await db
+  const q = options?.q?.trim() ?? "";
+  const muscleGroups = options?.muscleGroups ?? [];
+  const conditions = [inArray(workout.userId, followingIds)];
+
+  if (q) {
+    const pattern = sqlContainsPattern(q);
+    conditions.push(
+      or(
+        workoutContentSearchCondition(q),
+        ilike(user.name, pattern),
+        ilike(user.username, pattern),
+      )!,
+    );
+  }
+  if (muscleGroups.length > 0) {
+    conditions.push(workoutMuscleGroupCondition(muscleGroups));
+  }
+
+  const query = db
     .select({
       id: workout.id,
       name: workout.name,
+      author: workout.author,
+      channelUrl: workout.channelUrl,
       userId: workout.userId,
       createdAt: workout.createdAt,
       ownerName: user.name,
@@ -84,26 +114,44 @@ export async function listFollowingFeed(viewerId: string, limit = 50) {
         eq(follow.followerId, viewerId),
       ),
     )
-    .where(inArray(workout.userId, followingIds))
-    .orderBy(desc(workout.createdAt))
-    .limit(limit);
+    .where(and(...conditions))
+    .orderBy(desc(workout.createdAt));
 
-  return rows.flatMap((row) => {
+  const rows = options?.limit ? await query.limit(options.limit) : await query;
+
+  const visible = rows.flatMap((row) => {
     if (!row.ownerUsername) return [];
-    return [
+    return [row];
+  });
+  if (visible.length === 0) return [];
+
+  const enriched = await enrichWorkoutsWithStats(
+    visible.map((row) => ({
+      id: row.id,
+      name: row.name,
+      author: row.author,
+      channelUrl: row.channelUrl,
+      userId: row.userId,
+      createdAt: row.createdAt,
+    })),
+  );
+
+  const ownerById = new Map(
+    visible.map((row) => [
+      row.id,
       {
-        id: row.id,
-        name: row.name,
-        userId: row.userId,
-        createdAt: row.createdAt,
-        author: {
-          id: row.userId,
-          name: row.ownerName,
-          username: row.ownerUsername,
-          image: row.ownerImage,
-          isPrivate: row.ownerIsPrivate,
-        },
+        id: row.userId,
+        name: row.ownerName,
+        username: row.ownerUsername!,
+        image: row.ownerImage,
+        isPrivate: row.ownerIsPrivate,
       },
-    ];
+    ]),
+  );
+
+  return enriched.flatMap((item) => {
+    const owner = ownerById.get(item.id);
+    if (!owner) return [];
+    return [{ ...item, owner }];
   });
 }

@@ -25,7 +25,6 @@ import {
 import type { MetricProfile, TargetSet } from "@/db/schema/workout-schema";
 import { useComments } from "@/features/comments/hooks";
 import {
-  useExercises,
   useSets,
   useWorkout,
   useWorkoutExercises,
@@ -38,6 +37,7 @@ import {
   isRestWorkoutItem,
 } from "@/features/workouts/workout-item";
 import { getYouTubeVideoId } from "@/features/workouts/youtube";
+import { useSession } from "@/infrastructure/auth/client";
 import { cn } from "@/shared/utils";
 
 function googleImagesSearchUrl(query: string): string {
@@ -190,6 +190,7 @@ function WorkoutExerciseTabs({
   targetSets,
   sets,
   setsReady,
+  readOnly,
   onExerciseResolved,
 }: {
   workoutId: string;
@@ -199,6 +200,7 @@ function WorkoutExerciseTabs({
   targetSets?: TargetSet[] | null;
   sets: Set[];
   setsReady?: boolean;
+  readOnly?: boolean;
   onExerciseResolved?: (id: string) => void;
 }) {
   const [tab, setTab] = useState("sets");
@@ -249,6 +251,7 @@ function WorkoutExerciseTabs({
             targetSets={targetSets}
             sets={sets}
             setsReady={setsReady}
+            readOnly={readOnly}
             onExerciseResolved={onExerciseResolved}
           />
         </div>
@@ -277,24 +280,28 @@ export function WorkoutDetailPageClient() {
   const [activeWorkoutExerciseId, setActiveWorkoutExerciseId] = useState<
     string | null
   >(null);
+  const { data: session } = useSession();
 
   const workoutQuery = useWorkout(workoutId);
   const workoutExercisesQuery = useWorkoutExercises({ workoutId });
-  const exercisesQuery = useExercises();
   const setsQuery = useSets({ workoutId });
 
   const isLoading =
     workoutQuery.isLoading ||
     workoutExercisesQuery.isLoading ||
-    exercisesQuery.isLoading ||
     setsQuery.isLoading;
 
   const exerciseById = new Map(
-    (exercisesQuery.data?.items ?? []).map((exercise) => [
+    (workoutQuery.data?.exercises ?? []).map((exercise) => [
       exercise.id,
       exercise,
     ]),
   );
+
+  const readOnly =
+    workoutQuery.data != null &&
+    session?.user?.id != null &&
+    workoutQuery.data.userId !== session.user.id;
 
   const workoutExercises = sortWorkoutExercisesByTimestamp(
     workoutExercisesQuery.data?.items ?? [],
@@ -545,6 +552,7 @@ export function WorkoutDetailPageClient() {
                     targetSets={selectedItem.metaData?.targets}
                     sets={selectedSets}
                     setsReady={setsQuery.isSuccess}
+                    readOnly={readOnly}
                     onExerciseResolved={(id) => {
                       setActiveWorkoutExerciseId(id);
                     }}

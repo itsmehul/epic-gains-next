@@ -357,6 +357,7 @@ type ExerciseSetsPanelProps = {
   targetSets?: TargetSet[] | null;
   sets: Set[];
   setsReady?: boolean;
+  readOnly?: boolean;
   onExerciseResolved?: (workoutExerciseId: string) => void;
 };
 
@@ -368,6 +369,7 @@ export function ExerciseSetsPanel({
   targetSets,
   sets,
   setsReady = true,
+  readOnly = false,
   onExerciseResolved,
 }: ExerciseSetsPanelProps) {
   const createSet = useCreateSet();
@@ -379,10 +381,12 @@ export function ExerciseSetsPanel({
   const similarQuery = useSimilarExercises(exerciseId, {
     workoutId,
     workoutExerciseId,
-    enabled: showResolve,
+    enabled: showResolve && !readOnly,
   });
 
-  const workoutExerciseQuery = useWorkoutExercise(workoutExerciseId);
+  const workoutExerciseQuery = useWorkoutExercise(workoutExerciseId, {
+    enabled: !readOnly,
+  });
   const targetDraftsInitializedRef = useRef(false);
   const [drafts, setDrafts] = useState<DraftRow[]>(() =>
     draftsFromTargets(targetSets),
@@ -515,7 +519,7 @@ export function ExerciseSetsPanel({
         previous: previousSet ? valuesFromSet(previousSet) : null,
       };
     });
-    if (day !== today) return savedRows;
+    if (day !== today || readOnly) return savedRows;
 
     return [
       ...savedRows,
@@ -541,7 +545,8 @@ export function ExerciseSetsPanel({
   const isContentLoading =
     showEmpty &&
     (!setsReady ||
-      (workoutExerciseQuery.isPending &&
+      (!readOnly &&
+        workoutExerciseQuery.isPending &&
         drafts.length === 0 &&
         !targetSets?.length));
   const hasExtraValues =
@@ -1066,35 +1071,41 @@ export function ExerciseSetsPanel({
             <span className="text-sm">Loading sets…</span>
           </div>
         ) : showEmpty ? (
-          <Card size="sm">
-            <CardHeader>
-              <CardTitle>No sets yet</CardTitle>
-              <CardDescription>
-                Add a set to start logging, or link this move to an existing
-                exercise to unify history.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ExerciseResolveCard
-                workoutId={workoutId}
-                exerciseId={exerciseId}
-                workoutExerciseId={workoutExerciseId}
-                candidates={similarQuery.data?.items ?? []}
-                onResolved={(id) => {
-                  onExerciseResolved?.(id);
-                }}
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                className="mt-3 w-full"
-                onClick={handleAddSet}
-              >
-                <IconPlus data-icon="inline-start" />
-                Add set
-              </Button>
-            </CardContent>
-          </Card>
+          readOnly ? (
+            <p className="text-muted-foreground px-1 py-8 text-center text-sm">
+              No sets logged yet.
+            </p>
+          ) : (
+            <Card size="sm">
+              <CardHeader>
+                <CardTitle>No sets yet</CardTitle>
+                <CardDescription>
+                  Add a set to start logging, or link this move to an existing
+                  exercise to unify history.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ExerciseResolveCard
+                  workoutId={workoutId}
+                  exerciseId={exerciseId}
+                  workoutExerciseId={workoutExerciseId}
+                  candidates={similarQuery.data?.items ?? []}
+                  onResolved={(id) => {
+                    onExerciseResolved?.(id);
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="mt-3 w-full"
+                  onClick={handleAddSet}
+                >
+                  <IconPlus data-icon="inline-start" />
+                  Add set
+                </Button>
+              </CardContent>
+            </Card>
+          )
         ) : (
           <div className="flex flex-col gap-4">
             <section className="flex flex-col gap-2">
@@ -1107,21 +1118,27 @@ export function ExerciseSetsPanel({
                 </span>
               </div>
               {todayRows.length > 0 ? (
-                renderSetRows(todayRows)
+                readOnly ? (
+                  renderHistoryRows(todayRows)
+                ) : (
+                  renderSetRows(todayRows)
+                )
               ) : (
                 <p className="text-muted-foreground px-1 text-sm">
                   No sets logged today.
                 </p>
               )}
-              <Button
-                type="button"
-                variant="secondary"
-                className="w-full"
-                onClick={handleAddSet}
-              >
-                <IconPlus data-icon="inline-start" />
-                Add set
-              </Button>
+              {readOnly ? null : (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full"
+                  onClick={handleAddSet}
+                >
+                  <IconPlus data-icon="inline-start" />
+                  Add set
+                </Button>
+              )}
             </section>
 
             {pastGroups.map((group) => (

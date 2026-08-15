@@ -41,6 +41,12 @@ export async function getExerciseById(id: string) {
   return row ?? null;
 }
 
+export async function listExercisesByIds(ids: string[]) {
+  if (ids.length === 0) return [];
+  const uniqueIds = [...new Set(ids)];
+  return db.select().from(exercise).where(inArray(exercise.id, uniqueIds));
+}
+
 export async function getExerciseByIdForUser(id: string, userId: string) {
   const [row] = await db
     .select()

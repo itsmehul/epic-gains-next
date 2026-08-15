@@ -11,17 +11,19 @@ import {
   IconTrash,
   IconTrendingDown,
   IconTrendingUp,
+  IconUsers,
   IconX,
 } from "@tabler/icons-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 
 import {
   AppShellBody,
   AppShellHeader,
   AppShellScroll,
 } from "@/components/layout/app-shell";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
@@ -39,6 +41,8 @@ import {
 } from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
 import type { MuscleGroup } from "@/db/schema/workout-schema";
+import { useFollowingFeed } from "@/features/social/hooks";
+import type { FeedWorkoutItem, SocialUser } from "@/features/social/types";
 import { useDeleteWorkout, useWorkouts } from "@/features/workouts/hooks";
 import { MUSCLE_GROUP_OPTIONS } from "@/features/workouts/muscle-group";
 import type { WorkoutListStats, WorkoutWithStats } from "@/features/workouts/types";
@@ -48,6 +52,15 @@ import { cn } from "@/shared/utils";
 const springSoft = { type: "spring" as const, stiffness: 420, damping: 32 };
 const easeOut = [0.25, 1, 0.5, 1] as const;
 const SEARCH_DEBOUNCE_MS = 300;
+const SHELF_CARD_WIDTH = "minmax(13.75rem,13.75rem)";
+
+function initials(name: string) {
+  return name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
 
 function formatWorkoutDate(value: Date | string) {
   const date = value instanceof Date ? value : new Date(value);
@@ -91,6 +104,41 @@ function formatVolumeChange(pct: number) {
   const rounded = Math.round(Math.abs(pct));
   if (rounded === 0) return "Flat";
   return `${pct > 0 ? "+" : "−"}${rounded}%`;
+}
+
+function workoutCreatedAt(value: Date | string) {
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function sortWorkoutsByCreatedAtAsc<T extends { createdAt: Date | string }>(
+  items: T[],
+) {
+  return [...items].sort(
+    (a, b) => workoutCreatedAt(a.createdAt) - workoutCreatedAt(b.createdAt),
+  );
+}
+
+function groupFollowingByOwner(items: FeedWorkoutItem[]) {
+  const groups = new Map<
+    string,
+    { owner: SocialUser; workouts: FeedWorkoutItem[] }
+  >();
+  for (const item of items) {
+    const existing = groups.get(item.owner.id);
+    if (existing) {
+      existing.workouts.push(item);
+      continue;
+    }
+    groups.set(item.owner.id, { owner: item.owner, workouts: [item] });
+  }
+
+  return [...groups.values()]
+    .map((group) => ({
+      owner: group.owner,
+      workouts: sortWorkoutsByCreatedAtAsc(group.workouts),
+    }))
+    .sort((a, b) => a.owner.name.localeCompare(b.owner.name));
 }
 
 function MuscleGroupChips({
@@ -222,12 +270,12 @@ function WorkoutFeedCard({
   onDelete,
 }: {
   workout: WorkoutWithStats;
-  onDelete: () => void;
+  onDelete?: () => void;
 }) {
   const thumbnail = workout.videoUrl
     ? getYouTubeThumbnailUrl(workout.videoUrl)
     : null;
-  const channel = workout.author?.trim() || "Imported workout";
+  const youtubeAuthor = workout.author?.trim() || "Imported workout";
   const createdLabel = formatWorkoutDate(workout.createdAt);
   const progressPct =
     workout.stats.exerciseCount > 0
@@ -238,7 +286,7 @@ function WorkoutFeedCard({
       : null;
 
   return (
-    <article className="group flex flex-col gap-3">
+    <article className="group flex w-55 flex-col gap-2.5">
       <Link
         href={`/workouts/${workout.id}`}
         className="relative block overflow-hidden rounded-xl bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
@@ -254,12 +302,12 @@ function WorkoutFeedCard({
             />
           ) : (
             <div className="flex size-full items-center justify-center bg-linear-to-br from-zinc-800 to-zinc-950 text-zinc-500">
-              <IconBarbell className="size-12" stroke={1.25} />
+              <IconBarbell className="size-10" stroke={1.25} />
             </div>
           )}
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-            <span className="flex size-12 items-center justify-center rounded-full bg-black/70 text-white shadow-lg">
-              <IconPlayerPlayFilled className="size-6 translate-x-px" />
+            <span className="flex size-10 items-center justify-center rounded-full bg-black/70 text-white shadow-lg">
+              <IconPlayerPlayFilled className="size-5 translate-x-px" />
             </span>
           </div>
           {progressPct != null && workout.stats.setCount > 0 ? (
@@ -275,7 +323,7 @@ function WorkoutFeedCard({
         </div>
       </Link>
 
-      <div className="flex gap-3">
+      <div className="flex min-w-0 gap-1">
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-1">
             <Link href={`/workouts/${workout.id}`} className="min-w-0 flex-1">
@@ -283,36 +331,38 @@ function WorkoutFeedCard({
                 {workout.name}
               </h2>
             </Link>
-            <Popover>
-              <PopoverTrigger
-                render={
+            {onDelete ? (
+              <Popover>
+                <PopoverTrigger
+                  render={
+                    <Button
+                      type="button"
+                      size="icon-xs"
+                      variant="ghost"
+                      className="mt-0.5 shrink-0 opacity-70 hover:opacity-100"
+                      aria-label={`More actions for ${workout.name}`}
+                    />
+                  }
+                >
+                  <IconDotsVertical className="size-4" />
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-40 gap-1 p-1.5">
                   <Button
                     type="button"
-                    size="icon-xs"
+                    size="sm"
                     variant="ghost"
-                    className="mt-0.5 shrink-0 opacity-70 hover:opacity-100"
-                    aria-label={`More actions for ${workout.name}`}
-                  />
-                }
-              >
-                <IconDotsVertical className="size-4" />
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-40 gap-1 p-1.5">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="text-destructive hover:bg-destructive/10 w-full justify-start"
-                  onClick={onDelete}
-                >
-                  <IconTrash className="size-3.5" data-icon="inline-start" />
-                  Delete
-                </Button>
-              </PopoverContent>
-            </Popover>
+                    className="text-destructive hover:bg-destructive/10 w-full justify-start"
+                    onClick={onDelete}
+                  >
+                    <IconTrash className="size-3.5" data-icon="inline-start" />
+                    Delete
+                  </Button>
+                </PopoverContent>
+              </Popover>
+            ) : null}
           </div>
           <p className="text-muted-foreground mt-0.5 truncate text-xs">
-            {channel}
+            {youtubeAuthor}
             {createdLabel ? ` · ${createdLabel}` : null}
           </p>
           <div className="mt-1">
@@ -324,9 +374,99 @@ function WorkoutFeedCard({
   );
 }
 
+function WorkoutShelf({
+  title,
+  href,
+  owner,
+  workouts,
+  emptyHint,
+  onDeleteWorkout,
+}: {
+  title: string;
+  href?: string;
+  owner?: SocialUser;
+  workouts: WorkoutWithStats[];
+  emptyHint?: ReactNode;
+  onDeleteWorkout?: (workout: WorkoutWithStats) => void;
+}) {
+  if (workouts.length === 0 && !emptyHint) return null;
+
+  return (
+    <section className="flex flex-col gap-3">
+      <header className="flex min-w-0 items-center gap-2.5">
+        {owner ? (
+          <Link
+            href={href ?? `/u/${owner.username}`}
+            className="flex min-w-0 items-center gap-2.5"
+          >
+            <Avatar size="sm">
+              {owner.image ? <AvatarImage alt="" src={owner.image} /> : null}
+              <AvatarFallback>{initials(owner.name)}</AvatarFallback>
+            </Avatar>
+            <h2 className="truncate text-base font-semibold tracking-tight">
+              {title}
+            </h2>
+          </Link>
+        ) : (
+          <h2 className="truncate text-base font-semibold tracking-tight">
+            {title}
+          </h2>
+        )}
+      </header>
+      {workouts.length === 0 ? (
+        <div className="text-muted-foreground text-sm">{emptyHint}</div>
+      ) : (
+        <div className="-mx-4 overflow-x-auto overscroll-x-contain px-4 scrollbar-none md:-mx-6 md:px-6">
+          <ul
+            className="grid w-max grid-flow-col grid-rows-1 gap-x-3"
+            style={{ gridAutoColumns: SHELF_CARD_WIDTH }}
+          >
+            {workouts.map((workout) => (
+              <li key={workout.id}>
+                <WorkoutFeedCard
+                  workout={workout}
+                  onDelete={
+                    onDeleteWorkout
+                      ? () => onDeleteWorkout(workout)
+                      : undefined
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function WorkoutShelfSkeleton({ index }: { index: number }) {
+  return (
+    <div className="flex flex-col gap-3" aria-hidden>
+      <div
+        className="bg-muted h-5 w-28 animate-pulse rounded-md"
+        style={{ animationDelay: `${index * 80}ms` }}
+      />
+      <div className="-mx-4 overflow-hidden px-4 md:-mx-6 md:px-6">
+        <div
+          className="grid w-max grid-flow-col grid-rows-1 gap-x-3"
+          style={{ gridAutoColumns: SHELF_CARD_WIDTH }}
+        >
+          {Array.from({ length: 4 }, (_, cardIndex) => (
+            <WorkoutFeedSkeleton key={cardIndex} index={index * 4 + cardIndex} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function WorkoutFeedSkeleton({ index }: { index: number }) {
   return (
-    <div className="flex flex-col gap-3" style={{ animationDelay: `${index * 60}ms` }}>
+    <div
+      className="flex w-55 flex-col gap-2.5"
+      style={{ animationDelay: `${index * 60}ms` }}
+    >
       <div className="bg-muted aspect-video animate-pulse rounded-xl" />
       <div className="flex min-w-0 flex-col gap-2">
         <div
@@ -431,17 +571,40 @@ export function WorkoutsPageClient() {
     return () => window.clearTimeout(timeoutId);
   }, [searchInput]);
 
-  const workoutsQuery = useWorkouts({
+  const mineQuery = useWorkouts({
     q: debouncedSearch,
     muscleGroups,
   });
-  const items = workoutsQuery.data?.items ?? [];
+  const followingQuery = useFollowingFeed({
+    q: debouncedSearch,
+    muscleGroups,
+  });
+
+  const personalWorkouts = useMemo(
+    () => sortWorkoutsByCreatedAtAsc(mineQuery.data?.items ?? []),
+    [mineQuery.data?.items],
+  );
+  const followingSections = useMemo(
+    () => groupFollowingByOwner(followingQuery.data?.items ?? []),
+    [followingQuery.data?.items],
+  );
+
+  const isInitialLoading = mineQuery.isPending && followingQuery.isPending;
+  const isError = mineQuery.isError || followingQuery.isError;
+  const error = mineQuery.error ?? followingQuery.error;
+  const isFetching = mineQuery.isFetching || followingQuery.isFetching;
   const hasSearch = debouncedSearch.length > 0;
   const hasFilters = hasSearch || muscleGroups.length > 0;
-  const showList =
-    !workoutsQuery.isLoading && !workoutsQuery.isError && items.length > 0;
-  const showEmpty =
-    !workoutsQuery.isLoading && !workoutsQuery.isError && items.length === 0;
+  const hasSections =
+    personalWorkouts.length > 0 || followingSections.length > 0;
+  const bothReady = !mineQuery.isPending && !followingQuery.isPending;
+  const showEmpty = bothReady && !isError && !hasSections;
+  const showList = !isError && !isInitialLoading && !showEmpty;
+
+  function refetchAll() {
+    void mineQuery.refetch();
+    void followingQuery.refetch();
+  }
 
   return (
     <AppShellScroll>
@@ -480,8 +643,8 @@ export function WorkoutsPageClient() {
                 type="search"
                 value={searchInput}
                 maxLength={200}
-                placeholder="Search workouts, creators, or muscles"
-                aria-label="Search workouts by name, author, muscle group, or key muscles"
+                placeholder="Search workouts, friends, or muscles"
+                aria-label="Search workouts by name, friend, author, muscle group, or key muscles"
                 className="bg-muted/50 h-10 rounded-full pr-10 pl-10"
                 onChange={(event) => setSearchInput(event.target.value)}
               />
@@ -504,19 +667,19 @@ export function WorkoutsPageClient() {
             />
           </div>
 
-          {workoutsQuery.isLoading ? (
+          {isInitialLoading ? (
             <div
-              className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 xl:grid-cols-3"
+              className="flex flex-col gap-8"
               aria-busy="true"
               aria-label="Loading workouts"
             >
-              {Array.from({ length: 6 }, (_, index) => (
-                <WorkoutFeedSkeleton key={index} index={index} />
+              {Array.from({ length: 2 }, (_, index) => (
+                <WorkoutShelfSkeleton key={index} index={index} />
               ))}
             </div>
           ) : null}
 
-          {workoutsQuery.isError ? (
+          {isError ? (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -529,8 +692,8 @@ export function WorkoutsPageClient() {
                   Couldn’t load workouts
                 </p>
                 <p className="text-muted-foreground text-sm">
-                  {workoutsQuery.error instanceof Error
-                    ? workoutsQuery.error.message
+                  {error instanceof Error
+                    ? error.message
                     : "Something went wrong. Try again."}
                 </p>
               </div>
@@ -538,7 +701,7 @@ export function WorkoutsPageClient() {
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => void workoutsQuery.refetch()}
+                onClick={refetchAll}
               >
                 <IconRefresh className="size-3.5" data-icon="inline-start" />
                 Retry
@@ -558,7 +721,11 @@ export function WorkoutsPageClient() {
                 className="absolute inset-0 bg-[radial-gradient(color-mix(in_oklch,var(--foreground)_12%,transparent)_1px,transparent_1px)] bg-size-[14px_14px] opacity-[0.35]"
               />
               <div className="relative flex size-14 items-center justify-center rounded-2xl bg-primary/15 text-primary ring-1 ring-primary/20">
-                <IconBrandYoutube className="size-7 text-red-500" stroke={1.5} />
+                {hasFilters ? (
+                  <IconSearch className="size-7" stroke={1.5} />
+                ) : (
+                  <IconBrandYoutube className="size-7 text-red-500" stroke={1.5} />
+                )}
               </div>
               <div className="relative flex max-w-xs flex-col gap-2">
                 <p className="text-base font-semibold tracking-tight">
@@ -566,8 +733,8 @@ export function WorkoutsPageClient() {
                 </p>
                 <p className="text-muted-foreground text-sm leading-relaxed">
                   {hasFilters
-                    ? "Nothing matched those filters. Try a different name, creator, or muscle."
-                    : "Import a YouTube workout and it will show up here like a video in your feed."}
+                    ? "Nothing matched those filters. Try a different name, friend, or muscle."
+                    : "Import a YouTube workout, or follow friends to see their workouts here."}
                 </p>
               </div>
               {hasFilters ? (
@@ -583,40 +750,85 @@ export function WorkoutsPageClient() {
                   Clear filters
                 </Button>
               ) : (
-                <Link href="/workouts/import" className={cn(buttonVariants(), "relative")}>
-                  <IconBrandYoutube className="size-4 text-red-500" data-icon="inline-start" />
-                  Import
-                </Link>
+                <div className="relative flex flex-wrap items-center justify-center gap-2">
+                  <Link href="/workouts/import" className={cn(buttonVariants())}>
+                    <IconBrandYoutube className="size-4 text-red-500" data-icon="inline-start" />
+                    Import
+                  </Link>
+                  <Link
+                    href="/friends"
+                    className={cn(buttonVariants({ variant: "outline" }))}
+                  >
+                    <IconUsers className="size-4" data-icon="inline-start" />
+                    Find friends
+                  </Link>
+                </div>
               )}
             </motion.div>
           ) : null}
 
           {showList ? (
-            <ul
+            <div
               className={cn(
-                "grid grid-cols-1 gap-x-4 gap-y-8 transition-opacity duration-200 sm:grid-cols-2 xl:grid-cols-3",
-                workoutsQuery.isFetching && "opacity-70",
+                "flex flex-col gap-8 transition-opacity duration-200",
+                isFetching && "opacity-70",
               )}
             >
               <AnimatePresence initial={false}>
-                {items.map((workout, index) => (
-                  <motion.li
-                    key={workout.id}
+                {mineQuery.isPending ? (
+                  <WorkoutShelfSkeleton key="personal-loading" index={0} />
+                ) : (
+                  <motion.div
+                    key="personal"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{
-                      ...springSoft,
-                      delay: Math.min(index * 0.035, 0.28),
-                    }}
+                    transition={springSoft}
                   >
-                    <WorkoutFeedCard
-                      workout={workout}
-                      onDelete={() => setDeleteTarget(workout)}
+                    <WorkoutShelf
+                      emptyHint={
+                        personalWorkouts.length === 0 ? (
+                          hasFilters ? (
+                            "No matching personal workouts."
+                          ) : (
+                            <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                              Import a YouTube workout to fill this row.
+                              <Link
+                                href="/workouts/import"
+                                className="text-foreground font-medium underline-offset-4 hover:underline"
+                              >
+                                Import
+                              </Link>
+                            </span>
+                          )
+                        ) : undefined
+                      }
+                      title="Personal"
+                      workouts={personalWorkouts}
+                      onDeleteWorkout={setDeleteTarget}
                     />
-                  </motion.li>
-                ))}
+                  </motion.div>
+                )}
+                {followingQuery.isPending ? (
+                  <WorkoutShelfSkeleton key="following-loading" index={1} />
+                ) : (
+                  followingSections.map((section) => (
+                    <motion.div
+                      key={section.owner.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={springSoft}
+                    >
+                      <WorkoutShelf
+                        href={`/u/${section.owner.username}`}
+                        owner={section.owner}
+                        title={section.owner.name}
+                        workouts={section.workouts}
+                      />
+                    </motion.div>
+                  ))
+                )}
               </AnimatePresence>
-            </ul>
+            </div>
           ) : null}
         </div>
       </AppShellBody>

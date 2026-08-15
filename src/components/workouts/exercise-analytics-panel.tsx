@@ -6,12 +6,7 @@ import { BarXAxis } from "@/components/charts/bar-x-axis";
 import { chartCssVars } from "@/components/charts/chart-context";
 import { Grid } from "@/components/charts/grid";
 import { ChartTooltip } from "@/components/charts/tooltip";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { IconChartBar } from "@tabler/icons-react";
 import type { MetricProfile } from "@/db/schema/workout-schema";
 import { fieldsForMetricProfile } from "@/features/workouts/metric-profile";
 import {
@@ -175,15 +170,19 @@ export function ExerciseAnalyticsPanel({
   if (sets.length === 0) {
     return (
       <div className="px-4 md:px-0">
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle>No analytics yet</CardTitle>
-            <CardDescription>
-              Log a few sets to see volume, session trends, and personal bests
-              for this exercise.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        <div className="text-muted-foreground flex flex-col items-center gap-1.5 py-6 text-center">
+          <IconChartBar
+            className="text-muted-foreground/50 size-5"
+            stroke={1.5}
+          />
+          <p className="text-foreground text-sm font-medium">
+            No analytics yet
+          </p>
+          <p className="max-w-64 text-sm leading-5">
+            Log a few sets to see volume, session trends, and personal bests for
+            this exercise.
+          </p>
+        </div>
       </div>
     );
   }

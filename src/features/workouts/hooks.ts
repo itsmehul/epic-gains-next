@@ -36,6 +36,7 @@ import type {
   MergeExerciseResult,
   Set,
   Workout,
+  WorkoutDetail,
   WorkoutExercise,
 } from "@/features/workouts/types";
 import { apiFetch } from "@/shared/api";
@@ -89,12 +90,14 @@ export const setKeys = {
 export function useWorkouts(options?: {
   q?: string;
   muscleGroups?: string[];
+  enabled?: boolean;
 }) {
   const q = options?.q?.trim() ?? "";
   const muscleGroups = [...(options?.muscleGroups ?? [])].sort();
 
   return useQuery({
     queryKey: workoutKeys.list({ q, muscleGroups }),
+    enabled: options?.enabled ?? true,
     queryFn: () => {
       const params = new URLSearchParams();
       if (q) params.set("q", q);
@@ -114,7 +117,7 @@ export function useWorkout(id: string | null) {
   return useQuery({
     queryKey: workoutKeys.detail(id ?? ""),
     enabled: Boolean(id),
-    queryFn: () => apiFetch<Workout>(`/api/workouts/${id}`),
+    queryFn: () => apiFetch<WorkoutDetail>(`/api/workouts/${id}`),
   });
 }
 
@@ -323,10 +326,13 @@ export function useWorkoutExercises(options?: {
   });
 }
 
-export function useWorkoutExercise(id: string | null) {
+export function useWorkoutExercise(
+  id: string | null,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
     queryKey: workoutExerciseKeys.detail(id ?? ""),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && (options?.enabled ?? true),
     queryFn: () => apiFetch<WorkoutExercise>(`/api/workout-exercises/${id}`),
   });
 }

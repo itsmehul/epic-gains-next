@@ -25,8 +25,8 @@ function initials(name: string) {
     .join("");
 }
 
-function formatWhen(iso: string) {
-  const date = new Date(iso);
+function formatWhen(value: Date | string) {
+  const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleDateString(undefined, {
     month: "short",
@@ -85,17 +85,17 @@ export function DashboardPageClient({ userName }: DashboardPageClientProps) {
                     href={`/workouts/${item.id}`}
                   >
                     <Avatar size="default">
-                      {item.author.image ? (
-                        <AvatarImage alt="" src={item.author.image} />
+                      {item.owner.image ? (
+                        <AvatarImage alt="" src={item.owner.image} />
                       ) : null}
                       <AvatarFallback>
-                        {initials(item.author.name)}
+                        {initials(item.owner.name)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
                       <p className="font-medium leading-snug">{item.name}</p>
                       <p className="text-muted-foreground truncate text-sm">
-                        @{item.author.username}
+                        @{item.owner.username}
                         {item.createdAt
                           ? ` · ${formatWhen(item.createdAt)}`
                           : null}

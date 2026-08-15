@@ -1,3 +1,5 @@
+import type { WorkoutWithStats } from "@/features/workouts/types";
+
 export type SocialUser = {
   id: string;
   name: string;
@@ -21,12 +23,8 @@ export type FollowRequestItem = {
   requester: SocialUser;
 };
 
-export type FeedWorkoutItem = {
-  id: string;
-  name: string;
-  userId: string;
-  createdAt: string;
-  author: SocialUser;
+export type FeedWorkoutItem = WorkoutWithStats & {
+  owner: SocialUser;
 };
 
 export type ListUsersResult = { items: SocialUser[] };

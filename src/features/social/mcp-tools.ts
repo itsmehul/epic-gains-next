@@ -14,6 +14,7 @@ import {
   searchUsers,
 } from "@/db/repositories/social.repository";
 import { updateSocialProfileSchema } from "@/features/social/schemas";
+import { listWorkoutsQuerySchema } from "@/features/workouts/schemas";
 import {
   acceptFollowRequest,
   buildProfilePayload,
@@ -209,19 +210,21 @@ export function registerSocialMcpTools(server: McpServer) {
     "list_following_feed",
     {
       title: "List following feed",
-      description: "List recent workouts from people you follow.",
-      inputSchema: z.object({}),
+      description:
+        "List workouts from people you follow. Optionally filter by search text or muscle group.",
+      inputSchema: z.object({
+        query: z.string().trim().max(200).optional(),
+        muscleGroup: listWorkoutsQuerySchema.shape.muscleGroup,
+      }),
     },
-    async () => {
+    async ({ query, muscleGroup }) => {
       const { userId } = getMcpAuth();
       await ensureUserSocialProfile(userId);
-      const items = await listFollowingFeed(userId);
-      return mcpTextResult({
-        items: items.map((item) => ({
-          ...item,
-          createdAt: item.createdAt.toISOString(),
-        })),
+      const items = await listFollowingFeed(userId, {
+        q: query,
+        muscleGroups: muscleGroup,
       });
+      return mcpTextResult({ items });
     },
   );
 }

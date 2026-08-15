@@ -1,6 +1,6 @@
 "use client";
 
-import { IconCheck, IconCopy } from "@tabler/icons-react";
+import { IconCheck, IconCopy, IconExternalLink } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { useId, useMemo, useState, type FormEvent } from "react";
 
@@ -213,14 +213,21 @@ export function YoutubeImportPageClient() {
             return (
               <li key={item.id} className="flex gap-3">
                 <div className="flex w-7 shrink-0 flex-col items-center self-stretch">
-                  <span
+                  <button
+                    type="button"
+                    disabled={!reachable}
+                    aria-current={active ? "step" : undefined}
+                    aria-label={`Go to ${item.label}`}
+                    onClick={() => goToStep(item.id)}
                     className={cn(
                       "flex size-7 items-center justify-center rounded-full text-xs font-medium",
                       active
                         ? "bg-primary text-primary-foreground"
                         : completed
-                          ? "bg-primary/15 text-primary"
-                          : "bg-muted text-muted-foreground",
+                          ? "bg-primary/15 text-primary hover:bg-primary/25"
+                          : reachable
+                            ? "bg-muted text-muted-foreground hover:text-foreground"
+                            : "cursor-not-allowed bg-muted text-muted-foreground",
                     )}
                   >
                     {completed && !active ? (
@@ -228,7 +235,7 @@ export function YoutubeImportPageClient() {
                     ) : (
                       item.id
                     )}
-                  </span>
+                  </button>
                   {last ? null : (
                     <span
                       aria-hidden
@@ -319,6 +326,21 @@ export function YoutubeImportPageClient() {
                             Copy Prompt
                           </>
                         )}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full gap-2"
+                        onClick={() => {
+                          window.open(
+                            "https://gemini.google.com/app",
+                            "_blank",
+                            "noopener,noreferrer",
+                          );
+                        }}
+                      >
+                        <IconExternalLink className="size-4" />
+                        Open Gemini
                       </Button>
                       <Button type="button" onClick={() => advanceTo(3)}>
                         Next: Paste JSON Output
