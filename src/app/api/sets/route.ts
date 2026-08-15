@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { unlockNewAchievementsForUser } from "@/db/repositories/achievement.repository";
 import { getExerciseByIdForUser } from "@/db/repositories/exercise.repository";
 import { getVisibleWorkoutById } from "@/db/repositories/feed.repository";
 import { createSet, listSets } from "@/db/repositories/set.repository";
@@ -99,7 +100,14 @@ export async function POST(req: Request) {
       exerciseId: parsed.data.exerciseId,
     });
 
-    return NextResponse.json(item, { status: 201 });
+    const unlockedAchievements = await unlockNewAchievementsForUser(
+      session.user.id,
+    );
+
+    return NextResponse.json(
+      { ...item, unlockedAchievements },
+      { status: 201 },
+    );
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to create set";

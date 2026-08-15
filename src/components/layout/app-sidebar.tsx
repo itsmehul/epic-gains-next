@@ -1,6 +1,7 @@
 "use client";
 
-import { IconBarbell, IconSparkles, IconUsers, IconX } from "@tabler/icons-react";
+import { IconBarbell, IconSparkles, IconTrophy, IconUsers, IconX } from "@tabler/icons-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -32,7 +33,7 @@ type AppSidebarProps = AppSidebarContentProps & {
 };
 
 const sidebarNavItemClassName =
-  "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors";
+  "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition-[background-color,color,box-shadow] duration-200 ease-[cubic-bezier(0.2,0,0,1)]";
 
 function SidebarNavItem({
   active,
@@ -48,8 +49,8 @@ function SidebarNavItem({
   const className = cn(
     sidebarNavItemClassName,
     active
-      ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+      ? "bg-sidebar-accent/80 font-medium text-sidebar-foreground"
+      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
   );
 
   if (closeOnNavigate) {
@@ -76,9 +77,15 @@ function SidebarBrand({ closeOnNavigate = false }: { closeOnNavigate?: boolean }
 
   const content = (
     <>
-      <span className="grid size-7 shrink-0 place-items-center overflow-hidden rounded-full bg-black">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={BRAND_ICON} alt="" className="h-full w-full" aria-hidden />
+      <span className="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full">
+        <Image
+          src={BRAND_ICON}
+          alt=""
+          width={32}
+          height={32}
+          className="size-8 object-contain"
+          aria-hidden
+        />
       </span>
       <span className="min-w-0 truncate text-[15px] font-semibold leading-none tracking-tight text-sidebar-foreground [font-family:var(--font-heading)]">
         {APP_NAME}
@@ -104,8 +111,17 @@ function AppSidebarContent({
   const pathname = usePathname();
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-14 shrink-0 items-center justify-between gap-2 px-4">
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,color-mix(in_oklch,var(--sidebar-primary)_8%,transparent)_0%,transparent_38%)]"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-24 left-0 size-40 rounded-full bg-sidebar-primary/8 blur-3xl"
+      />
+
+      <div className="relative flex h-14 shrink-0 items-center justify-between gap-2 px-4">
         <SidebarBrand closeOnNavigate={showCloseButton} />
         {showCloseButton ? (
           <SheetClose
@@ -123,7 +139,7 @@ function AppSidebarContent({
         ) : null}
       </div>
 
-      <div className="shrink-0 space-y-2 p-3">
+      <div className="relative shrink-0 space-y-1.5 p-3">
         <SidebarNavItem
           active={pathname.startsWith("/workouts")}
           closeOnNavigate={showCloseButton}
@@ -141,6 +157,14 @@ function AppSidebarContent({
           Friends
         </SidebarNavItem>
         <SidebarNavItem
+          active={pathname.startsWith("/achievements")}
+          closeOnNavigate={showCloseButton}
+          href="/achievements"
+        >
+          <IconTrophy className="size-4 shrink-0" />
+          Achievements
+        </SidebarNavItem>
+        <SidebarNavItem
           active={pathname.startsWith("/skills")}
           closeOnNavigate={showCloseButton}
           href="/skills"
@@ -150,16 +174,18 @@ function AppSidebarContent({
         </SidebarNavItem>
       </div>
 
-      <SidebarAccountFooter
-        accountProfile={accountProfile}
-        closeOnNavigate={showCloseButton}
-      />
+      <div className="relative mt-auto min-h-0">
+        <SidebarAccountFooter
+          accountProfile={accountProfile}
+          closeOnNavigate={showCloseButton}
+        />
+      </div>
     </div>
   );
 }
 
 const sidebarSurfaceClassName =
-  "bg-sidebar text-sidebar-foreground border-sidebar-border";
+  "relative isolate overflow-hidden bg-sidebar text-sidebar-foreground border-sidebar-border";
 
 export function AppSidebar({
   accountProfile,

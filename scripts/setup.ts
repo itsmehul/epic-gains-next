@@ -42,7 +42,9 @@ async function main() {
     console.log(".env already exists — left untouched");
   }
 
-  await mkdir(path.join(root, "public", "icons"), { recursive: true });
+  await mkdir(path.join(root, "public", "logos", "favicon_io"), {
+    recursive: true,
+  });
 
   console.log(`
 Ready, ${answers.appName}.

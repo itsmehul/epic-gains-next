@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -57,10 +58,14 @@ export default function SignUpPage() {
       <Card className="relative w-full max-w-md shadow-xl">
         <CardHeader className="space-y-3">
           <div className="flex items-center gap-2.5">
-            <span className="grid size-8 place-items-center overflow-hidden rounded-[18.8%] bg-black">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={BRAND_ICON} alt="" className="h-full w-full" aria-hidden />
-            </span>
+            <Image
+              src={BRAND_ICON}
+              alt=""
+              width={32}
+              height={32}
+              className="size-8"
+              aria-hidden
+            />
             <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-primary">
               {APP_NAME}
             </p>

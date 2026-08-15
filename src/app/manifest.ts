@@ -23,16 +23,22 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: APP_THEME_COLOR,
     icons: [
       {
-        purpose: "maskable",
-        sizes: "512x512",
-        src: "icons/icon512_maskable.png",
+        src: "/logos/favicon_io/android-chrome-192x192.png",
+        sizes: "192x192",
         type: "image/png",
+        purpose: "any",
       },
       {
-        purpose: "any",
+        src: "/logos/favicon_io/android-chrome-512x512.png",
         sizes: "512x512",
-        src: "icons/icon512_rounded.png",
         type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/logos/favicon_io/android-chrome-512x512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
       },
     ],
     screenshots: [

@@ -7,6 +7,11 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 
+import {
+  achievementKeys,
+  emitAchievementUnlocks,
+} from "@/features/achievements/hooks";
+import type { UnlockedAchievement } from "@/features/achievements/types";
 import type {
   CreateExerciseInput,
   CreateSetInput,
@@ -405,17 +410,23 @@ export function useSet(id: string | null) {
   });
 }
 
+export type CreateSetResult = Set & {
+  unlockedAchievements?: UnlockedAchievement[];
+};
+
 export function useCreateSet() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateSetInput) =>
-      apiFetch<Set>("/api/sets", {
+      apiFetch<CreateSetResult>("/api/sets", {
         method: "POST",
         body: JSON.stringify(input),
       }),
-    onSuccess: () => {
+    onSuccess: (item) => {
+      emitAchievementUnlocks(item.unlockedAchievements ?? []);
       void queryClient.invalidateQueries({ queryKey: setKeys.all });
       void queryClient.invalidateQueries({ queryKey: workoutKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: achievementKeys.all });
     },
   });
 }

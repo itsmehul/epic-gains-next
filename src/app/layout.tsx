@@ -39,20 +39,30 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/favicon.ico", sizes: "48x48" },
       {
-        url: "/icons/icon512_rounded.png",
-        sizes: "512x512",
+        url: "/logos/favicon_io/favicon-16x16.png",
+        sizes: "16x16",
+        type: "image/png",
+      },
+      {
+        url: "/logos/favicon_io/favicon-32x32.png",
+        sizes: "32x32",
+        type: "image/png",
+      },
+      {
+        url: "/logos/favicon_io/android-chrome-192x192.png",
+        sizes: "192x192",
         type: "image/png",
       },
     ],
     apple: [
       {
-        url: "/icons/icon512_rounded.png",
-        sizes: "512x512",
+        url: "/logos/favicon_io/apple-touch-icon.png",
+        sizes: "180x180",
         type: "image/png",
       },
     ],
+    shortcut: "/favicon.ico",
   },
 };
 

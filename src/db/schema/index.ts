@@ -3,3 +3,4 @@ export * from "./oauth-schema";
 export * from "./mcp-schema";
 export * from "./workout-schema";
 export * from "./social-schema";
+export * from "./achievement-schema";

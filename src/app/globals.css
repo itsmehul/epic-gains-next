@@ -201,3 +201,92 @@
 .dark .auth-shapes {
   mix-blend-mode: screen;
 }
+
+.fit-landing {
+  color-scheme: light;
+}
+
+@keyframes fit-blob-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(18px, -12px, 0);
+  }
+}
+
+@keyframes fit-blob-drift-slow {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(-14px, 16px, 0);
+  }
+}
+
+.fit-blob-drift {
+  animation: fit-blob-drift 18s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.fit-blob-drift-slow {
+  animation: fit-blob-drift-slow 24s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fit-blob-drift,
+  .fit-blob-drift-slow {
+    animation: none;
+  }
+}
+
+/* MagicPattern-style CSS backgrounds: https://www.magicpattern.design/tools/css-backgrounds */
+.pattern-diagonal {
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--primary-foreground) 16%, transparent) 0,
+    color-mix(in oklch, var(--primary-foreground) 16%, transparent) 1px,
+    transparent 1px,
+    transparent 12px
+  );
+}
+
+.pattern-dots {
+  background-image: radial-gradient(
+    color-mix(in oklch, var(--primary) 22%, transparent) 1.15px,
+    transparent 1.16px
+  );
+  background-size: 10px 10px;
+}
+
+.pattern-graph {
+  background-image:
+    linear-gradient(
+      color-mix(in oklch, var(--foreground) 6%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--foreground) 6%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 14px 14px;
+}
+
+.pattern-plus {
+  background-image:
+    linear-gradient(
+      color-mix(in oklch, var(--primary-foreground) 22%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--primary-foreground) 22%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 18px 18px;
+  mask-image: radial-gradient(ellipse 80% 90% at 100% 0%, black 20%, transparent 72%);
+}
