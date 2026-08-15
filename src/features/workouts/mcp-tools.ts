@@ -11,7 +11,6 @@ import {
   fillMissingExerciseCatalogFields,
   getExerciseByIdForUser,
   listExercisesForUser,
-  resolveCanonicalRestExercise,
 } from "@/db/repositories/exercise.repository";
 import {
   deleteWorkoutExercise,
@@ -45,7 +44,7 @@ import {
   parseIsoDate,
   SET_PERIOD_VALUES,
 } from "@/features/workouts/set-day";
-import { isRestWorkoutItem, withRestTag } from "@/features/workouts/workout-item";
+import { isRestWorkoutItem } from "@/features/workouts/workout-item";
 import { getMcpAuth } from "@/infrastructure/mcp/context";
 import {
   mcpErrorResult,
@@ -89,7 +88,7 @@ export function registerWorkoutMcpTools(server: McpServer) {
     {
       title: "Import full workout",
       description:
-        "Import a full follow-along video workout. Include rest periods as items named Rest with timestamps — they are timeline markers, not logged exercises. All rests share one Rest exercise per user. Reuses an existing exercise when the name already exists for this user (canonical name or prior workout alias); otherwise creates one. The same exercise may appear more than once in the workout. Chapter timestamps are the START of each move: videoStartTime is that chapter's time, videoEndTime is the next chapter's time (or video duration for the last move). Do not shift starts onto the next chapter.",
+        "Import a full follow-along video workout. Reuses an existing exercise when the name already exists for this user (canonical name or prior workout alias); otherwise creates one. The same exercise may appear more than once in the workout. Chapter timestamps are the START of each move: videoStartTime is that chapter's time, videoEndTime is the next chapter's time (or video duration for the last move). Do not shift starts onto the next chapter.",
       inputSchema: importFullWorkoutSchema,
     },
     async (args) => {
@@ -171,30 +170,8 @@ export function registerWorkoutMcpTools(server: McpServer) {
             }
           }
 
-          const hasRest = args.exercises.some((ex) =>
-            isRestWorkoutItem({ name: ex.name, tags: ex.tags }),
-          );
-          const restExerciseId = hasRest
-            ? await resolveCanonicalRestExercise(tx, userId)
-            : null;
-
           for (const ex of args.exercises) {
-            if (isRestWorkoutItem({ name: ex.name, tags: ex.tags })) {
-              if (!restExerciseId) continue;
-              await tx.insert(workoutExercise).values({
-                id: crypto.randomUUID(),
-                workoutId,
-                exerciseId: restExerciseId,
-                name: ex.name,
-                videoUrl: args.sourceVideoUrl,
-                metaData: {
-                  videoStartTime: ex.videoStartTime,
-                  videoEndTime: ex.videoEndTime,
-                },
-                tags: withRestTag(ex.tags),
-              });
-              continue;
-            }
+            if (isRestWorkoutItem({ name: ex.name, tags: ex.tags })) continue;
 
             const keys = exerciseNameLookupKeys(ex.name);
             let exerciseId = keys

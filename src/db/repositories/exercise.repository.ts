@@ -3,7 +3,7 @@ import "server-only";
 import { and, asc, count, countDistinct, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
-import { exercise, set as workoutSet, workout, workoutExercise } from "@/db/schema";
+import { exercise, set as workoutSet, workoutExercise } from "@/db/schema";
 import type {
   MetricProfile,
   MuscleGroup,
@@ -13,13 +13,8 @@ import {
   SIMILAR_EXERCISE_THRESHOLD,
   exerciseNameLookupKeys,
   exerciseNameSimilarity,
-  normalizeExerciseName,
 } from "@/features/workouts/exercise-name";
-import {
-  CANONICAL_REST_NAME,
-  isRestWorkoutItem,
-  withRestTag,
-} from "@/features/workouts/workout-item";
+import { isRestWorkoutItem } from "@/features/workouts/workout-item";
 
 export type ExerciseInsert = typeof exercise.$inferInsert;
 
@@ -83,102 +78,6 @@ export async function fillMissingExerciseCatalogFields(
     .where(eq(exercise.id, current.id))
     .returning();
   return updated ?? current;
-}
-
-/**
- * One Rest exercise per user. Remaps every rest appearance onto that id and
- * deletes leftover Rest rows so rests are not duplicated across workouts.
- */
-export async function resolveCanonicalRestExercise(
-  tx: DbTransaction,
-  userId: string,
-  options?: { createIfMissing?: boolean },
-): Promise<string | null> {
-  const createIfMissing = options?.createIfMissing ?? true;
-  const exercises = await tx
-    .select()
-    .from(exercise)
-    .where(eq(exercise.userId, userId));
-  const restExercises = exercises.filter((item) => isRestWorkoutItem(item));
-
-  const appearances = await tx
-    .select({
-      id: workoutExercise.id,
-      exerciseId: workoutExercise.exerciseId,
-      name: workoutExercise.name,
-      tags: workoutExercise.tags,
-    })
-    .from(workoutExercise)
-    .innerJoin(workout, eq(workoutExercise.workoutId, workout.id))
-    .where(eq(workout.userId, userId));
-  const restAppearances = appearances.filter((item) => isRestWorkoutItem(item));
-
-  const namedRest = restExercises.find(
-    (item) => normalizeExerciseName(item.name) === "rest",
-  );
-  let canonicalId = namedRest?.id ?? restExercises[0]?.id ?? null;
-
-  if (!canonicalId) {
-    if (!createIfMissing && restAppearances.length === 0) return null;
-    canonicalId = crypto.randomUUID();
-    await tx.insert(exercise).values({
-      id: canonicalId,
-      userId,
-      name: CANONICAL_REST_NAME,
-    });
-  } else if (!namedRest) {
-    await tx
-      .update(exercise)
-      .set({ name: CANONICAL_REST_NAME })
-      .where(and(eq(exercise.id, canonicalId), eq(exercise.userId, userId)));
-  }
-
-  const extraRestIds = restExercises
-    .map((item) => item.id)
-    .filter((id) => id !== canonicalId);
-
-  for (const appearance of restAppearances) {
-    const tags = withRestTag(appearance.tags);
-    const tagsChanged =
-      tags.length !== appearance.tags.length ||
-      tags.some((tag, index) => tag !== appearance.tags[index]);
-    if (appearance.exerciseId === canonicalId && !tagsChanged) continue;
-
-    await tx
-      .update(workoutExercise)
-      .set({
-        exerciseId: canonicalId,
-        tags,
-      })
-      .where(eq(workoutExercise.id, appearance.id));
-  }
-
-  if (extraRestIds.length > 0) {
-    await tx
-      .update(workoutExercise)
-      .set({ exerciseId: canonicalId })
-      .where(inArray(workoutExercise.exerciseId, extraRestIds));
-    await tx
-      .update(workoutSet)
-      .set({ exerciseId: canonicalId })
-      .where(inArray(workoutSet.exerciseId, extraRestIds));
-    await tx
-      .delete(exercise)
-      .where(
-        and(eq(exercise.userId, userId), inArray(exercise.id, extraRestIds)),
-      );
-  }
-
-  return canonicalId;
-}
-
-export async function ensureCanonicalRestExerciseForUser(
-  userId: string,
-  options?: { createIfMissing?: boolean },
-) {
-  return db.transaction((tx) =>
-    resolveCanonicalRestExercise(tx, userId, options),
-  );
 }
 
 export type ConsolidateDuplicateExercisesResult = {

@@ -16,20 +16,21 @@ describe("parseClockTimestamp", () => {
 });
 
 describe("parseIntervalPattern", () => {
-  it("parses work/rest seconds", () => {
+  it("parses work seconds from interval strings", () => {
     expect(parseIntervalPattern("40s work / 20s rest")).toEqual({
       work_seconds: 40,
-      rest_seconds: 20,
     });
     expect(parseIntervalPattern("45s work / 15s rest")).toEqual({
       work_seconds: 45,
-      rest_seconds: 15,
+    });
+    expect(parseIntervalPattern("40s work")).toEqual({
+      work_seconds: 40,
     });
   });
 });
 
 describe("expandImportStructure", () => {
-  it("maps work/rest intervals from chapter timestamps", () => {
+  it("maps chapter timestamps to contiguous exercise clips", () => {
     const parsed = importWorkoutStructureSchema.parse({
       overview: {
         workout_length: "20 minutes",
@@ -51,30 +52,24 @@ describe("expandImportStructure", () => {
 
     const expanded = expandImportStructure(parsed);
 
-    expect(expanded.exercises.slice(0, 4)).toEqual([
+    expect(expanded.exercises).toMatchObject([
       {
         name: "Side to side taps",
         videoStartTime: 26,
-        videoEndTime: 71,
-        tags: ["Full Workout"],
-      },
-      {
-        name: "Rest",
-        videoStartTime: 71,
         videoEndTime: 86,
-        tags: ["Full Workout", "rest"],
+        tags: ["Full Workout"],
       },
       {
         name: "Jump + cross chop",
         videoStartTime: 86,
-        videoEndTime: 131,
+        videoEndTime: 146,
         tags: ["Full Workout"],
       },
       {
-        name: "Rest",
-        videoStartTime: 131,
-        videoEndTime: 146,
-        tags: ["Full Workout", "rest"],
+        name: "Run in place",
+        videoStartTime: 146,
+        videoEndTime: 191,
+        tags: ["Full Workout"],
       },
     ]);
   });
@@ -132,6 +127,37 @@ describe("expandImportStructure", () => {
       name: "Inhale Exhale",
       videoStartTime: 27 * 60 + 25,
       videoEndTime: 27 * 60 + 25 + 40,
+    });
+  });
+
+  it("skips leftover Rest chapters and spans clips to the next real move", () => {
+    const parsed = importWorkoutStructureSchema.parse({
+      overview: {
+        workout_length: "10 minutes",
+        structure: "Circuit",
+        interval_pattern: "40s work / 20s rest",
+      },
+      sections: [
+        {
+          section_name: "Main",
+          exercises: [
+            { name: "Push-ups", timestamp: "00:10" },
+            { name: "Rest", timestamp: "00:50" },
+            { name: "Squats", timestamp: "01:10" },
+          ],
+        },
+      ],
+    });
+
+    const expanded = expandImportStructure(parsed);
+    expect(expanded.exercises.map((item) => item.name)).toEqual([
+      "Push-ups",
+      "Squats",
+    ]);
+    expect(expanded.exercises[0]).toMatchObject({
+      name: "Push-ups",
+      videoStartTime: 10,
+      videoEndTime: 70,
     });
   });
 });

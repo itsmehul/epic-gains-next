@@ -16,7 +16,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExerciseAnalyticsPanel } from "@/components/workouts/exercise-analytics-panel";
 import { ExerciseCommentsPanel } from "@/components/workouts/exercise-comments-panel";
 import { ExerciseSetsPanel } from "@/components/workouts/exercise-sets-panel";
-import { RestDetailsPanel } from "@/components/workouts/rest-details-panel";
 import { WorkoutChannelLink } from "@/components/workouts/workout-channel-link";
 import {
   WorkoutVideoPreview,
@@ -32,10 +31,7 @@ import {
 import { muscleGroupLabel } from "@/features/workouts/muscle-group";
 import { dayKey, localDateString } from "@/features/workouts/set-day";
 import type { Set, WorkoutExercise } from "@/features/workouts/types";
-import {
-  getItemDurationSeconds,
-  isRestWorkoutItem,
-} from "@/features/workouts/workout-item";
+import { isRestWorkoutItem } from "@/features/workouts/workout-item";
 import { getYouTubeVideoId } from "@/features/workouts/youtube";
 import { useSession } from "@/infrastructure/auth/client";
 import { cn } from "@/shared/utils";
@@ -304,7 +300,9 @@ export function WorkoutDetailPageClient() {
     workoutQuery.data.userId !== session.user.id;
 
   const workoutExercises = sortWorkoutExercisesByTimestamp(
-    workoutExercisesQuery.data?.items ?? [],
+    (workoutExercisesQuery.data?.items ?? []).filter(
+      (item) => !isRestWorkoutItem(item),
+    ),
   );
   const sets = setsQuery.data?.items ?? [];
 
@@ -324,23 +322,12 @@ export function WorkoutDetailPageClient() {
   const selectedSets = selectedItem
     ? (setsByExerciseId.get(selectedItem.exerciseId) ?? [])
     : [];
-  const selectedIndex = selectedItem
-    ? workoutExercises.findIndex((item) => item.id === selectedItem.id)
-    : -1;
-  const nextTimelineItem =
-    selectedIndex >= 0 ? (workoutExercises[selectedIndex + 1] ?? null) : null;
-  const nextExerciseItem =
-    selectedIndex >= 0
-      ? (workoutExercises
-        .slice(selectedIndex + 1)
-        .find((item) => !isRestWorkoutItem(item)) ?? null)
-      : null;
 
   function itemLabel(item: WorkoutExercise) {
     return (
       item.name ||
       exerciseById.get(item.exerciseId)?.name ||
-      (isRestWorkoutItem(item) ? "Rest" : "Unknown exercise")
+      "Unknown exercise"
     );
   }
 
@@ -374,10 +361,9 @@ export function WorkoutDetailPageClient() {
     !workoutQuery.isError &&
     Boolean(workoutQuery.data) &&
     workoutExercises.length > 0;
-  const selectedKeyMuscles =
-    selectedItem && !isRestWorkoutItem(selectedItem)
-      ? (exerciseById.get(selectedItem.exerciseId)?.keyMuscles ?? [])
-      : [];
+  const selectedKeyMuscles = selectedItem
+    ? (exerciseById.get(selectedItem.exerciseId)?.keyMuscles ?? [])
+    : [];
 
   return (
     <AppShellScroll>
@@ -423,26 +409,23 @@ export function WorkoutDetailPageClient() {
                   <div className="flex w-max items-stretch gap-3">
                     {workoutExercises.map((item, index) => {
                       const isActive = selectedItem?.id === item.id;
-                      const isRest = isRestWorkoutItem(item);
-                      const loggedSetCount = isRest
-                        ? 0
-                        : (setsByExerciseId
-                            .get(item.exerciseId)
-                            ?.filter(
-                              (set) =>
-                                dayKey(set.updatedAt) === localDateString(),
-                            ).length ?? 0);
-                      const setProgress = isRest
-                        ? null
-                        : exerciseSetProgress(item, loggedSetCount);
+                      const loggedSetCount =
+                        setsByExerciseId
+                          .get(item.exerciseId)
+                          ?.filter(
+                            (set) =>
+                              dayKey(set.updatedAt) === localDateString(),
+                          ).length ?? 0;
+                      const setProgress = exerciseSetProgress(
+                        item,
+                        loggedSetCount,
+                      );
                       const hasNext = index < workoutExercises.length - 1;
                       const label = itemLabel(item);
 
-                      const muscleLabel = isRest
-                        ? null
-                        : muscleGroupLabel(
-                            exerciseById.get(item.exerciseId)?.muscleGroup,
-                          );
+                      const muscleLabel = muscleGroupLabel(
+                        exerciseById.get(item.exerciseId)?.muscleGroup,
+                      );
 
                       return (
                         <button
@@ -525,39 +508,21 @@ export function WorkoutDetailPageClient() {
               ) : null}
 
               <div key={selectedItem.id} className="mt-1">
-                {isRestWorkoutItem(selectedItem) ? (
-                  <RestDetailsPanel
-                    workoutExerciseId={selectedItem.id}
-                    name={itemLabel(selectedItem)}
-                    durationSeconds={getItemDurationSeconds(selectedItem)}
-                    nextExerciseName={
-                      nextExerciseItem ? itemLabel(nextExerciseItem) : null
-                    }
-                    onSkipToNext={
-                      nextTimelineItem
-                        ? () => {
-                            selectExercise(nextTimelineItem);
-                          }
-                        : undefined
-                    }
-                  />
-                ) : (
-                  <WorkoutExerciseTabs
-                    workoutId={workoutId}
-                    exerciseId={selectedItem.exerciseId}
-                    workoutExerciseId={selectedItem.id}
-                    metricProfile={
-                      exerciseById.get(selectedItem.exerciseId)?.metricProfile
-                    }
-                    targetSets={selectedItem.metaData?.targets}
-                    sets={selectedSets}
-                    setsReady={setsQuery.isSuccess}
-                    readOnly={readOnly}
-                    onExerciseResolved={(id) => {
-                      setActiveWorkoutExerciseId(id);
-                    }}
-                  />
-                )}
+                <WorkoutExerciseTabs
+                  workoutId={workoutId}
+                  exerciseId={selectedItem.exerciseId}
+                  workoutExerciseId={selectedItem.id}
+                  metricProfile={
+                    exerciseById.get(selectedItem.exerciseId)?.metricProfile
+                  }
+                  targetSets={selectedItem.metaData?.targets}
+                  sets={selectedSets}
+                  setsReady={setsQuery.isSuccess}
+                  readOnly={readOnly}
+                  onExerciseResolved={(id) => {
+                    setActiveWorkoutExerciseId(id);
+                  }}
+                />
               </div>
             </div>
           ) : null}

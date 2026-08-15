@@ -5,7 +5,6 @@ import { db } from "@/db";
 import {
   consolidateDuplicateExercisesForUser,
   fillMissingExerciseCatalogFields,
-  resolveCanonicalRestExercise,
 } from "@/db/repositories/exercise.repository";
 import { exercise, workout, workoutExercise } from "@/db/schema";
 import { exerciseNameLookupKeys } from "@/features/workouts/exercise-name";
@@ -21,7 +20,7 @@ import {
   importWorkoutStructureSchema,
   type ImportFullWorkoutInput,
 } from "@/features/workouts/schemas";
-import { isRestWorkoutItem, withRestTag } from "@/features/workouts/workout-item";
+import { isRestWorkoutItem } from "@/features/workouts/workout-item";
 import {
   apiError,
   requireApiSession,
@@ -124,30 +123,8 @@ export async function POST(req: Request) {
         }
       }
 
-      const hasRest = args.exercises.some((ex) =>
-        isRestWorkoutItem({ name: ex.name, tags: ex.tags }),
-      );
-      const restExerciseId = hasRest
-        ? await resolveCanonicalRestExercise(tx, userId)
-        : null;
-
       for (const ex of args.exercises) {
-        if (isRestWorkoutItem({ name: ex.name, tags: ex.tags })) {
-          if (!restExerciseId) continue;
-          await tx.insert(workoutExercise).values({
-            id: crypto.randomUUID(),
-            workoutId,
-            exerciseId: restExerciseId,
-            name: ex.name,
-            videoUrl: args.sourceVideoUrl || null,
-            metaData: {
-              videoStartTime: ex.videoStartTime,
-              videoEndTime: ex.videoEndTime,
-            },
-            tags: withRestTag(ex.tags),
-          });
-          continue;
-        }
+        if (isRestWorkoutItem({ name: ex.name, tags: ex.tags })) continue;
 
         const keys = exerciseNameLookupKeys(ex.name);
         let exerciseId = keys

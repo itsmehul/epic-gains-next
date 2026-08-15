@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { AuthAmbientBackground } from "@/components/auth/auth-ambient-background";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,7 +17,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AuthAmbientBackground } from "@/components/auth/auth-ambient-background";
 import { signUp } from "@/infrastructure/auth/client";
 import { APP_NAME, BRAND_ICON } from "@/shared/pwa/constants";
 

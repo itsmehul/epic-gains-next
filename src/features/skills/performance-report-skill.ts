@@ -79,7 +79,7 @@ Use these fields; do not recompute windows from raw sets.
 - \`comments[]\` — every visible comment on this athlete’s exercises (\`text\`, \`createdAt\`, \`author.{name,username}\`, \`exercise.{id,name,muscleGroup,keyMuscles}\`, \`workout.{id,name} | null\`). \`workout\` is null for exercise-wide notes.
 - \`days[]\` — daily rollup (\`setCount\`, \`volume\`, \`sessions\`, workouts/exercises). Each exercise includes nested \`comments\` (workout-scoped plus general notes for that exercise).
 
-Volume is \`weight * reps\`. Rest is already excluded. Week is Monday–Sunday. Trailing window is 30 days ending \`asOf\`. Comments are visibility-filtered for the MCP viewer; they are not limited to the 30-day window.
+Volume is \`weight * reps\`. Week is Monday–Sunday. Trailing window is 30 days ending \`asOf\`. Comments are visibility-filtered for the MCP viewer; they are not limited to the 30-day window.
 
 If \`windows.focalDay.setCount\` is 0: say no logged sets yesterday; use \`days\` to name the most recent training day and still report week / 30-day trend. If the whole payload is empty: say so and stop.
 

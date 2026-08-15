@@ -145,7 +145,7 @@ export const importFullWorkoutSchema = z.object({
           .trim()
           .min(1)
           .max(200)
-          .describe("Exact exercise name from the video/chapter list. Use Rest for recovery gaps between moves — those are timeline markers, not exercises."),
+          .describe("Exact exercise name from the video/chapter list."),
         videoStartTime: z
           .number()
           .nonnegative()
@@ -192,7 +192,7 @@ export const importFullWorkoutSchema = z.object({
       }),
     )
     .min(1)
-    .describe("List of moves and rest periods in the order they appear in the video."),
+    .describe("List of moves in the order they appear in the video."),
 });
 
 const clockTimestampSchema = z

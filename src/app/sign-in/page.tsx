@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
+import { AuthAmbientBackground } from "@/components/auth/auth-ambient-background";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,7 +18,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
-import { AuthAmbientBackground } from "@/components/auth/auth-ambient-background";
 import { signIn } from "@/infrastructure/auth/client";
 import { APP_NAME, BRAND_ICON } from "@/shared/pwa/constants";
 
@@ -154,7 +154,7 @@ function SignInForm() {
               if (oauthError) {
                 setError(
                   oauthError.message ??
-                    "Google sign-in is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.",
+                  "Google sign-in is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.",
                 );
               }
             }}

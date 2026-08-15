@@ -6,6 +6,7 @@ import type {
   ImportFullWorkoutInput,
   ImportWorkoutStructureInput,
 } from "@/features/workouts/schemas";
+import { isRestWorkoutItem } from "@/features/workouts/workout-item";
 
 export type ExpandedImportWorkout = {
   workoutName: string;
@@ -94,11 +95,10 @@ export function parseClockTimestamp(value: string): number {
 }
 
 const INTERVAL_PATTERN =
-  /(\d+)\s*s(?:ec(?:onds?)?)?\s*work\s*\/\s*(\d+)\s*s(?:ec(?:onds?)?)?\s*rest/i;
+  /(\d+)\s*s(?:ec(?:onds?)?)?\s*work(?:\s*\/\s*\d+\s*s(?:ec(?:onds?)?)?\s*rest)?/i;
 
 export function parseIntervalPattern(value: string): {
   work_seconds: number;
-  rest_seconds: number;
 } | null {
   const match = value.trim().match(INTERVAL_PATTERN);
   if (!match) {
@@ -106,7 +106,6 @@ export function parseIntervalPattern(value: string): {
   }
   return {
     work_seconds: Number(match[1]),
-    rest_seconds: Number(match[2]),
   };
 }
 
@@ -132,10 +131,12 @@ export function expandImportStructure(
 
   const exercises: ExpandedImportWorkout["exercises"] = [];
   const allMoves = input.sections.flatMap((section) =>
-    section.exercises.map((exercise) => ({
-      ...exercise,
-      section_name: section.section_name,
-    })),
+    section.exercises
+      .filter((exercise) => !isRestWorkoutItem({ name: exercise.name }))
+      .map((exercise) => ({
+        ...exercise,
+        section_name: section.section_name,
+      })),
   );
 
   for (let i = 0; i < allMoves.length; i += 1) {
@@ -143,29 +144,24 @@ export function expandImportStructure(
     const next = allMoves[i + 1];
     const tags = [current.section_name];
     const start = parseClockTimestamp(current.timestamp);
-    const fallbackEnd = interval
-      ? start + interval.work_seconds + interval.rest_seconds
-      : start + 30;
-    let nextStart: number;
+    let videoEndTime: number;
     if (next) {
-      nextStart = parseClockTimestamp(next.timestamp);
-      if (nextStart <= start) {
+      videoEndTime = parseClockTimestamp(next.timestamp);
+      if (videoEndTime <= start) {
         throw new Error(
           `Timestamps must increase: ${current.name} (${current.timestamp})`,
         );
       }
+    } else if (interval) {
+      videoEndTime = start + interval.work_seconds;
     } else if (
       workoutLengthSeconds != null &&
       workoutLengthSeconds > start
     ) {
-      nextStart = workoutLengthSeconds;
+      videoEndTime = workoutLengthSeconds;
     } else {
-      nextStart = fallbackEnd;
+      videoEndTime = start + 30;
     }
-
-    const workEnd = interval
-      ? Math.min(start + interval.work_seconds, nextStart)
-      : nextStart;
 
     const suggestedSetsCount = current.suggested_sets ?? current.suggestedSets;
     const suggestedRepsVal = current.suggested_reps ?? current.suggestedReps;
@@ -204,22 +200,13 @@ export function expandImportStructure(
     exercises.push({
       name: current.name,
       videoStartTime: start,
-      videoEndTime: workEnd,
+      videoEndTime,
       tags,
       metricProfile: current.metric_profile ?? current.metricProfile,
       muscleGroup: current.muscle_group ?? current.muscleGroup,
       keyMuscles: current.key_muscles ?? current.keyMuscles,
       sets: initialSets,
     });
-
-    if (workEnd < nextStart) {
-      exercises.push({
-        name: "Rest",
-        videoStartTime: workEnd,
-        videoEndTime: nextStart,
-        tags: [...tags, "rest"],
-      });
-    }
   }
 
   if (exercises.length === 0) {

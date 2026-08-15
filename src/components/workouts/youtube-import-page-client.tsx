@@ -25,10 +25,17 @@ function generateAiPrompt(url: string) {
 
 Your task is to analyze the video and return a structured, exercise-by-exercise breakdown with accurate timestamps strictly as valid JSON. Do not include any introductory or concluding text, Markdown formatting around the JSON, or explanations outside the JSON structure.
 
+### What to include:
+- List **only actual exercise moves** performed in the video.
+- Do **not** return rest, recovery, rest periods, breaks, transitions, or "catch your breath" gaps as exercises. Skip them entirely — they are not items in \`exercises\`.
+- If a chapter, overlay, or caption is named Rest / Recovery / Break, ignore it. Use the next real move instead.
+
 ### Timestamps & Interval Instructions:
-1. **Timestamp Meaning**: Each exercise's \`timestamp\` MUST be the EXACT start time in the video when THAT specific exercise actually begins (e.g. when Arm Circles starts in the video, NOT when the overall warm-up section or intro starts).
-2. **Sequential Accuracy**: Timestamps across all sections must be strictly increasing chronological start markers.
-3. **Format**: Use clean clock format \`MM:SS\` or \`HH:MM:SS\` (e.g. \`01:21\` or \`01:05:30\`, do NOT include square brackets).
+1. **Timestamp Meaning**: Each exercise's \`timestamp\` MUST be the EXACT start time in the video when THAT specific exercise actually begins — the first rep, the first hold, or the first movement of that move.
+2. **Do not use**: section/chapter titles, intro talk, countdowns, rest after the previous move, "next up" previews, or the start of a warm-up/HIIT block. If the trainer talks or rests and then starts the move, timestamp the move, not the talk/rest.
+3. **Example**: If Arm Circles begin at 01:21 after a rest or intro, use \`01:21\` — not the rest start, not the Warm-Up chapter start.
+4. **Sequential Accuracy**: Timestamps across all sections must be strictly increasing chronological start markers of real exercises only.
+5. **Format**: Use clean clock format \`MM:SS\` or \`HH:MM:SS\` (e.g. \`01:21\` or \`01:05:30\`, do NOT include square brackets).
 
 ### Timestamp Validation Rules:
 1. Format: Use strict \`MM:SS\` format for videos under 1 hour, and \`HH:MM:SS\` ONLY if the video duration is 1 hour or longer.
@@ -61,7 +68,7 @@ Extract any suggested or prescribed performance parameters mentioned or implied 
 - \`suggested_sets\`: Number of sets (e.g., 3 if 3 rounds/sets, or 1 for follow-along circuit).
 - \`suggested_reps\`: Repetition count per set if specified (e.g., 10, 12, or 15).
 - \`suggested_weight\`: Prescribed weight in kilograms if specified (e.g., 20 or 50.5; convert lbs to kg if needed).
-- \`suggested_time\`: Target duration in seconds per set if timed/isometric (e.g., 40 for 40s work).
+- \`suggested_time\`: Target duration in seconds per set if timed/isometric (e.g., 40 for 40 seconds).
 - \`suggested_distance\`: Target distance in meters if specified (e.g., 100 or 400).
 Omit any metric field if not specified for that exercise.
 
@@ -78,7 +85,7 @@ Return a JSON object matching this schema inside a markdown code block. Do not i
   "overview": {
     "workout_length": "string (e.g., '20 minutes' or '40 minutes')",
     "structure": "string (e.g., 'Full Body Circuit')",
-    "interval_pattern": "string (e.g., '40s work / 20s rest')",
+    "interval_pattern": "string (e.g., '40 seconds per exercise')",
     "equipment_needed": ["string"]
   },
   "sections": [
@@ -86,8 +93,8 @@ Return a JSON object matching this schema inside a markdown code block. Do not i
       "section_name": "string (e.g., 'Warm-Up', 'Upper Body', 'Core', 'HIIT', 'Cool Down')",
       "exercises": [
         {
-          "name": "string (clear, standard exercise name for this move)",
-          "timestamp": "string (EXACT start time of THIS exercise move in MM:SS or HH:MM:SS format, e.g. '01:21')",
+          "name": "string (clear, standard exercise name for this move; never Rest, Recovery, or Break)",
+          "timestamp": "string (EXACT start of THIS exercise's first movement in MM:SS or HH:MM:SS, e.g. '01:21' — not rest, intro, or section start)",
           "metric_profile": "string (ONE of: 'WEIGHT_REPS', 'BODYWEIGHT_REPS', 'WEIGHTED_REPS', 'TIMED_HOLD', 'CARDIO_DISTANCE', 'LOADED_CARRY', 'CUSTOM')",
           "muscle_group": "string (ONE of: 'chest', 'back', 'shoulders', 'arms', 'legs', 'core')",
           "key_muscles": ["string (anatomical names, e.g. 'Tibialis Anterior', 'Peroneus Tertius')"],
