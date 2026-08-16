@@ -3,6 +3,7 @@ import { Roboto, Roboto_Mono } from "next/font/google";
 
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { getOgImage } from "@/features/marketing/seo";
 import {
   APP_COLOR_SCHEME,
   APP_DESCRIPTION,
@@ -10,6 +11,7 @@ import {
   APP_THEME_COLOR,
   APPLE_SPLASH_SCREENS,
 } from "@/shared/pwa/constants";
+import { getSiteUrl } from "@/shared/site";
 
 import "./globals.css";
 
@@ -25,7 +27,11 @@ const robotoMono = Roboto_Mono({
   weight: ["400", "500"],
 });
 
+const siteUrl = getSiteUrl();
+const OG_IMAGE = getOgImage(siteUrl);
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   applicationName: APP_NAME,
   title: {
     default: APP_NAME,
@@ -34,6 +40,33 @@ export const metadata: Metadata = {
   description: APP_DESCRIPTION,
   keywords: ["fitness", "health", "strength", "workout journal", "PWA"],
   formatDetection: { telephone: false },
+  openGraph: {
+    title: APP_NAME,
+    description: APP_DESCRIPTION,
+    url: "/",
+    siteName: APP_NAME,
+    locale: "en_US",
+    type: "website",
+    images: [
+      {
+        url: "/social-preview.jpg",
+        width: OG_IMAGE.width,
+        height: OG_IMAGE.height,
+        alt: OG_IMAGE.alt,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: APP_NAME,
+    description: APP_DESCRIPTION,
+    images: [
+      {
+        url: "/social-preview.jpg",
+        alt: OG_IMAGE.alt,
+      },
+    ],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",

@@ -47,6 +47,7 @@ function createIcon(name: string, filled = false) {
 
 export const IconAlertTriangle = createIcon("warning");
 export const IconArrowLeft = createIcon("arrow_back");
+export const IconArrowRight = createIcon("arrow_forward");
 export const IconArrowsMaximize = createIcon("open_in_full");
 export const IconArrowsMinimize = createIcon("close_fullscreen");
 export const IconBadgeCc = createIcon("closed_caption");

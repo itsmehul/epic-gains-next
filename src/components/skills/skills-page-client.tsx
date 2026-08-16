@@ -7,19 +7,12 @@ import { AppShellBody, AppShellHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  PERFORMANCE_REPORT_SKILL_FILENAME,
-  PERFORMANCE_REPORT_SKILL_INSTALL_PATH,
-  PERFORMANCE_REPORT_SKILL_MD,
-  PERFORMANCE_REPORT_SKILL_NAME,
-  PERFORMANCE_REPORT_SKILL_TRIGGER,
-} from "@/features/skills/performance-report-skill";
+import { PERFORMANCE_REPORT_SKILL_MD } from "@/features/skills/performance-report-skill";
 
 export function SkillsPageClient() {
   const [copied, setCopied] = useState(false);
@@ -47,41 +40,16 @@ export function SkillsPageClient() {
               Performance report
             </CardTitle>
             <CardDescription>
-              Cursor skill that recaps yesterday’s training from Epic Gains{" "}
-              <code className="font-mono text-xs">performance_metrics</code>
-              , including volume, PRs, and session comments.
-              Copy and save as{" "}
-              <code className="font-mono text-xs">
-                {PERFORMANCE_REPORT_SKILL_INSTALL_PATH}
-              </code>
-              .
+              Recaps yesterday’s training with volume, PRs, and session notes,
+              plus how this week compares to last week.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-muted-foreground text-sm">
-              Trigger in Cursor:{" "}
-              <span className="text-foreground">
-                {PERFORMANCE_REPORT_SKILL_TRIGGER}
-              </span>
-            </p>
-            <p className="text-muted-foreground text-sm">
-              Skill id{" "}
-              <code className="font-mono text-xs">
-                {PERFORMANCE_REPORT_SKILL_NAME}
-              </code>
-              . File name{" "}
-              <code className="font-mono text-xs">
-                {PERFORMANCE_REPORT_SKILL_FILENAME}
-              </code>
-              .
-            </p>
+          <CardFooter className="flex-col items-start gap-3">
             {error ? (
               <p className="text-destructive text-sm" role="alert">
                 {error}
               </p>
             ) : null}
-          </CardContent>
-          <CardFooter>
             <Button onClick={() => void handleCopy()} type="button">
               {copied ? (
                 <IconCheck className="size-4" />

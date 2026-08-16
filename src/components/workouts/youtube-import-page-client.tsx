@@ -1,6 +1,11 @@
 "use client";
 
-import { IconCheck, IconCopy, IconExternalLink } from "@/components/ui/icons";
+import {
+  IconBrandYoutube,
+  IconCheck,
+  IconCopy,
+  IconExternalLink,
+} from "@/components/ui/icons";
 import { useRouter } from "next/navigation";
 import { useId, useMemo, useState, type FormEvent } from "react";
 
@@ -19,6 +24,9 @@ import { importWorkoutStructureSchema } from "@/features/workouts/schemas";
 import { getYouTubeVideoId } from "@/features/workouts/youtube";
 import { ApiError } from "@/shared/api";
 import { cn } from "@/shared/utils";
+
+const YOUTUBE_WORKOUT_SEARCH_URL =
+  "https://www.youtube.com/results?search_query=Workout+routine";
 
 function generateAiPrompt(url: string) {
   const cleanUrl = url.trim();
@@ -335,6 +343,28 @@ export function YoutubeImportPageClient() {
                           </p>
                         ) : null}
                       </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        nativeButton={false}
+                        render={
+                          <a
+                            href={YOUTUBE_WORKOUT_SEARCH_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          />
+                        }
+                      >
+                        <IconBrandYoutube
+                          className="size-4 text-red-500"
+                          data-icon="inline-start"
+                        />
+                        Search YouTube
+                        <IconExternalLink
+                          className="size-4"
+                          data-icon="inline-end"
+                        />
+                      </Button>
                       <Button type="submit" disabled={!youtubeValid}>
                         Next: Copy Prompt
                       </Button>

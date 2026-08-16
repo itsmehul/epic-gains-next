@@ -44,18 +44,24 @@ export default function manifest(): MetadataRoute.Manifest {
     screenshots: [
       {
         src: "screenshots/img-find.jpeg",
-        sizes: "320x711",
+        sizes: "780x1688",
         type: "image/jpeg",
+        form_factor: "narrow",
+        label: "Workouts",
       },
       {
         src: "screenshots/img-progress.jpeg",
-        sizes: "320x711",
+        sizes: "780x1688",
         type: "image/jpeg",
+        form_factor: "narrow",
+        label: "Achievements",
       },
       {
         src: "screenshots/img-market.jpeg",
-        sizes: "320x711",
+        sizes: "780x1688",
         type: "image/jpeg",
+        form_factor: "narrow",
+        label: "Profile",
       },
     ],
     categories: ["fitness", "health", "lifestyle"],

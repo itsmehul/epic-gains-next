@@ -41,8 +41,8 @@ export function FriendsPageClient() {
       <AppShellHeader title="Friends" />
       <AppShellBody>
         <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:p-6">
-          <Tabs onValueChange={setTab} value={tab}>
-            <TabsList className="w-fit justify-start overflow-x-auto scrollbar-none">
+          <Tabs className="min-w-0" onValueChange={setTab} value={tab}>
+            <TabsList className="w-fit max-w-full min-w-0 justify-start overflow-x-auto scrollbar-none">
               <TabsTrigger className="flex-none" value="search">
                 Search
               </TabsTrigger>

@@ -1,4 +1,5 @@
 import {
+  IconArrowRight,
   IconBrain,
   IconBrandYoutube,
   IconBrandYoutubeFilled,
@@ -23,39 +24,7 @@ import { AgentPulsePreview } from "./agent-pulse-preview";
 import { ExampleVideoShowcase } from "./example-videos";
 import { MarketingPhoneFrame } from "./marketing-phone-frame";
 import { MockAchievementsScreen, MockProfileScreen } from "./mock-screens";
-
-const faqs = [
-  {
-    q: "How do I bring a YouTube workout in?",
-    a: "Paste the video URL on import. Epic Gains turns the session into a structured workout — exercises, timestamps, and a page you can actually follow.",
-  },
-  {
-    q: "Is Epic Gains free?",
-    a: "Yes — free forever. Create an account and start collecting videos. No credit card, no trial, no paid tier waiting in the wings.",
-  },
-  {
-    q: "What does “mastered” mean?",
-    a: "You imported the video, followed the work, and logged the session. It is no longer something you watched once — it lives in your collection.",
-  },
-  {
-    q: "Can friends see my collection?",
-    a: "Only if you connect. Follows are request-based. Your showcase is for people you train with — not a public leaderboard.",
-  },
-  {
-    q: "What is MCP?",
-    a: "Connect Cursor, Gemini, or another agent to Epic Gains as an MCP server. It analyses your workout log history and exercise comments — so a daily pulse cites what you actually did and wrote, not a guess.",
-  },
-];
-
-const faqSchema = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: faqs.map((item) => ({
-    "@type": "Question",
-    name: item.q,
-    acceptedAnswer: { "@type": "Answer", text: item.a },
-  })),
-};
+import { faqs } from "./seo";
 
 const beats = [
   {
@@ -103,14 +72,9 @@ function ChapterLabel({ children }: { children: string }) {
   );
 }
 
-export function LandingPage() {
+export function LandingPage({ authenticated }: { authenticated: boolean }) {
   return (
     <div className="fit-landing dark bg-background text-foreground min-h-full antialiased">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
-      />
-
       <header className="bg-background sticky top-0 z-50 h-16 border-b border-border/70">
         <div className="mx-auto flex h-full w-full max-w-6xl items-center justify-between px-4 sm:px-8">
           <Link href="/" className="flex items-center gap-2.5">
@@ -128,18 +92,30 @@ export function LandingPage() {
             </span>
           </Link>
           <nav className="flex items-center gap-2">
-            <Link
-              href="/sign-in"
-              className={cn(
-                buttonVariants({ variant: "ghost", size: "sm" }),
-                "hidden sm:inline-flex",
-              )}
-            >
-              Sign in
-            </Link>
-            <Link href="/sign-up" className={buttonVariants({ size: "sm" })}>
-              Get started
-            </Link>
+            {authenticated ? (
+              <Link
+                href="/workouts"
+                className={buttonVariants({ variant: "ghost", size: "sm" })}
+              >
+                Enter App
+                <IconArrowRight data-icon="inline-end" />
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/sign-in"
+                  className={cn(
+                    buttonVariants({ variant: "ghost", size: "sm" }),
+                    "hidden sm:inline-flex",
+                  )}
+                >
+                  Sign in
+                </Link>
+                <Link href="/sign-up" className={buttonVariants({ size: "sm" })}>
+                  Get started
+                </Link>
+              </>
+            )}
           </nav>
         </div>
       </header>
@@ -223,7 +199,10 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-6xl px-5 py-16 sm:px-8 lg:py-24">
+      <section
+        id="how-it-works"
+        className="mx-auto w-full max-w-6xl px-5 py-16 sm:px-8 lg:py-24"
+      >
         <div className="mx-auto max-w-2xl text-center">
           <ChapterLabel>The path</ChapterLabel>
           <h2 className="headline-large mt-3 tracking-tight text-balance sm:text-4xl sm:leading-[1.15]">
@@ -308,7 +287,10 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-3xl px-5 py-16 sm:px-8 sm:py-24">
+      <section
+        id="faq"
+        className="mx-auto w-full max-w-3xl px-5 py-16 sm:px-8 sm:py-24"
+      >
         <h2 className="headline-large text-center tracking-tight">Questions</h2>
         <Accordion className="mt-10">
           {faqs.map((item, index) => (
