@@ -11,7 +11,7 @@ export type UnlockedAchievement = {
   unlockedAt: Date | string;
 };
 
-export type AchievementListItem = UnlockedAchievement & {
+export type AchievementListItem = Omit<UnlockedAchievement, "unlockedAt"> & {
   progress: number;
   unlocked: boolean;
   unlockedAt: Date | string | null;
