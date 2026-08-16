@@ -113,11 +113,22 @@ export function ProfilePageClient() {
               ) : null}
 
               <Tabs onValueChange={setTab} value={tab}>
-                <TabsList className="w-full" variant="line">
-                  <TabsTrigger value="workouts">Workouts</TabsTrigger>
-                  <TabsTrigger value="achievements">Achievements</TabsTrigger>
-                  <TabsTrigger value="followers">Followers</TabsTrigger>
-                  <TabsTrigger value="following">Following</TabsTrigger>
+                <TabsList
+                  className="w-full min-w-0 justify-start overflow-x-auto overscroll-x-contain scrollbar-none"
+                  variant="line"
+                >
+                  <TabsTrigger className="flex-none" value="workouts">
+                    Workouts
+                  </TabsTrigger>
+                  <TabsTrigger className="flex-none" value="achievements">
+                    Achievements
+                  </TabsTrigger>
+                  <TabsTrigger className="flex-none" value="followers">
+                    Followers
+                  </TabsTrigger>
+                  <TabsTrigger className="flex-none" value="following">
+                    Following
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent className="mt-4" value="workouts">
