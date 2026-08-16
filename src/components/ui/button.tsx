@@ -8,7 +8,8 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        default:
+          "bg-linear-to-b from-[color-mix(in_oklch,var(--primary),white_24%)] to-[color-mix(in_oklch,var(--primary),black_16%)] text-primary-foreground shadow-[inset_0_1px_0_0_oklch(1_0_0/0.38),inset_0_-1px_2px_0_oklch(0_0_0/0.32),0_1px_2px_oklch(0_0_0/0.14)] hover:from-[color-mix(in_oklch,var(--primary),white_32%)] hover:to-[color-mix(in_oklch,var(--primary),black_8%)] active:not-aria-[haspopup]:shadow-[inset_0_2px_5px_oklch(0_0_0/0.38),inset_0_1px_0_oklch(1_0_0/0.1)] dark:from-[color-mix(in_oklch,var(--primary),white_10%)] dark:to-[color-mix(in_oklch,var(--primary),black_22%)] dark:shadow-[inset_0_1px_0_0_oklch(1_0_0/0.62),inset_0_-2px_3px_0_oklch(0_0_0/0.18),0_1px_2px_oklch(0_0_0/0.28)] dark:hover:from-[color-mix(in_oklch,var(--primary),white_16%)] dark:hover:to-[color-mix(in_oklch,var(--primary),black_12%)]",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:bg-transparent dark:hover:bg-input/30",
         secondary:

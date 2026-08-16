@@ -13,21 +13,21 @@ export function FitBlobField({ className = "" }: { className?: string }) {
           cy="220"
           rx="280"
           ry="240"
-          fill="oklch(0.837 0.128 66.29 / 0.55)"
+          fill="oklch(0.94 0.022 95 / 0.55)"
         />
         <ellipse
           cx="420"
           cy="160"
           rx="210"
           ry="190"
-          fill="oklch(0.705 0.213 47.604 / 0.42)"
+          fill="oklch(0.78 0.02 90 / 0.42)"
         />
         <ellipse
           cx="320"
           cy="340"
           rx="170"
           ry="150"
-          fill="oklch(0.646 0.222 41.116 / 0.38)"
+          fill="oklch(0.32 0.016 70 / 0.28)"
         />
       </g>
       <g className="fit-blob-drift-slow">
@@ -36,21 +36,21 @@ export function FitBlobField({ className = "" }: { className?: string }) {
           cy="480"
           rx="260"
           ry="220"
-          fill="oklch(0.837 0.128 66.29 / 0.4)"
+          fill="oklch(0.9 0.02 95 / 0.4)"
         />
         <ellipse
           cx="1080"
           cy="280"
           rx="180"
           ry="200"
-          fill="oklch(0.553 0.195 38.402 / 0.35)"
+          fill="oklch(0.22 0.014 70 / 0.32)"
         />
         <ellipse
           cx="860"
           cy="360"
           rx="140"
           ry="130"
-          fill="oklch(0.705 0.213 47.604 / 0.45)"
+          fill="oklch(0.62 0.018 80 / 0.35)"
         />
       </g>
     </svg>
@@ -65,20 +65,20 @@ export function FitBlobCluster({
   const fills =
     palette === "amber"
       ? [
-          "oklch(0.837 0.128 66.29 / 0.7)",
-          "oklch(0.705 0.213 47.604 / 0.55)",
-          "oklch(0.97 0.012 70 / 0.9)",
+          "oklch(0.94 0.022 95 / 0.75)",
+          "oklch(0.82 0.02 90 / 0.55)",
+          "oklch(0.97 0.018 95 / 0.9)",
         ]
       : palette === "ink"
         ? [
-            "oklch(0.646 0.222 41.116 / 0.45)",
-            "oklch(0.553 0.195 38.402 / 0.4)",
-            "oklch(0.837 0.128 66.29 / 0.5)",
+            "oklch(0.22 0.014 70 / 0.5)",
+            "oklch(0.32 0.016 70 / 0.4)",
+            "oklch(0.78 0.02 90 / 0.45)",
           ]
         : [
-            "oklch(0.705 0.213 47.604 / 0.65)",
-            "oklch(0.646 0.222 41.116 / 0.5)",
-            "oklch(0.837 0.128 66.29 / 0.55)",
+            "oklch(0.28 0.016 70 / 0.55)",
+            "oklch(0.48 0.018 75 / 0.45)",
+            "oklch(0.9 0.02 95 / 0.5)",
           ];
 
   return (

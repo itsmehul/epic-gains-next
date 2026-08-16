@@ -104,7 +104,7 @@ export function SetRowCard({
               disabled={checkboxDisabled}
               aria-label={
                 isDraft
-                  ? "Approve set"
+                  ? "Save set"
                   : isLogged
                     ? "Delete set"
                     : "Set logged"

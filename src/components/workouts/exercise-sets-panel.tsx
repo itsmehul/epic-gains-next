@@ -973,7 +973,7 @@ export function ExerciseSetsPanel({
               {busy ? (
                 <IconLoader2 className="animate-spin" data-icon="inline-start" />
               ) : null}
-              Approve
+              Save
             </Button>
             <Button
               type="button"
@@ -1030,7 +1030,7 @@ export function ExerciseSetsPanel({
                 row.phase === "logged"
                   ? "Logged"
                   : row.draftSource === "target"
-                    ? "Draft · approve to log"
+                    ? "Draft · save to log"
                     : "Draft · custom";
 
               return (
