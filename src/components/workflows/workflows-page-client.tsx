@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { AppShellBody, AppShellHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Card,
   CardContent,
@@ -103,7 +104,14 @@ export function WorkflowsPageClient({
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
               {runsQuery.isLoading ? (
-                <p className="text-sm text-muted-foreground">Loading…</p>
+                <div
+                  aria-busy="true"
+                  aria-label="Loading"
+                  className="flex justify-center py-4"
+                  role="status"
+                >
+                  <Spinner className="size-6" />
+                </div>
               ) : null}
               {runsQuery.error ? (
                 <p className="text-sm text-destructive">
@@ -141,7 +149,14 @@ export function WorkflowsPageClient({
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               {runDetailQuery.isLoading ? (
-                <p className="text-sm text-muted-foreground">Loading…</p>
+                <div
+                  aria-busy="true"
+                  aria-label="Loading"
+                  className="flex justify-center py-4"
+                  role="status"
+                >
+                  <Spinner className="size-6" />
+                </div>
               ) : null}
               {runDetailQuery.data ? (
                 <>

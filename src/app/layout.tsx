@@ -40,6 +40,10 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
+        url: "/logos/logo.svg",
+        type: "image/svg+xml",
+      },
+      {
         url: "/logos/favicon_io/favicon-16x16.png",
         sizes: "16x16",
         type: "image/png",

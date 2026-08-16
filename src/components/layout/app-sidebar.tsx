@@ -70,23 +70,21 @@ function SidebarNavItem({
 
 function SidebarBrand({ closeOnNavigate = false }: { closeOnNavigate?: boolean }) {
   const className = cn(
-    "group/brand flex min-w-0 flex-1 items-center gap-3 rounded-lg py-0.5",
+    "flex min-w-0 flex-1 items-center gap-3 rounded-lg py-0.5",
     !closeOnNavigate &&
       "outline-none ring-sidebar-ring focus-visible:ring-2",
   );
 
   const content = (
     <>
-      <span className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-sidebar-accent/70 shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--sidebar-primary)_28%,transparent)] ring-1 ring-black/5 transition-transform duration-200 ease-[cubic-bezier(0.2,0,0,1)] group-hover/brand:scale-[1.04] dark:ring-white/8">
-        <Image
-          src={BRAND_ICON}
-          alt=""
-          width={36}
-          height={36}
-          className="size-9 object-cover"
-          aria-hidden
-        />
-      </span>
+      <Image
+        src={BRAND_ICON}
+        alt=""
+        width={36}
+        height={36}
+        className="size-9 shrink-0 object-cover"
+        aria-hidden
+      />
       <span className="flex min-w-0 flex-col">
         <span className="truncate font-heading text-[15px] font-semibold leading-none tracking-[-0.03em] text-sidebar-foreground">
           {APP_NAME}

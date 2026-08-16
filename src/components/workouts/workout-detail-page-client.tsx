@@ -551,7 +551,7 @@ export function WorkoutDetailPageClient() {
                 )}
               >
                 {isLoading ? (
-                  <AppShellLoading label="Loading details…" />
+                  <AppShellLoading />
                 ) : null}
 
                 {workoutQuery.isError ? (

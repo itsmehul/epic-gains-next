@@ -180,7 +180,7 @@ export function AchievementsPageClient() {
       <AppShellBody>
         <div className="flex flex-col gap-6 px-4 py-4 md:p-6">
           {query.isLoading ? (
-            <AppShellLoading label="Loading achievements…" />
+            <AppShellLoading />
           ) : query.isError || !data ? (
             <p className="text-muted-foreground text-sm">
               Couldn’t load achievements.

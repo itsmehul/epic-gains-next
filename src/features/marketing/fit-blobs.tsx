@@ -13,14 +13,14 @@ export function FitBlobField({ className = "" }: { className?: string }) {
           cy="220"
           rx="280"
           ry="240"
-          fill="oklch(0.94 0.022 95 / 0.55)"
+          fill="oklch(0.94 0.038 88 / 0.55)"
         />
         <ellipse
           cx="420"
           cy="160"
           rx="210"
           ry="190"
-          fill="oklch(0.78 0.02 90 / 0.42)"
+          fill="oklch(0.78 0.05 82 / 0.42)"
         />
         <ellipse
           cx="320"
@@ -36,7 +36,7 @@ export function FitBlobField({ className = "" }: { className?: string }) {
           cy="480"
           rx="260"
           ry="220"
-          fill="oklch(0.9 0.02 95 / 0.4)"
+          fill="oklch(0.9 0.045 86 / 0.4)"
         />
         <ellipse
           cx="1080"
@@ -50,7 +50,7 @@ export function FitBlobField({ className = "" }: { className?: string }) {
           cy="360"
           rx="140"
           ry="130"
-          fill="oklch(0.62 0.018 80 / 0.35)"
+          fill="oklch(0.62 0.045 78 / 0.35)"
         />
       </g>
     </svg>
@@ -65,20 +65,20 @@ export function FitBlobCluster({
   const fills =
     palette === "amber"
       ? [
-          "oklch(0.94 0.022 95 / 0.75)",
-          "oklch(0.82 0.02 90 / 0.55)",
-          "oklch(0.97 0.018 95 / 0.9)",
+          "oklch(0.94 0.04 88 / 0.75)",
+          "oklch(0.82 0.055 80 / 0.55)",
+          "oklch(0.97 0.028 90 / 0.9)",
         ]
       : palette === "ink"
         ? [
             "oklch(0.22 0.014 70 / 0.5)",
             "oklch(0.32 0.016 70 / 0.4)",
-            "oklch(0.78 0.02 90 / 0.45)",
+            "oklch(0.78 0.05 82 / 0.45)",
           ]
         : [
             "oklch(0.28 0.016 70 / 0.55)",
             "oklch(0.48 0.018 75 / 0.45)",
-            "oklch(0.9 0.02 95 / 0.5)",
+            "oklch(0.9 0.045 86 / 0.5)",
           ];
 
   return (

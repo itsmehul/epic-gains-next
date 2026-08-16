@@ -77,7 +77,7 @@ export function FriendsPageClient() {
                   Find people to follow.
                 </p>
               ) : searchQuery.isLoading ? (
-                <LoadingRow label="Searching…" />
+                <LoadingRow />
               ) : searchQuery.isError ? (
                 <ErrorText error={searchQuery.error} />
               ) : (searchQuery.data?.items.length ?? 0) === 0 ? (
@@ -95,7 +95,7 @@ export function FriendsPageClient() {
 
             <TabsContent className="mt-4" value="followers">
               {!me?.username || followersQuery.isLoading ? (
-                <LoadingRow label="Loading followers…" />
+                <LoadingRow />
               ) : followersQuery.isError ? (
                 <ErrorText error={followersQuery.error} />
               ) : (followersQuery.data?.items.length ?? 0) === 0 ? (
@@ -115,7 +115,7 @@ export function FriendsPageClient() {
 
             <TabsContent className="mt-4" value="following">
               {!me?.username || followingQuery.isLoading ? (
-                <LoadingRow label="Loading following…" />
+                <LoadingRow />
               ) : followingQuery.isError ? (
                 <ErrorText error={followingQuery.error} />
               ) : (followingQuery.data?.items.length ?? 0) === 0 ? (
@@ -135,7 +135,7 @@ export function FriendsPageClient() {
 
             <TabsContent className="mt-4" value="requests">
               {requestsQuery.isLoading ? (
-                <LoadingRow label="Loading requests…" />
+                <LoadingRow />
               ) : requestsQuery.isError ? (
                 <ErrorText error={requestsQuery.error} />
               ) : (requestsQuery.data?.items.length ?? 0) === 0 ? (
@@ -190,8 +190,8 @@ export function FriendsPageClient() {
   );
 }
 
-function LoadingRow({ label }: { label: string }) {
-  return <AppShellLoading className="min-h-0 py-10" label={label} />;
+function LoadingRow() {
+  return <AppShellLoading className="min-h-0 py-10" />;
 }
 
 function ErrorText({ error }: { error: unknown }) {

@@ -4,8 +4,8 @@ export const APP_DESCRIPTION =
     "Epic Gains is a workout app that helps you build muscle and strength. A simple, focused journal for every rep.";
 export const APP_THEME_COLOR = "#1c1814";
 export const APP_COLOR_SCHEME = "light dark" as const;
-/** Brand mark: `public/logos/logo.png` */
-export const BRAND_ICON = "/logos/logo.png";
+/** Brand mark: `public/logos/logo.svg` */
+export const BRAND_ICON = "/logos/logo.svg";
 
 export const APPLE_SPLASH_SCREENS = [
     {

@@ -11,6 +11,11 @@ const withSerwist = withSerwistInit({
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  images: {
+    dangerouslyAllowSVG: true,
+    contentDispositionType: "inline",
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+  },
   serverExternalPackages: ["pg", "pg-workflows", "ksuid", "@opentelemetry/api"],
   allowedDevOrigins: ['192.168.29.225', 'e272-2405-201-b-813d-54ad-470f-d2f6-debf.ngrok-free.app'],
   webpack: (config, { isServer, nextRuntime, webpack }) => {

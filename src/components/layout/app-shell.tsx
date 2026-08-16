@@ -104,25 +104,21 @@ export function AppShellBody({ children, className }: AppShellBodyProps) {
 
 type AppShellLoadingProps = {
   className?: string;
-  label?: string;
 };
 
-export function AppShellLoading({
-  className,
-  label = "Loading…",
-}: AppShellLoadingProps) {
+export function AppShellLoading({ className }: AppShellLoadingProps) {
   return (
     <div
       aria-busy="true"
+      aria-label="Loading"
       aria-live="polite"
       className={cn(
-        "text-muted-foreground flex min-h-[min(20rem,50dvh)] flex-1 flex-col items-center justify-center gap-3 px-4 text-center",
+        "text-muted-foreground flex min-h-[min(20rem,50dvh)] flex-1 items-center justify-center px-4",
         className,
       )}
       role="status"
     >
       <Spinner className="size-6" />
-      {label ? <p className="text-sm tracking-tight">{label}</p> : null}
     </div>
   );
 }
