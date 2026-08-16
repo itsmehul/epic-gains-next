@@ -4,9 +4,9 @@ import { LandingPage } from "@/features/marketing/landing-page";
 import { APP_NAME } from "@/shared/pwa/constants";
 
 export const metadata: Metadata = {
-  title: `Workout journal for strength training · ${APP_NAME}`,
+  title: `Master YouTube workouts · ${APP_NAME}`,
   description:
-    "Log every set, see your progress, and train more consistently. Epic Gains is a simple strength journal — free to start.",
+    "Master YouTube workouts into a collection you own. Connect an AI agent over MCP for a daily pulse from your exercise comments. Free to start.",
   alternates: { canonical: "/" },
 };
 

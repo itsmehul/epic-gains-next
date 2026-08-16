@@ -61,28 +61,50 @@ function UserAvatar({
   );
 }
 
-function CommentRow({ comment }: { comment: Comment }) {
+function CommentRow({
+  comment,
+  linkAuthor = true,
+}: {
+  comment: Comment;
+  linkAuthor?: boolean;
+}) {
   const when = comment.createdAt ? formatRelativeTime(comment.createdAt) : "";
+  const profileHref = `/u/${comment.author.username}`;
 
   return (
     <li className="flex gap-3">
-      <Link href={`/u/${comment.author.username}`} className="mt-0.5 shrink-0">
-        <UserAvatar name={comment.author.name} image={comment.author.image} />
-      </Link>
+      {linkAuthor ? (
+        <Link href={profileHref} className="mt-0.5 shrink-0">
+          <UserAvatar name={comment.author.name} image={comment.author.image} />
+        </Link>
+      ) : (
+        <div className="mt-0.5 shrink-0">
+          <UserAvatar name={comment.author.name} image={comment.author.image} />
+        </div>
+      )}
       <div className="min-w-0 flex-1 rounded-2xl bg-muted/50 px-3.5 py-2.5 ring-1 ring-foreground/5">
         <p className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-[13px] leading-5">
-          <Link
-            href={`/u/${comment.author.username}`}
-            className="text-foreground truncate font-medium hover:underline"
-          >
-            {comment.author.name}
-          </Link>
-          <Link
-            href={`/u/${comment.author.username}`}
-            className="text-muted-foreground truncate"
-          >
-            @{comment.author.username}
-          </Link>
+          {linkAuthor ? (
+            <Link
+              href={profileHref}
+              className="text-foreground truncate font-medium hover:underline"
+            >
+              {comment.author.name}
+            </Link>
+          ) : (
+            <span className="text-foreground truncate font-medium">
+              {comment.author.name}
+            </span>
+          )}
+          {linkAuthor ? (
+            <Link href={profileHref} className="text-muted-foreground truncate">
+              @{comment.author.username}
+            </Link>
+          ) : (
+            <span className="text-muted-foreground truncate">
+              @{comment.author.username}
+            </span>
+          )}
           {when ? (
             <>
               <span className="text-muted-foreground/40" aria-hidden>
@@ -127,19 +149,29 @@ function CommentsSkeleton() {
 export function ExerciseCommentsPanel({
   exerciseId,
   workoutId,
+  items: itemsProp,
+  readOnly = false,
 }: {
   exerciseId: string;
   workoutId?: string;
+  items?: Comment[];
+  readOnly?: boolean;
 }) {
   const [text, setText] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
-  const commentsQuery = useComments({ exerciseId, workoutId });
+  const commentsQuery = useComments({
+    exerciseId,
+    workoutId,
+    enabled: itemsProp == null && Boolean(exerciseId),
+  });
   const createComment = useCreateComment();
 
-  const items = commentsQuery.data?.items ?? [];
+  const items = itemsProp ?? commentsQuery.data?.items ?? [];
   const newestFirst = items.toReversed();
   const pending = createComment.isPending;
   const trimmed = text.trim();
+  const isLoading = itemsProp == null && commentsQuery.isLoading;
+  const isError = itemsProp == null && commentsQuery.isError;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -160,9 +192,9 @@ export function ExerciseCommentsPanel({
   return (
     <div className="flex flex-col gap-4 px-4 md:px-0">
       <div ref={listRef}>
-        {commentsQuery.isLoading ? (
+        {isLoading ? (
           <CommentsSkeleton />
-        ) : commentsQuery.isError ? (
+        ) : isError ? (
           <p className="text-destructive py-8 text-center text-sm" role="alert">
             {commentsQuery.error instanceof Error
               ? commentsQuery.error.message
@@ -175,19 +207,26 @@ export function ExerciseCommentsPanel({
               stroke={1.5}
             />
             <p className="text-foreground text-sm font-medium">No notes yet</p>
-            <p className="max-w-64 text-sm leading-5">
-              Add a cue, a form reminder, or how this lift felt today.
-            </p>
+            {readOnly ? null : (
+              <p className="max-w-64 text-sm leading-5">
+                Add a cue, a form reminder, or how this lift felt today.
+              </p>
+            )}
           </div>
         ) : (
           <ul className="flex flex-col gap-3">
             {newestFirst.map((comment) => (
-              <CommentRow key={comment.id} comment={comment} />
+              <CommentRow
+                key={comment.id}
+                comment={comment}
+                linkAuthor={!readOnly}
+              />
             ))}
           </ul>
         )}
       </div>
 
+      {readOnly ? null : (
       <form
         onSubmit={(event) => {
           void handleSubmit(event);
@@ -235,6 +274,7 @@ export function ExerciseCommentsPanel({
           </p>
         ) : null}
       </form>
+      )}
     </div>
   );
 }

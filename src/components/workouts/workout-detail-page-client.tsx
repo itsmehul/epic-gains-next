@@ -3,7 +3,6 @@
 import { IconChevronRight, IconCircleCheckFilled } from "@tabler/icons-react";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { LuChartLine, LuListChecks, LuMessageSquare } from "react-icons/lu";
 
 import {
   AppShellBody,
@@ -12,17 +11,12 @@ import {
   AppShellScroll,
 } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ExerciseAnalyticsPanel } from "@/components/workouts/exercise-analytics-panel";
-import { ExerciseCommentsPanel } from "@/components/workouts/exercise-comments-panel";
-import { ExerciseSetsPanel } from "@/components/workouts/exercise-sets-panel";
 import { WorkoutChannelLink } from "@/components/workouts/workout-channel-link";
+import { WorkoutExerciseTabs } from "@/components/workouts/workout-exercise-tabs";
 import {
   WorkoutVideoPreview,
   type WorkoutVideoPreviewHandle,
 } from "@/components/workouts/workout-video-preview";
-import type { MetricProfile, TargetSet } from "@/db/schema/workout-schema";
-import { useComments } from "@/features/comments/hooks";
 import {
   useSets,
   useWorkout,
@@ -176,99 +170,6 @@ function findWorkoutExerciseIdAtTime(
   }
 
   return matchId;
-}
-
-function WorkoutExerciseTabs({
-  workoutId,
-  exerciseId,
-  workoutExerciseId,
-  metricProfile,
-  targetSets,
-  sets,
-  setsReady,
-  readOnly,
-  canResolve,
-  onExerciseResolved,
-}: {
-  workoutId: string;
-  exerciseId: string;
-  workoutExerciseId: string;
-  metricProfile?: MetricProfile | null;
-  targetSets?: TargetSet[] | null;
-  sets: Set[];
-  setsReady?: boolean;
-  readOnly?: boolean;
-  canResolve?: boolean;
-  onExerciseResolved?: (id: string) => void;
-}) {
-  const [tab, setTab] = useState("sets");
-  const commentsQuery = useComments({ exerciseId, workoutId });
-  const commentCount = commentsQuery.data?.items.length ?? 0;
-  const tabTriggerClassName =
-    "gap-1.5 px-2 py-1 text-xs text-primary/55 hover:text-primary/75 data-active:text-primary data-active:after:bg-primary/55 [&_svg]:size-3.5";
-
-  return (
-    <Tabs
-      value={tab}
-      onValueChange={(value) => {
-        if (typeof value === "string") setTab(value);
-      }}
-      className="gap-0"
-    >
-      <div className="px-4 md:px-0">
-        <TabsList className="h-7 w-full gap-0 p-0" variant="line">
-          <TabsTrigger value="sets" className={tabTriggerClassName}>
-            <LuListChecks aria-hidden />
-            Sets
-          </TabsTrigger>
-          <TabsTrigger value="comments" className={tabTriggerClassName}>
-            <LuMessageSquare aria-hidden />
-            Comments
-            {commentCount > 0 ? (
-              <Badge
-                variant="secondary"
-                className="h-4 min-w-4 justify-center px-1.5 text-[10px] tabular-nums"
-              >
-                {commentCount}
-              </Badge>
-            ) : null}
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className={tabTriggerClassName}>
-            <LuChartLine aria-hidden />
-            Analytics
-          </TabsTrigger>
-        </TabsList>
-      </div>
-      <div className="mt-4">
-        <div hidden={tab !== "sets"}>
-          <ExerciseSetsPanel
-            workoutId={workoutId}
-            exerciseId={exerciseId}
-            workoutExerciseId={workoutExerciseId}
-            metricProfile={metricProfile}
-            targetSets={targetSets}
-            sets={sets}
-            setsReady={setsReady}
-            readOnly={readOnly}
-            canResolve={canResolve}
-            onExerciseResolved={onExerciseResolved}
-          />
-        </div>
-        <div hidden={tab !== "comments"}>
-          <ExerciseCommentsPanel
-            exerciseId={exerciseId}
-            workoutId={workoutId}
-          />
-        </div>
-        <div hidden={tab !== "analytics"}>
-          <ExerciseAnalyticsPanel
-            sets={sets}
-            metricProfile={metricProfile}
-          />
-        </div>
-      </div>
-    </Tabs>
-  );
 }
 
 export function WorkoutDetailPageClient() {

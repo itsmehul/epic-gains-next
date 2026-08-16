@@ -2,7 +2,7 @@ export const APP_NAME = "Epic Gains";
 export const APP_SHORT_NAME = "epicgains";
 export const APP_DESCRIPTION =
     "Epic Gains is a workout app that helps you build muscle and strength. A simple, focused journal for every rep.";
-export const APP_THEME_COLOR = "#1c1814";
+export const APP_THEME_COLOR = "#0f0f0f";
 export const APP_COLOR_SCHEME = "light dark" as const;
 /** Brand mark: `public/logos/logo.svg` */
 export const BRAND_ICON = "/logos/logo.svg";
