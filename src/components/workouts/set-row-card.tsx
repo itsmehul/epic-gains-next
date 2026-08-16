@@ -1,9 +1,8 @@
 "use client";
 
-import { IconChevronDown, IconLoader2, IconTrash } from "@tabler/icons-react";
+import { IconChevronDown, IconLoader2 } from "@tabler/icons-react";
 import { motion, type Transition } from "motion/react";
 
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/shared/utils";
 
@@ -55,7 +54,7 @@ export function SetRowCard({
   const editorOpen = isDraft && expanded && !isApproving;
   const checkboxChecked = isComplete;
   const canExpand = isDraft && !isApproving;
-  const removeLabel = isDraft ? "Discard draft set" : "Delete set";
+  const checkboxDisabled = isApproving || busy;
 
   return (
     <motion.li
@@ -102,39 +101,27 @@ export function SetRowCard({
           <div className="relative flex size-5 shrink-0 items-center justify-center">
             <Checkbox
               checked={checkboxChecked}
-              disabled={!isDraft || isApproving || busy}
-              aria-label={isDraft ? "Approve set" : "Set logged"}
+              disabled={checkboxDisabled}
+              aria-label={
+                isDraft
+                  ? "Approve set"
+                  : isLogged
+                    ? "Delete set"
+                    : "Set logged"
+              }
               className="size-5 rounded-md transition-[background-color,border-color] duration-280 data-checked:bg-primary"
               onCheckedChange={(checked) => {
                 if (checked && isDraft) onApprove();
+                if (!checked && isLogged) onRemove();
               }}
             />
-            {isApproving && busy ? (
+            {busy ? (
               <IconLoader2
                 aria-hidden
                 className="text-primary pointer-events-none absolute inset-0 m-auto size-4 animate-spin"
               />
             ) : null}
           </div>
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            aria-label={removeLabel}
-            disabled={busy || isApproving}
-            className={cn(
-              "text-muted-foreground hover:text-destructive h-8 w-8 shrink-0 px-0 transition-opacity duration-280",
-              isApproving && "pointer-events-none opacity-40",
-            )}
-            onClick={onRemove}
-          >
-            {busy && isLogged ? (
-              <IconLoader2 className="animate-spin" />
-            ) : (
-              <IconTrash className="size-4" />
-            )}
-          </Button>
         </div>
 
         <div
