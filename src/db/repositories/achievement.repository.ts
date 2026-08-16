@@ -97,13 +97,19 @@ export async function unlockNewAchievementsForUser(
     .filter((item): item is UnlockedAchievement => item !== null);
 }
 
-export async function listAchievementsForUser(userId: string): Promise<{
+export async function listAchievementsForUser(
+  userId: string,
+  options?: { persistUnlocks?: boolean },
+): Promise<{
   items: AchievementListItem[];
   gamerscore: number;
   totalGamerscore: number;
   unlockedCount: number;
 }> {
-  const newlyUnlocked = await unlockNewAchievementsForUser(userId);
+  const persistUnlocks = options?.persistUnlocks ?? true;
+  const newlyUnlocked = persistUnlocks
+    ? await unlockNewAchievementsForUser(userId)
+    : [];
   const [rows, unlocks] = await Promise.all([
     loadSetRows(userId),
     listUnlocks(userId),

@@ -1,16 +1,10 @@
 "use client";
 
 import {
-  IconBarbell,
   IconBrandYoutube,
   IconBrandYoutubeFilled,
-  IconDotsVertical,
-  IconPlayerPlayFilled,
   IconRefresh,
   IconSearch,
-  IconTrash,
-  IconTrendingDown,
-  IconTrendingUp,
   IconUsers,
   IconX,
 } from "@/components/ui/icons";
@@ -26,6 +20,11 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
+  WorkoutFeedCard,
+  WorkoutFeedSkeleton,
+  personInitials,
+} from "@/components/workouts/workout-feed-card";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -34,19 +33,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
 import type { MuscleGroup } from "@/db/schema/workout-schema";
 import { useFollowingFeed } from "@/features/social/hooks";
 import type { FeedWorkoutItem, SocialUser } from "@/features/social/types";
 import { useDeleteWorkout, useWorkouts } from "@/features/workouts/hooks";
 import { MUSCLE_GROUP_OPTIONS } from "@/features/workouts/muscle-group";
-import type { WorkoutListStats, WorkoutWithStats } from "@/features/workouts/types";
-import { getYouTubeThumbnailUrl } from "@/features/workouts/youtube";
+import type { WorkoutWithStats } from "@/features/workouts/types";
 import { useSession } from "@/infrastructure/auth/client";
 import { cn } from "@/shared/utils";
 
@@ -54,58 +47,6 @@ const springSoft = { type: "spring" as const, stiffness: 420, damping: 32 };
 const easeOut = [0.25, 1, 0.5, 1] as const;
 const SEARCH_DEBOUNCE_MS = 300;
 const SHELF_CARD_WIDTH = "minmax(13.75rem,13.75rem)";
-
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
-
-function formatWorkoutDate(value: Date | string) {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-
-  const now = new Date();
-  const startOfToday = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  );
-  const startOfThatDay = new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-  );
-  const dayDiff = Math.round(
-    (startOfToday.getTime() - startOfThatDay.getTime()) / 86_400_000,
-  );
-
-  if (dayDiff === 0) return "Today";
-  if (dayDiff === 1) return "Yesterday";
-  if (dayDiff > 1 && dayDiff < 7) {
-    return date.toLocaleDateString(undefined, { weekday: "long" });
-  }
-
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
-  });
-}
-
-function formatVolume(volume: number) {
-  if (volume <= 0) return null;
-  if (volume >= 1000) return `${(volume / 1000).toFixed(1)}k`;
-  return volume % 1 === 0 ? String(volume) : volume.toFixed(1);
-}
-
-function formatVolumeChange(pct: number) {
-  const rounded = Math.round(Math.abs(pct));
-  if (rounded === 0) return "Flat";
-  return `${pct > 0 ? "+" : "−"}${rounded}%`;
-}
 
 function workoutCreatedAt(value: Date | string) {
   const time = new Date(value).getTime();
@@ -191,190 +132,6 @@ function MuscleGroupChips({
   );
 }
 
-function WorkoutMetaLine({ stats }: { stats: WorkoutListStats }) {
-  const lastLogged = stats.lastLoggedAt
-    ? formatWorkoutDate(stats.lastLoggedAt)
-    : null;
-  const volumeLabel = formatVolume(stats.volume);
-  const volumeChange = stats.volumeChangePct;
-
-  const parts: { key: string; node: ReactNode }[] = [];
-
-  if (stats.exerciseCount > 0) {
-    parts.push({
-      key: "exercises",
-      node:
-        stats.loggedExerciseCount > 0
-          ? `${stats.loggedExerciseCount}/${stats.exerciseCount} exercises`
-          : `${stats.exerciseCount} ${stats.exerciseCount === 1 ? "exercise" : "exercises"}`,
-    });
-  }
-  if (stats.setCount > 0) {
-    parts.push({
-      key: "sets",
-      node: `${stats.setCount} ${stats.setCount === 1 ? "set" : "sets"}`,
-    });
-  }
-  if (volumeLabel) {
-    parts.push({ key: "volume", node: `${volumeLabel} vol` });
-  }
-  if (lastLogged) {
-    parts.push({ key: "logged", node: lastLogged });
-  }
-  if (volumeChange != null) {
-    const tone =
-      Math.round(volumeChange) === 0
-        ? "flat"
-        : volumeChange > 0
-          ? "up"
-          : "down";
-    parts.push({
-      key: "trend",
-      node: (
-        <span
-          className={cn(
-            "inline-flex items-center gap-0.5",
-            tone === "up" && "text-emerald-600 dark:text-emerald-400",
-            tone === "down" && "text-rose-600 dark:text-rose-400",
-          )}
-        >
-          {tone === "up" ? (
-            <IconTrendingUp className="size-3" aria-hidden />
-          ) : null}
-          {tone === "down" ? (
-            <IconTrendingDown className="size-3" aria-hidden />
-          ) : null}
-          {formatVolumeChange(volumeChange)}
-        </span>
-      ),
-    });
-  }
-
-  if (parts.length === 0) {
-    return <p className="text-muted-foreground text-xs">No sets logged yet</p>;
-  }
-
-  return (
-    <p className="text-muted-foreground line-clamp-2 text-xs leading-relaxed">
-      {parts.map((part, index) => (
-        <span key={part.key}>
-          {index > 0 ? <span className="text-muted-foreground/40"> · </span> : null}
-          {part.node}
-        </span>
-      ))}
-    </p>
-  );
-}
-
-function WorkoutFeedCard({
-  workout,
-  onDelete,
-}: {
-  workout: WorkoutWithStats;
-  onDelete?: () => void;
-}) {
-  const thumbnail = workout.videoUrl
-    ? getYouTubeThumbnailUrl(workout.videoUrl)
-    : null;
-  const youtubeAuthor = workout.author?.trim() || "Imported workout";
-  const createdLabel = formatWorkoutDate(workout.createdAt);
-  const progressPct =
-    workout.stats.exerciseCount > 0
-      ? Math.round(
-        (workout.stats.loggedExerciseCount / workout.stats.exerciseCount) *
-        100,
-      )
-      : null;
-
-  return (
-    <article className="group flex w-55 flex-col gap-2.5">
-      <Link
-        href={`/workouts/${workout.id}`}
-        className="relative block overflow-hidden rounded-xl bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-      >
-        <div className="relative aspect-video overflow-hidden bg-zinc-900">
-          {thumbnail ? (
-            // External YouTube CDN; next/image domain config not required.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={thumbnail}
-              alt=""
-              className="size-full object-cover transition duration-300 group-hover:scale-[1.03] group-hover:brightness-90"
-            />
-          ) : (
-            <div className="flex size-full items-center justify-center bg-linear-to-br from-zinc-800 to-zinc-950 text-zinc-500">
-              <IconBarbell className="size-10" stroke={1.25} />
-            </div>
-          )}
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-            <span className="flex size-10 items-center justify-center rounded-full bg-black/70 text-white shadow-lg">
-              <IconPlayerPlayFilled className="size-5 translate-x-px" />
-            </span>
-          </div>
-          {progressPct != null && workout.stats.setCount > 0 ? (
-            <span className="absolute right-1.5 bottom-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-white">
-              {progressPct}% logged
-            </span>
-          ) : workout.stats.exerciseCount > 0 ? (
-            <span className="absolute right-1.5 bottom-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-white">
-              {workout.stats.exerciseCount}{" "}
-              {workout.stats.exerciseCount === 1 ? "exercise" : "exercises"}
-            </span>
-          ) : null}
-        </div>
-      </Link>
-
-      <div className="flex min-w-0 gap-1">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start gap-1">
-            <Link href={`/workouts/${workout.id}`} className="min-w-0 flex-1">
-              <h2 className="line-clamp-2 text-sm leading-snug font-semibold tracking-tight">
-                {workout.name}
-              </h2>
-            </Link>
-            {onDelete ? (
-              <Popover>
-                <PopoverTrigger
-                  render={
-                    <Button
-                      type="button"
-                      size="icon-xs"
-                      variant="ghost"
-                      className="mt-0.5 shrink-0 opacity-70 hover:opacity-100"
-                      aria-label={`More actions for ${workout.name}`}
-                    />
-                  }
-                >
-                  <IconDotsVertical className="size-4" />
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-40 gap-1 p-1.5">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="text-destructive hover:bg-destructive/10 w-full justify-start"
-                    onClick={onDelete}
-                  >
-                    <IconTrash className="size-3.5" data-icon="inline-start" />
-                    Archive
-                  </Button>
-                </PopoverContent>
-              </Popover>
-            ) : null}
-          </div>
-          <p className="text-muted-foreground mt-0.5 truncate text-xs">
-            {youtubeAuthor}
-            {createdLabel ? ` · ${createdLabel}` : null}
-          </p>
-          <div className="mt-1">
-            <WorkoutMetaLine stats={workout.stats} />
-          </div>
-        </div>
-      </div>
-    </article>
-  );
-}
-
 function WorkoutShelf({
   title,
   href,
@@ -404,7 +161,7 @@ function WorkoutShelf({
           >
             <Avatar size="sm">
               {owner.image ? <AvatarImage alt="" src={owner.image} /> : null}
-              <AvatarFallback>{initials(owner.name)}</AvatarFallback>
+              <AvatarFallback>{personInitials(owner.name)}</AvatarFallback>
             </Avatar>
             <h2 className="truncate text-base font-semibold tracking-tight">
               {title}
@@ -461,25 +218,6 @@ function WorkoutShelfSkeleton({ index }: { index: number }) {
             <WorkoutFeedSkeleton key={cardIndex} index={index * 4 + cardIndex} />
           ))}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function WorkoutFeedSkeleton({ index }: { index: number }) {
-  return (
-    <div
-      className="flex w-55 flex-col gap-2.5"
-      style={{ animationDelay: `${index * 60}ms` }}
-    >
-      <div className="bg-muted aspect-video animate-pulse rounded-xl" />
-      <div className="flex min-w-0 flex-col gap-2">
-        <div
-          className="bg-muted h-4 animate-pulse rounded-md"
-          style={{ width: `${62 + ((index * 13) % 28)}%` }}
-        />
-        <div className="bg-muted/70 h-3 w-28 animate-pulse rounded-md" />
-        <div className="bg-muted/50 h-3 w-40 animate-pulse rounded-md" />
       </div>
     </div>
   );
@@ -661,7 +399,7 @@ export function WorkoutsPageClient() {
             <div className="relative mx-auto w-full max-w-xl">
               <IconSearch
                 aria-hidden
-                className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2"
+                className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
               />
               <Input
                 id={searchId}
@@ -670,7 +408,7 @@ export function WorkoutsPageClient() {
                 maxLength={200}
                 placeholder="Search workouts, friends, or muscles"
                 aria-label="Search workouts by name, friend, author, muscle group, or key muscles"
-                className="bg-muted/50 h-10 rounded-full pr-10 pl-10"
+                className="pl-9 pr-10"
                 onChange={(event) => setSearchInput(event.target.value)}
               />
               {searchInput ? (

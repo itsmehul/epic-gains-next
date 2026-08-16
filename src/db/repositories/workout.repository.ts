@@ -264,12 +264,15 @@ export async function listCatalogWorkouts(
 }
 
 export async function listWorkoutsForProfile(profileUserId: string) {
-  return db
+  const workouts = await db
     .select({
       id: workout.id,
       name: workout.name,
+      author: workout.author,
+      channelUrl: workout.channelUrl,
+      youtubeVideoId: workout.youtubeVideoId,
       userId: workout.userId,
-      role: workoutMembership.role,
+      archivedAt: workout.archivedAt,
       createdAt: workout.createdAt,
     })
     .from(workout)
@@ -277,8 +280,15 @@ export async function listWorkoutsForProfile(profileUserId: string) {
       workoutMembership,
       eq(workoutMembership.workoutId, workout.id),
     )
-    .where(eq(workoutMembership.userId, profileUserId))
+    .where(
+      and(
+        eq(workoutMembership.userId, profileUserId),
+        isNull(workout.archivedAt),
+      ),
+    )
     .orderBy(desc(workout.createdAt));
+
+  return enrichWorkoutsWithStats(workouts, { viewerId: profileUserId });
 }
 
 export async function getWorkoutById(id: string) {

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { listWorkoutsForProfile } from "@/db/repositories/workout.repository";
+import { listAchievementsForUser } from "@/db/repositories/achievement.repository";
 import { getUserByUsername } from "@/db/repositories/social.repository";
-import { canViewUserWorkouts } from "@/features/social/service";
+import { canViewUserWorkouts } from "@/features/social/privacy";
 import {
   apiError,
   requireApiSession,
@@ -22,17 +22,18 @@ export async function GET(
     const { username } = await params;
     const profile = await getUserByUsername(username);
     if (!profile) return apiError("User not found", 404);
-
-    const visible = await canViewUserWorkouts(session.user.id, profile);
-    if (!visible) {
-      return NextResponse.json({ items: [] });
+    if (!(await canViewUserWorkouts(session.user.id, profile))) {
+      return apiError("This account is private", 403);
     }
 
-    const items = await listWorkoutsForProfile(profile.id);
-    return NextResponse.json({ items });
+    const persistUnlocks = session.user.id === profile.id;
+    const payload = await listAchievementsForUser(profile.id, {
+      persistUnlocks,
+    });
+    return NextResponse.json(payload);
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to list workouts";
+      error instanceof Error ? error.message : "Failed to list achievements";
     return apiError(message, 500);
   }
 }

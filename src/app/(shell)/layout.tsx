@@ -45,11 +45,11 @@ async function ShellLayoutContent({
   const { ensureUserSocialProfile } = await import(
     "@/db/repositories/social.repository"
   );
-  await ensureUserSocialProfile(session.user.id);
+  const profile = await ensureUserSocialProfile(session.user.id);
 
   const accountProfile: AccountSidebarProfile = {
     name: session.user.name || "Account",
-    pictureUrl: session.user.image?.trim() || null,
+    pictureUrl: profile?.image?.trim() || session.user.image?.trim() || null,
   };
 
   return <AppShell accountProfile={accountProfile}>{children}</AppShell>;

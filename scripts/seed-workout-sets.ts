@@ -11,6 +11,7 @@ import {
   user,
   workout,
   workoutExercise,
+  workoutMembership,
 } from "../src/db/schema";
 import type { MetricProfile } from "../src/db/schema/workout-schema";
 
@@ -119,10 +120,16 @@ async function main() {
     const workouts = await db
       .select({ id: workout.id, name: workout.name })
       .from(workout)
-      .where(eq(workout.userId, existingUser.id));
+      .innerJoin(
+        workoutMembership,
+        eq(workoutMembership.workoutId, workout.id),
+      )
+      .where(eq(workoutMembership.userId, existingUser.id));
 
     if (workouts.length === 0) {
-      console.log(`No workouts found for ${existingUser.email}. Nothing to seed.`);
+      console.log(
+        `No workout memberships found for ${existingUser.email}. Nothing to seed.`,
+      );
       return;
     }
 

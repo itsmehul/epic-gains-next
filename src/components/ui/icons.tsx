@@ -22,7 +22,7 @@ function MaterialIcon({
   return (
     <span
       aria-hidden
-      className={cn("ms-icon inline-flex", className)}
+      className={cn("ms-icon inline-flex size-5", className)}
       {...props}
     >
       <span
@@ -65,6 +65,7 @@ export const IconCircleCheckFilled = createIcon("check_circle", true);
 export const IconCopy = createIcon("content_copy");
 export const IconDotsVertical = createIcon("more_vert");
 export const IconExternalLink = createIcon("open_in_new");
+export const IconFlame = createIcon("local_fire_department");
 export const IconFocus2 = createIcon("center_focus_strong");
 export const IconKey = createIcon("vpn_key");
 export const IconLayoutSidebar = createIcon("view_sidebar");

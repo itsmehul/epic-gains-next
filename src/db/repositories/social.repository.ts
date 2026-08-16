@@ -8,6 +8,7 @@ import {
   normalizeUsername,
   usernameBaseFromIdentity,
 } from "@/features/social/username";
+import { defaultAvatarUrl } from "@/shared/avatar";
 
 export type PublicUser = {
   id: string;
@@ -86,6 +87,12 @@ export async function ensureUserSocialProfile(userId: string) {
     .limit(1);
 
   if (!row) return null;
+
+  if (!row.image?.trim()) {
+    const image = defaultAvatarUrl(row.email);
+    await db.update(user).set({ image }).where(eq(user.id, userId));
+    row.image = image;
+  }
 
   if (row.username) {
     return toPublicUser(row);

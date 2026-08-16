@@ -31,11 +31,5 @@ export type ListUsersResult = { items: SocialUser[] };
 export type ListFollowRequestsResult = { items: FollowRequestItem[]; count: number };
 export type ListFeedResult = { items: FeedWorkoutItem[] };
 export type ListProfileWorkoutsResult = {
-  items: Array<{
-    id: string;
-    name: string;
-    userId: string | null;
-    role: "OWNER" | "MEMBER";
-    createdAt: string;
-  }>;
+  items: WorkoutWithStats[];
 };

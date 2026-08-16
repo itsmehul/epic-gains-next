@@ -159,35 +159,88 @@ function MockScreenShell({ children }: { children: ReactNode }) {
 export function MockProfileScreen() {
   return (
     <MockScreenShell>
-      <MockShellHeader showBack title={`@${MOCK_PROFILE.username}`} />
+      <MockShellHeader
+        actions={
+          <span className="inline-flex h-8 items-center rounded-lg border px-3 text-sm font-medium">
+            Following
+          </span>
+        }
+        showBack
+        title={`@${MOCK_PROFILE.username}`}
+      />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex flex-col gap-6 px-4 py-4">
           <div className="flex items-start gap-4">
             <Avatar size="lg">
               <AvatarFallback>{initials(MOCK_PROFILE.name)}</AvatarFallback>
             </Avatar>
-            <div className="min-w-0 flex-1 space-y-3">
-              <div>
-                <p className="text-lg leading-tight font-semibold">
-                  {MOCK_PROFILE.name}
+            <div className="min-w-0 flex-1">
+              <p className="text-lg leading-tight font-semibold">
+                {MOCK_PROFILE.name}
+              </p>
+              <p className="text-muted-foreground text-sm">
+                @{MOCK_PROFILE.username}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="bg-muted/50 grid grid-cols-3 overflow-hidden rounded-2xl">
+              <div className="px-3 py-2.5">
+                <p className="text-muted-foreground text-[11px] font-medium tracking-[0.32px] uppercase">
+                  Sets
                 </p>
-                <p className="text-muted-foreground text-sm">
-                  @{MOCK_PROFILE.username}
-                </p>
+                <p className="mt-0.5 text-lg font-medium tabular-nums">248</p>
               </div>
-              <div className="flex gap-4 text-sm">
-                <span>
-                  <span className="font-semibold">
-                    {MOCK_PROFILE.followersCount}
-                  </span>{" "}
-                  followers
-                </span>
-                <span>
-                  <span className="font-semibold">
-                    {MOCK_PROFILE.followingCount}
-                  </span>{" "}
-                  following
-                </span>
+              <div className="border-border/70 border-l px-3 py-2.5">
+                <p className="text-muted-foreground text-[11px] font-medium tracking-[0.32px] uppercase">
+                  Days
+                </p>
+                <p className="mt-0.5 text-lg font-medium tabular-nums">32</p>
+              </div>
+              <div className="border-border/70 border-l px-3 py-2.5">
+                <p className="text-muted-foreground text-[11px] font-medium tracking-[0.32px] uppercase">
+                  Streak
+                </p>
+                <p className="mt-0.5 text-lg font-medium tabular-nums">4d</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-muted/60 relative isolate overflow-hidden rounded-2xl px-3.5 py-3">
+                <p className="text-muted-foreground text-[11px] font-medium tracking-[0.32px] uppercase">
+                  Favourite workout
+                </p>
+                <p className="mt-3 text-[15px] leading-5 font-medium">
+                  {MOCK_PROFILE_WORKOUTS[1]?.name}
+                </p>
+                <p className="text-muted-foreground mt-0.5 text-xs">86 sets</p>
+              </div>
+              <div className="bg-muted/60 relative isolate overflow-hidden rounded-2xl px-3.5 py-3">
+                <p className="text-muted-foreground text-[11px] font-medium tracking-[0.32px] uppercase">
+                  Favourite exercise
+                </p>
+                <p className="mt-3 text-[15px] leading-5 font-medium">
+                  Incline Dumbbell Press
+                </p>
+                <p className="text-muted-foreground mt-0.5 text-xs">41 sets</p>
+              </div>
+              <div className="bg-muted/60 relative isolate overflow-hidden rounded-2xl px-3.5 py-3">
+                <p className="text-muted-foreground text-[11px] font-medium tracking-[0.32px] uppercase">
+                  Most trained
+                </p>
+                <p className="mt-3 text-[15px] leading-5 font-medium">Chest</p>
+                <p className="text-muted-foreground mt-0.5 text-xs">72 sets</p>
+              </div>
+              <div className="bg-primary text-primary-foreground relative isolate overflow-hidden rounded-2xl px-3.5 py-3">
+                <p className="text-[11px] font-medium tracking-[0.32px] uppercase opacity-80">
+                  Latest unlock
+                </p>
+                <p className="mt-3 text-[15px] leading-5 font-medium">
+                  {MOCK_ACHIEVEMENTS[1]?.name}
+                </p>
+                <p className="mt-0.5 text-xs opacity-80">
+                  {MOCK_ACHIEVEMENTS[1]?.gamerscore}G
+                </p>
               </div>
             </div>
           </div>
@@ -195,6 +248,7 @@ export function MockProfileScreen() {
           <Tabs defaultValue="workouts">
             <TabsList className="w-full" variant="line">
               <TabsTrigger value="workouts">Workouts</TabsTrigger>
+              <TabsTrigger value="achievements">Achievements</TabsTrigger>
               <TabsTrigger value="followers">Followers</TabsTrigger>
               <TabsTrigger value="following">Following</TabsTrigger>
             </TabsList>

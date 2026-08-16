@@ -78,8 +78,7 @@
   --color-chart-background: var(--chart-background);
 }
 
-:root,
-.fit-landing {
+:root {
   --ui-scale: 1.25;
   --font-heading: var(--font-roboto);
 
@@ -169,7 +168,8 @@
   --chart-scale-pattern-color: oklch(0.95 0.004 80);
 }
 
-.dark {
+.dark,
+.fit-landing {
   --primary: oklch(0.72 0.18 27);
   --primary-foreground: oklch(0.2 0.08 27);
   --primary-container: oklch(0.32 0.12 27);
@@ -320,7 +320,7 @@
 }
 
 .fit-landing {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -366,6 +366,15 @@
   background-size: 14px 14px;
 }
 
+.pattern-hero-dots {
+  background-image: radial-gradient(
+    color-mix(in oklch, var(--foreground) 14%, transparent) 1.1px,
+    transparent 1.12px
+  );
+  background-size: 18px 18px;
+  mask-image: radial-gradient(ellipse 75% 70% at 50% 18%, black 8%, transparent 68%);
+}
+
 .pattern-plus {
   background-image:
     linear-gradient(
@@ -400,8 +409,6 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 1.25rem;
-  height: 1.25rem;
   overflow: hidden;
   container-type: size;
   line-height: 1;

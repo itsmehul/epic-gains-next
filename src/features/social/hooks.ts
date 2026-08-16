@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import type { ProfileInsights } from "@/features/social/profile-insights";
 import type { UpdateSocialProfileInput } from "@/features/social/schemas";
 import type {
   FollowRelationship,
@@ -25,6 +26,8 @@ export const socialKeys = {
     [...socialKeys.all, "following", username] as const,
   profileWorkouts: (username: string) =>
     [...socialKeys.all, "profile-workouts", username] as const,
+  profileInsights: (username: string) =>
+    [...socialKeys.all, "profile-insights", username] as const,
   requests: () => [...socialKeys.all, "requests"] as const,
   feed: (params?: { q?: string; muscleGroups?: string[] }) =>
     [...socialKeys.all, "feed", params ?? {}] as const,
@@ -96,6 +99,15 @@ export function useProfileWorkouts(username: string, enabled: boolean) {
     enabled: Boolean(username) && enabled,
     queryFn: () =>
       apiFetch<ListProfileWorkoutsResult>(`/api/users/${username}/workouts`),
+  });
+}
+
+export function useProfileInsights(username: string, enabled: boolean) {
+  return useQuery({
+    queryKey: socialKeys.profileInsights(username),
+    enabled: Boolean(username) && enabled,
+    queryFn: () =>
+      apiFetch<ProfileInsights>(`/api/users/${username}/insights`),
   });
 }
 

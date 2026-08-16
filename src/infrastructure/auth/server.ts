@@ -9,6 +9,7 @@ import {
   MCP_OAUTH_DEFAULT_SCOPE,
   MCP_OAUTH_SCOPES,
 } from "@/infrastructure/mcp/scopes";
+import { defaultAvatarUrl } from "@/shared/avatar";
 import { getAppUrl, getEnv } from "@/shared/env";
 
 const env = getEnv();
@@ -125,6 +126,7 @@ export const auth = betterAuth({
               ...userData,
               username,
               isPrivate: false,
+              image: userData.image?.trim() || defaultAvatarUrl(userData.email),
             },
           };
         },
@@ -137,6 +139,10 @@ export const auth = betterAuth({
           google: {
             clientId: googleClientId,
             clientSecret: googleClientSecret,
+            mapProfileToUser: (profile) => ({
+              image: profile.picture,
+            }),
+            overrideUserInfoOnSignIn: true,
           },
         }
       : {}),

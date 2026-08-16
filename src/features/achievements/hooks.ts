@@ -11,6 +11,8 @@ import { apiFetch } from "@/shared/api";
 export const achievementKeys = {
   all: ["achievements"] as const,
   list: () => [...achievementKeys.all, "list"] as const,
+  profile: (username: string) =>
+    [...achievementKeys.all, "profile", username] as const,
 };
 
 export const ACHIEVEMENT_UNLOCKED_EVENT = "epic-gains:achievement-unlocked";
@@ -26,5 +28,14 @@ export function useAchievements() {
   return useQuery({
     queryKey: achievementKeys.list(),
     queryFn: () => apiFetch<ListAchievementsResult>("/api/achievements"),
+  });
+}
+
+export function useProfileAchievements(username: string, enabled: boolean) {
+  return useQuery({
+    queryKey: achievementKeys.profile(username),
+    enabled: Boolean(username) && enabled,
+    queryFn: () =>
+      apiFetch<ListAchievementsResult>(`/api/users/${username}/achievements`),
   });
 }

@@ -15,7 +15,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { APP_NAME, BRAND_ICON } from "@/shared/pwa/constants";
 import { cn } from "@/shared/utils";
@@ -32,7 +31,7 @@ const faqs = [
   },
   {
     q: "Is Epic Gains free?",
-    a: "Yes. Create an account and start collecting videos. No credit card, no trial clock.",
+    a: "Yes — free forever. Create an account and start collecting videos. No credit card, no trial, no paid tier waiting in the wings.",
   },
   {
     q: "What does “mastered” mean?",
@@ -106,7 +105,7 @@ function ChapterLabel({ children }: { children: string }) {
 
 export function LandingPage() {
   return (
-    <div className="fit-landing bg-background text-foreground min-h-full antialiased">
+    <div className="fit-landing dark bg-background text-foreground min-h-full antialiased">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
@@ -145,19 +144,23 @@ export function LandingPage() {
         </div>
       </header>
 
-      <section className="px-5 pt-10 pb-8 sm:px-8 sm:pt-16 sm:pb-10">
-        <div className="mx-auto w-full max-w-3xl text-center">
-          <Badge variant="secondary">YouTube workouts, mastered</Badge>
-          <h1 className="mt-5 text-[2.15rem] leading-[1.12] font-normal tracking-tight text-balance sm:text-5xl sm:leading-[1.08] lg:text-[3.35rem]">
+      <section className="relative isolate overflow-hidden px-5 pt-10 pb-8 sm:px-8 sm:pt-16 sm:pb-10">
+        <div
+          aria-hidden
+          className="pattern-hero-dots pointer-events-none absolute inset-0"
+        />
+        <div className="relative mx-auto w-full max-w-3xl text-center">
+          <h1 className="text-[2.15rem] leading-[1.12] font-normal tracking-tight text-balance sm:text-5xl sm:leading-[1.08] lg:text-[3.35rem]">
             Master{" "}
             <IconBrandYoutubeFilled
               aria-hidden
-              className="inline size-[0.92em] -translate-y-0.5 text-primary"
+              className="size-[0.85em] align-middle text-primary"
             />{" "}
             workout videos and build an epic collection
           </h1>
           <p className="text-muted-foreground mx-auto mt-6 max-w-xl text-lg leading-relaxed text-pretty">
-            Save any YouTube workout. Import, follow, and track your progress.
+            Paste a link, get timed exercises, and log the session so it lives
+            in your collection — not Watch Later.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
@@ -176,6 +179,9 @@ export function LandingPage() {
               Sign in
             </Link>
           </div>
+          <p className="text-muted-foreground mt-4 text-sm">
+            No credit card. No trial clock. Free forever.
+          </p>
         </div>
       </section>
 
@@ -274,8 +280,9 @@ export function LandingPage() {
               Pick a video. Master it. Grow the collection.
             </h2>
             <p className="mt-5 text-base leading-relaxed opacity-85">
-              Works as a PWA on your phone. Import from YouTube, follow along,
-              and connect an agent over MCP for a daily pulse on the journey.
+              Free forever. Works as a PWA on your phone. Import from YouTube,
+              follow along, and connect an agent over MCP for a daily pulse on
+              the journey.
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
