@@ -1,5 +1,5 @@
-import type { MuscleGroup } from "@/db/schema/workout-schema";
 import type { exercise, set, workout, workoutExercise } from "@/db/schema";
+import type { MuscleGroup } from "@/db/schema/workout-schema";
 
 export type Workout = typeof workout.$inferSelect;
 export type Exercise = typeof exercise.$inferSelect;

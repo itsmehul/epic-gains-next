@@ -17,17 +17,17 @@ import {
 } from "drizzle-orm";
 
 import { db } from "@/db";
+import { getUserById } from "@/db/repositories/social.repository";
+import { insertWorkoutMembership } from "@/db/repositories/workout-membership.repository";
 import {
   exercise,
-  set as workoutSet,
   workout,
   workoutExercise,
   workoutMembership,
+  set as workoutSet,
 } from "@/db/schema";
 import type { MuscleGroup } from "@/db/schema/workout-schema";
 import { isRestWorkoutItem } from "@/features/workouts/workout-item";
-import { getUserById } from "@/db/repositories/social.repository";
-import { insertWorkoutMembership } from "@/db/repositories/workout-membership.repository";
 
 export type WorkoutInsert = typeof workout.$inferInsert;
 export type WorkoutUpdate = Partial<
@@ -96,9 +96,9 @@ export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
   const ids = workouts.map((item) => item.id);
   const setViewerFilter = options?.viewerId
     ? and(
-        inArray(workoutSet.workoutId, ids),
-        eq(workoutSet.userId, options.viewerId),
-      )
+      inArray(workoutSet.workoutId, ids),
+      eq(workoutSet.userId, options.viewerId),
+    )
     : inArray(workoutSet.workoutId, ids);
 
   const [exerciseRows, setRows] = await Promise.all([

@@ -52,15 +52,16 @@ describe("evaluateAchievements", () => {
     expect(stats.trainingDayCount).toBe(3);
   });
 
-  it("counts two follow-alongs on the same day", () => {
+  it("counts follow-alongs on the same day", () => {
     const stats = buildAchievementStats([
       row({ updatedAt: "2026-08-01T10:00:00", workoutId: "a", exerciseId: "e1" }),
-      row({ updatedAt: "2026-08-01T18:00:00", workoutId: "b", exerciseId: "e2" }),
+      row({ updatedAt: "2026-08-01T14:00:00", workoutId: "b", exerciseId: "e2" }),
+      row({ updatedAt: "2026-08-01T18:00:00", workoutId: "c", exerciseId: "e3" }),
     ]);
     const item = evaluateAchievements(stats).find(
       (row) => row.id === "two_follow_alongs",
     );
     expect(item?.unlocked).toBe(true);
-    expect(stats.maxSetsInOneDay).toBe(2);
+    expect(stats.maxSetsInOneDay).toBe(3);
   });
 });

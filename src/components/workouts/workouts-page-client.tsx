@@ -430,8 +430,8 @@ function WorkoutShelf({
                   workout={workout}
                   onDelete={
                     onDeleteWorkout &&
-                    archiveUserId &&
-                    workout.userId === archiveUserId
+                      archiveUserId &&
+                      workout.userId === archiveUserId
                       ? () => onDeleteWorkout(workout)
                       : undefined
                   }
@@ -800,27 +800,8 @@ export function WorkoutsPageClient() {
               )}
             >
               <AnimatePresence initial={false}>
-                {followingQuery.isPending ? (
-                  <WorkoutShelfSkeleton key="following-loading" index={0} />
-                ) : (
-                  followingSections.map((section) => (
-                    <motion.div
-                      key={section.owner.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={springSoft}
-                    >
-                      <WorkoutShelf
-                        href={`/u/${section.owner.username}`}
-                        owner={section.owner}
-                        title={section.owner.name}
-                        workouts={section.workouts}
-                      />
-                    </motion.div>
-                  ))
-                )}
                 {mineQuery.isPending ? (
-                  <WorkoutShelfSkeleton key="personal-loading" index={1} />
+                  <WorkoutShelfSkeleton key="personal-loading" index={0} />
                 ) : (
                   <motion.div
                     key="personal"
@@ -854,7 +835,7 @@ export function WorkoutsPageClient() {
                   </motion.div>
                 )}
                 {followingQuery.isPending ? (
-                  <WorkoutShelfSkeleton key="followers-loading" index={2} />
+                  <WorkoutShelfSkeleton key="following-loading" index={1} />
                 ) : followingSections.length === 0 ? (
                   <motion.div
                     key="followers"
@@ -872,9 +853,25 @@ export function WorkoutsPageClient() {
                       workouts={[]}
                     />
                   </motion.div>
-                ) : null}
+                ) : (
+                  followingSections.map((section) => (
+                    <motion.div
+                      key={section.owner.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={springSoft}
+                    >
+                      <WorkoutShelf
+                        href={`/u/${section.owner.username}`}
+                        owner={section.owner}
+                        title={section.owner.name}
+                        workouts={section.workouts}
+                      />
+                    </motion.div>
+                  ))
+                )}
                 {catalogQuery.isPending ? (
-                  <WorkoutShelfSkeleton key="public-loading" index={3} />
+                  <WorkoutShelfSkeleton key="public-loading" index={2} />
                 ) : (
                   <motion.div
                     key="public"
