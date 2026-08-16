@@ -86,13 +86,8 @@ function SidebarBrand({ closeOnNavigate = false }: { closeOnNavigate?: boolean }
         className="size-9 shrink-0"
         aria-hidden
       />
-      <span className="flex min-w-0 flex-col">
-        <span className="truncate font-heading text-[15px] font-semibold leading-none tracking-[-0.03em] text-sidebar-foreground">
-          {APP_NAME}
-        </span>
-        <span className="mt-1 truncate text-[11px] font-medium leading-none tracking-wide text-sidebar-foreground/45">
-          Log every lift
-        </span>
+      <span className="truncate font-heading text-[15px] font-semibold leading-none tracking-[-0.03em] text-sidebar-foreground">
+        {APP_NAME}
       </span>
     </>
   );
