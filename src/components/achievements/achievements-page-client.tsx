@@ -8,7 +8,7 @@ import {
   IconNotebook,
   IconPlayerPlay,
   IconTrophy,
-} from "@tabler/icons-react";
+} from "@/components/ui/icons";
 import { useMemo, useState } from "react";
 
 import {

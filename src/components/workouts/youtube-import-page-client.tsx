@@ -1,6 +1,6 @@
 "use client";
 
-import { IconCheck, IconCopy, IconExternalLink } from "@tabler/icons-react";
+import { IconCheck, IconCopy, IconExternalLink } from "@/components/ui/icons";
 import { useRouter } from "next/navigation";
 import { useId, useMemo, useState, type FormEvent } from "react";
 

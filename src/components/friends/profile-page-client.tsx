@@ -1,6 +1,6 @@
 "use client";
 
-import { IconChevronRight } from "@tabler/icons-react";
+import { IconChevronRight } from "@/components/ui/icons";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 

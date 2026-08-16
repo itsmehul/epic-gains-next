@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { IconPlugConnected } from "@tabler/icons-react";
+import { IconPlugConnected } from "@/components/ui/icons";
 
 import { AppShellBody, AppShellHeader } from "@/components/layout/app-shell";
 import { buttonVariants } from "@/components/ui/button";

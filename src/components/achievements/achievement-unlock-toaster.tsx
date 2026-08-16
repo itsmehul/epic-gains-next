@@ -1,6 +1,6 @@
 "use client";
 
-import { IconTrophy } from "@tabler/icons-react";
+import { IconTrophy } from "@/components/ui/icons";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 

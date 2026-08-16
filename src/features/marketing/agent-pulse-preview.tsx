@@ -1,4 +1,4 @@
-import { IconBrandYoutubeFilled } from "@tabler/icons-react";
+import { IconBrandYoutubeFilled } from "@/components/ui/icons";
 import Image from "next/image";
 import type { ReactNode } from "react";
 

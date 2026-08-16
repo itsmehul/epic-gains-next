@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "material-symbols/outlined.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -393,4 +394,25 @@
     );
   background-size: 18px 18px;
   mask-image: radial-gradient(ellipse 70% 80% at 85% 10%, black 15%, transparent 75%);
+}
+
+.ms-icon {
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  overflow: hidden;
+  container-type: size;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.ms-icon .material-symbols-outlined {
+  display: block;
+  width: 100%;
+  height: 100%;
+  font-size: 100cqmin;
+  line-height: 1;
+  user-select: none;
 }

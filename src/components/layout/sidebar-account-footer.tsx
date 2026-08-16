@@ -5,7 +5,7 @@ import {
   IconLogout,
   IconMoon,
   IconPlugConnected,
-} from "@tabler/icons-react";
+} from "@/components/ui/icons";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";

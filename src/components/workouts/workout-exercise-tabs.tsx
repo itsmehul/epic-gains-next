@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LuChartLine, LuListChecks, LuMessageSquare } from "react-icons/lu";
+import { IconChartLine, IconListChecks, IconMessage2 } from "@/components/ui/icons";
 
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,7 +14,7 @@ import type { Comment } from "@/features/comments/types";
 import type { Set } from "@/features/workouts/types";
 
 const tabTriggerClassName =
-  "gap-1.5 px-2 py-1 text-xs text-primary/55 hover:text-primary/75 data-active:text-primary data-active:after:bg-primary/55 [&_svg]:size-3.5";
+  "gap-1.5 px-2 py-1 text-xs text-primary/55 hover:text-primary/75 data-active:text-primary data-active:after:bg-primary/55 [&_svg]:size-3.5 [&_.ms-icon]:size-3.5";
 
 export function WorkoutExerciseTabs({
   workoutId,
@@ -61,11 +61,11 @@ export function WorkoutExerciseTabs({
       <div className="px-4 md:px-0">
         <TabsList className="h-7 w-full gap-0 p-0" variant="line">
           <TabsTrigger value="sets" className={tabTriggerClassName}>
-            <LuListChecks aria-hidden />
+            <IconListChecks aria-hidden />
             Sets
           </TabsTrigger>
           <TabsTrigger value="comments" className={tabTriggerClassName}>
-            <LuMessageSquare aria-hidden />
+            <IconMessage2 aria-hidden />
             Comments
             {commentCount > 0 ? (
               <Badge
@@ -77,7 +77,7 @@ export function WorkoutExerciseTabs({
             ) : null}
           </TabsTrigger>
           <TabsTrigger value="analytics" className={tabTriggerClassName}>
-            <LuChartLine aria-hidden />
+            <IconChartLine aria-hidden />
             Analytics
           </TabsTrigger>
         </TabsList>

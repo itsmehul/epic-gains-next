@@ -1,11 +1,10 @@
-import { IconLoader2 } from "@tabler/icons-react"
+import { IconLoader2 } from "@/components/ui/icons"
 
 import { cn } from "@/shared/utils"
 
-function Spinner({ className, ...props }: React.ComponentProps<"svg">) {
+function Spinner({ className, ...props }: React.ComponentProps<"span">) {
   return (
     <IconLoader2
-      strokeWidth={2}
       data-slot="spinner"
       role="status"
       aria-label="Loading"

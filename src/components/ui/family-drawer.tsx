@@ -503,7 +503,7 @@ function FamilyDrawerHeader({
   return (
     <header className={clsx("my-1 shrink-0", className)}>
       <div className="flex h-5 items-center gap-2">
-        <span className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground [&_svg]:size-3.5">
+        <span className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground [&_svg]:size-3.5 [&_.ms-icon]:size-3.5">
           {icon}
         </span>
         <h2 className="truncate text-sm font-medium leading-5 tracking-tight text-foreground">

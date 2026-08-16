@@ -13,7 +13,7 @@ import {
   IconTrendingUp,
   IconUsers,
   IconX,
-} from "@tabler/icons-react";
+} from "@/components/ui/icons";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";

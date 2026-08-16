@@ -1,6 +1,6 @@
 "use client";
 
-import { IconChevronDown, IconLoader2 } from "@tabler/icons-react";
+import { IconChevronDown, IconLoader2 } from "@/components/ui/icons";
 import { motion, type Transition } from "motion/react";
 
 import { Checkbox } from "@/components/ui/checkbox";

@@ -1,6 +1,6 @@
 "use client";
 
-import { IconChevronRight, IconCircleCheckFilled } from "@tabler/icons-react";
+import { IconChevronRight, IconCircleCheckFilled } from "@/components/ui/icons";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 

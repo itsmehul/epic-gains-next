@@ -1,6 +1,6 @@
 "use client";
 
-import { IconBarbell, IconSparkles, IconTrophy, IconUsers, IconX } from "@tabler/icons-react";
+import { IconBarbell, IconSparkles, IconTrophy, IconUsers, IconX } from "@/components/ui/icons";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";

@@ -1,6 +1,6 @@
 "use client";
 
-import { IconSearch } from "@tabler/icons-react";
+import { IconSearch } from "@/components/ui/icons";
 import { useState } from "react";
 
 import { UserListRow } from "@/components/friends/user-list-row";

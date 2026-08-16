@@ -6,4 +6,4 @@
 - Workflows: register in `src/infrastructure/workflows/engine.ts`, expose UI meta in `src/features/workflows/invocable.ts`, add files under `src/workflows`.
 - Auth: proxy cookie gate for shell routes; still call `requireApiSession()` in API routes.
 - Env: validate with `getEnv()` from `@/shared/env` in server modules.
-- Icons: Tabler only (`@tabler/icons-react`).
+- Icons: Material Symbols (`@/components/ui/icons`, [Google Fonts Icons](https://fonts.google.com/icons)).

@@ -1,6 +1,6 @@
 "use client";
 
-import { IconCheck, IconCopy, IconSparkles } from "@tabler/icons-react";
+import { IconCheck, IconCopy, IconSparkles } from "@/components/ui/icons";
 import { useState } from "react";
 
 import { AppShellBody, AppShellHeader } from "@/components/layout/app-shell";

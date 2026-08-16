@@ -1,6 +1,6 @@
 "use client";
 
-import { IconArrowLeft, IconLayoutSidebar } from "@tabler/icons-react";
+import { IconArrowLeft, IconLayoutSidebar } from "@/components/ui/icons";
 import Link from "next/link";
 import {
   createContext,

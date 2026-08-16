@@ -6,7 +6,7 @@ import { BarXAxis } from "@/components/charts/bar-x-axis";
 import { chartCssVars } from "@/components/charts/chart-context";
 import { Grid } from "@/components/charts/grid";
 import { ChartTooltip } from "@/components/charts/tooltip";
-import { IconChartBar } from "@tabler/icons-react";
+import { IconChartBar } from "@/components/ui/icons";
 import type { MetricProfile } from "@/db/schema/workout-schema";
 import { fieldsForMetricProfile } from "@/features/workouts/metric-profile";
 import {

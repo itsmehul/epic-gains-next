@@ -4,7 +4,7 @@ import {
   IconAlertTriangle,
   IconCheck,
   IconSearch,
-} from "@tabler/icons-react";
+} from "@/components/ui/icons";
 import {
   createContext,
   useContext,

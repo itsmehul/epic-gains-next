@@ -1,4 +1,4 @@
-import { IconExternalLink } from "@tabler/icons-react";
+import { IconExternalLink } from "@/components/ui/icons";
 
 import { cn } from "@/shared/utils";
 

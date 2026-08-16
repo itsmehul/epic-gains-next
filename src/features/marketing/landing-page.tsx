@@ -5,7 +5,7 @@ import {
   IconStack2,
   IconTrophy,
   IconUsers,
-} from "@tabler/icons-react";
+} from "@/components/ui/icons";
 import Image from "next/image";
 import Link from "next/link";
 

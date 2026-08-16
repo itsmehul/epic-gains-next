@@ -1,6 +1,6 @@
 "use client";
 
-import { IconMessage2, IconSend } from "@tabler/icons-react";
+import { IconMessage2, IconSend } from "@/components/ui/icons";
 import Link from "next/link";
 import { useRef, useState, type FormEvent } from "react";
 

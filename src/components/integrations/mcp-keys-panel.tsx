@@ -7,7 +7,7 @@ import {
   IconLoader2,
   IconPlus,
   IconTrash,
-} from "@tabler/icons-react";
+} from "@/components/ui/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";

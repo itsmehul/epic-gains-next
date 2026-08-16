@@ -9,7 +9,7 @@ import {
   IconMinimize,
   IconPlayerPauseFilled,
   IconPlayerPlayFilled,
-} from "@tabler/icons-react";
+} from "@/components/ui/icons";
 import {
   useEffect,
   useEffectEvent,

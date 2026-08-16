@@ -9,7 +9,7 @@ import {
   IconNotebook,
   IconPlayerPlay,
   IconTrophy,
-} from "@tabler/icons-react";
+} from "@/components/ui/icons";
 import type { ReactNode } from "react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";

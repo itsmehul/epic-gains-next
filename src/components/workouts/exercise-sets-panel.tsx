@@ -4,7 +4,7 @@ import {
   IconLoader2,
   IconPlus,
   IconTrash,
-} from "@tabler/icons-react";
+} from "@/components/ui/icons";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import useMeasure from "react-use-measure";

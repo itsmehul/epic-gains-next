@@ -1,6 +1,6 @@
 "use client";
 
-import { IconChevronRight } from "@tabler/icons-react";
+import { IconChevronRight } from "@/components/ui/icons";
 import { useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
