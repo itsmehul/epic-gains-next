@@ -368,11 +368,11 @@
 
 .pattern-hero-dots {
   background-image: radial-gradient(
-    color-mix(in oklch, var(--foreground) 14%, transparent) 1.1px,
-    transparent 1.12px
+    color-mix(in oklch, var(--foreground) 38%, transparent) 1.35px,
+    transparent 1.38px
   );
-  background-size: 18px 18px;
-  mask-image: radial-gradient(ellipse 75% 70% at 50% 18%, black 8%, transparent 68%);
+  background-size: 16px 16px;
+  mask-image: radial-gradient(ellipse 85% 80% at 50% 22%, black 22%, transparent 78%);
 }
 
 .pattern-plus {

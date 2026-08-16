@@ -36,6 +36,7 @@ function findExerciseIdAtTime(seconds: number): string | null {
 export function ExampleVideoShowcase() {
   const videoRef = useRef<WorkoutVideoPreviewHandle>(null);
   const activeChipRef = useRef<HTMLButtonElement | null>(null);
+  const skipChipScrollRef = useRef(true);
   const [activeId, setActiveId] = useState(EXAMPLE_EXERCISES[0].id);
 
   const selected =
@@ -54,6 +55,10 @@ export function ExampleVideoShowcase() {
   }
 
   useEffect(() => {
+    if (skipChipScrollRef.current) {
+      skipChipScrollRef.current = false;
+      return;
+    }
     activeChipRef.current?.scrollIntoView({
       behavior: "smooth",
       block: "nearest",
