@@ -260,52 +260,66 @@
   font: 400 57px/64px var(--font-heading);
   letter-spacing: -0.25px;
 }
+
 .display-medium {
   font: 400 45px/52px var(--font-heading);
 }
+
 .display-small {
   font: 400 36px/44px var(--font-heading);
 }
+
 .headline-large {
   font: 400 32px/40px var(--font-heading);
 }
+
 .headline-medium {
   font: 400 28px/36px var(--font-heading);
 }
+
 .headline-small {
   font: 400 24px/32px var(--font-heading);
 }
+
 .title-large {
   font: 400 22px/28px var(--font-sans);
 }
+
 .title-medium {
   font: 500 16px/24px var(--font-sans);
   letter-spacing: 0.15px;
 }
+
 .title-small {
   font: 500 14px/20px var(--font-sans);
   letter-spacing: 0.1px;
 }
+
 .body-large {
   font: 400 16px/24px var(--font-sans);
   letter-spacing: 0.5px;
 }
+
 .body-medium {
   font: 400 14px/20px var(--font-sans);
   letter-spacing: 0.25px;
 }
+
 .body-small {
   font: 400 12px/16px var(--font-sans);
   letter-spacing: 0.4px;
 }
+
 .label-large {
   font: 500 14px/20px var(--font-sans);
   letter-spacing: 0.1px;
 }
+
 .label-medium {
   font: 500 12px/16px var(--font-sans);
   letter-spacing: 0.5px;
 }
+
 .label-small {
   font: 500 11px/16px var(--font-sans);
   letter-spacing: 0.5px;
@@ -324,6 +338,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
@@ -335,72 +350,54 @@
 
 /* MagicPattern-style CSS backgrounds: https://www.magicpattern.design/tools/css-backgrounds */
 .pattern-diagonal {
-  background-image: repeating-linear-gradient(
-    135deg,
-    color-mix(in oklch, var(--primary-foreground) 16%, transparent) 0,
-    color-mix(in oklch, var(--primary-foreground) 16%, transparent) 1px,
-    transparent 1px,
-    transparent 12px
-  );
+  background-image: repeating-linear-gradient(135deg,
+      color-mix(in oklch, var(--primary-foreground) 16%, transparent) 0,
+      color-mix(in oklch, var(--primary-foreground) 16%, transparent) 1px,
+      transparent 1px,
+      transparent 12px);
 }
 
 .pattern-dots {
-  background-image: radial-gradient(
-    color-mix(in oklch, var(--primary) 22%, transparent) 1.15px,
-    transparent 1.16px
-  );
+  background-image: radial-gradient(color-mix(in oklch, var(--primary) 22%, transparent) 1.15px,
+      transparent 1.16px);
   background-size: 10px 10px;
 }
 
 .pattern-graph {
   background-image:
-    linear-gradient(
+    linear-gradient(color-mix(in oklch, var(--foreground) 6%, transparent) 1px,
+      transparent 1px),
+    linear-gradient(90deg,
       color-mix(in oklch, var(--foreground) 6%, transparent) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      90deg,
-      color-mix(in oklch, var(--foreground) 6%, transparent) 1px,
-      transparent 1px
-    );
+      transparent 1px);
   background-size: 14px 14px;
 }
 
 .pattern-hero-dots {
-  background-image: radial-gradient(
-    color-mix(in oklch, var(--foreground) 38%, transparent) 1.35px,
-    transparent 1.38px
-  );
+  background-image: radial-gradient(color-mix(in oklch, var(--foreground) 38%, transparent) 1.35px,
+      transparent 1.38px);
   background-size: 16px 16px;
   mask-image: radial-gradient(ellipse 85% 80% at 50% 22%, black 22%, transparent 78%);
 }
 
 .pattern-plus {
   background-image:
-    linear-gradient(
+    linear-gradient(color-mix(in oklch, var(--primary-foreground) 22%, transparent) 1px,
+      transparent 1px),
+    linear-gradient(90deg,
       color-mix(in oklch, var(--primary-foreground) 22%, transparent) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      90deg,
-      color-mix(in oklch, var(--primary-foreground) 22%, transparent) 1px,
-      transparent 1px
-    );
+      transparent 1px);
   background-size: 18px 18px;
   mask-image: radial-gradient(ellipse 80% 90% at 100% 0%, black 20%, transparent 72%);
 }
 
 .pattern-plus-ink {
   background-image:
-    linear-gradient(
+    linear-gradient(color-mix(in oklch, var(--foreground) 8%, transparent) 1px,
+      transparent 1px),
+    linear-gradient(90deg,
       color-mix(in oklch, var(--foreground) 8%, transparent) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      90deg,
-      color-mix(in oklch, var(--foreground) 8%, transparent) 1px,
-      transparent 1px
-    );
+      transparent 1px);
   background-size: 18px 18px;
   mask-image: radial-gradient(ellipse 70% 80% at 85% 10%, black 15%, transparent 75%);
 }
@@ -422,4 +419,28 @@
   font-size: 100cqmin;
   line-height: 1;
   user-select: none;
+}
+
+.ms-icon.icon-2-5d {
+  overflow: visible;
+  filter:
+    drop-shadow(0.5px 0.5px 0 color-mix(in oklch, var(--primary) 82%, black))
+    drop-shadow(1px 1px 0 color-mix(in oklch, var(--primary) 68%, black))
+    drop-shadow(1.5px 1.5px 0 color-mix(in oklch, var(--primary) 55%, black))
+    drop-shadow(2px 2px 0 color-mix(in oklch, var(--primary) 42%, black))
+    drop-shadow(2.5px 2.5px 0 color-mix(in oklch, var(--primary) 30%, black))
+    drop-shadow(3px 3px 0 color-mix(in oklch, var(--primary) 18%, black))
+    drop-shadow(4px 4px 8px color-mix(in oklch, black 45%, transparent));
+}
+
+.ms-icon.icon-2-5d .material-symbols-outlined {
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--primary) 35%, white) 0%,
+    var(--primary) 42%,
+    color-mix(in oklch, var(--primary) 55%, black) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }

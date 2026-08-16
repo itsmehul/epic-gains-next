@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/icons";
 import type { ReactNode } from "react";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   Progress,
@@ -26,6 +26,7 @@ import {
   type AchievementCategory,
 } from "@/features/achievements/catalog";
 import type { AchievementListItem } from "@/features/achievements/types";
+import { defaultAvatarUrl } from "@/shared/avatar";
 import { cn } from "@/shared/utils";
 
 const MOCK_PROFILE = {
@@ -171,7 +172,11 @@ export function MockProfileScreen() {
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex flex-col gap-6 px-4 py-4">
           <div className="flex items-start gap-4">
-            <Avatar size="lg">
+            <Avatar className="size-16" size="lg">
+              <AvatarImage
+                alt=""
+                src={defaultAvatarUrl(MOCK_PROFILE.username)}
+              />
               <AvatarFallback>{initials(MOCK_PROFILE.name)}</AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">

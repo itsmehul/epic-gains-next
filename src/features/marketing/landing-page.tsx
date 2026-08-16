@@ -154,7 +154,7 @@ export function LandingPage() {
             Master{" "}
             <IconBrandYoutubeFilled
               aria-hidden
-              className="size-[0.85em] align-middle text-primary"
+              className="icon-2-5d size-[0.85em] align-middle text-primary"
             />{" "}
             workout videos and build an epic collection
           </h1>
