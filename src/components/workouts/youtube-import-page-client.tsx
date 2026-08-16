@@ -22,96 +22,114 @@ import { cn } from "@/shared/utils";
 
 function generateAiPrompt(url: string) {
   const cleanUrl = url.trim();
-  return `You are a fitness expert and exercise analyst. I will provide you with a YouTube workout video (either by pasting the video link, uploading the transcript, or attaching a video/audio clip).
+  return `You are an expert fitness analyst, exercise physiologist, and workout video parser.
 
-Your task is to analyze the video and return a structured, exercise-by-exercise breakdown with accurate timestamps strictly as valid JSON. Do not include any introductory or concluding text, Markdown formatting around the JSON, or explanations outside the JSON structure.
+Analyze the following YouTube workout video:
+${cleanUrl}
 
-### What to include:
-- List **only actual exercise moves** performed in the video.
-- Do **not** return rest, recovery, rest periods, breaks, transitions, or "catch your breath" gaps as exercises. Skip them entirely — they are not items in \`exercises\`.
-- If a chapter, overlay, or caption is named Rest / Recovery / Break, ignore it. Use the next real move instead.
+Your task is to analyze the video and return a structured, exercise-by-exercise breakdown with pinpoint accurate timestamps strictly as valid JSON. Do not include any conversational intro/outro text, Markdown formatting outside the code block, or commentary.
 
-### Timestamps & Interval Instructions:
-1. **Timestamp Meaning**: Each exercise's \`timestamp\` MUST be the EXACT start time in the video when THAT specific exercise actually begins — the first rep, the first hold, or the first movement of that move.
-2. **Do not use**: section/chapter titles, intro talk, countdowns, rest after the previous move, "next up" previews, or the start of a warm-up/HIIT block. If the trainer talks or rests and then starts the move, timestamp the move, not the talk/rest.
-3. **Example**: If Arm Circles begin at 01:21 after a rest or intro, use \`01:21\` — not the rest start, not the Warm-Up chapter start.
-4. **Sequential Accuracy**: Timestamps across all sections must be strictly increasing chronological start markers of real exercises only.
-5. **Format**: Use clean clock format \`MM:SS\` or \`HH:MM:SS\` (e.g. \`01:21\` or \`01:05:30\`, do NOT include square brackets).
+---
 
-### Timestamp Validation Rules:
-1. Format: Use strict \`MM:SS\` format for videos under 1 hour, and \`HH:MM:SS\` ONLY if the video duration is 1 hour or longer.
-2. Upper Bound Check: Every timestamp MUST be less than or equal to the total video runtime. If the video length is 13:13, no timestamp can exceed 13:13.
-3. No Leading Hour Padding: Do NOT prepend \`01:\` or \`00:\` to standard minutes (e.g., write \`11:18\`, NOT \`01:11:18\` or \`00:11:18\`).
+### Core Extraction Rules
 
-### Metric Profile Rules:
-Assign a \`metric_profile\` enum to each exercise based on these rules:
-- \`WEIGHT_REPS\`: External load exercises with reps (e.g., Bench Press, Squat, Dumbbell Curl)
-- \`BODYWEIGHT_REPS\`: Unweighted bodyweight exercises with reps (e.g., Push-ups, Air Squats, Jumping Jacks)
-- \`WEIGHTED_REPS\`: Bodyweight exercises with added external load (e.g., Weighted Pull-ups, Weighted Dips)
-- \`TIMED_HOLD\`: Isometric holds, static tension, or duration-based holds (e.g., Plank, Wall Sit, Hollow Hold)
-- \`CARDIO_DISTANCE\`: Locomotion or spatial movement cardio (e.g., Running, Cycling, Rowing)
-- \`LOADED_CARRY\`: Spatial movement with load (e.g., Farmer's Walk, Sled Push)
-- \`CUSTOM\`: User-defined or custom tracking parameters
+1. **Only Real Exercise Moves**: List only actual exercises/stretches performed.
+2. **Filter Out Gaps**: Never include rest periods, water breaks, transitions, or "catch your breath" buffers as exercise entries.
+3. **Ignore Non-Exercise Chapters**: If a video chapter or overlay is titled "Rest", "Break", "Intro", or "Preview", skip it.
 
-### Muscle Group Rules:
-Assign a \`muscle_group\` enum to each exercise based on the primary target:
-- \`chest\`: Pushing horizontal/decline/incline chest work (e.g., Push-ups, Bench Press, Chest Fly)
-- \`back\`: Pulling and posterior chain upper work (e.g., Rows, Pull-ups, Lat Pulldown)
-- \`shoulders\`: Deltoid-dominant work (e.g., Overhead Press, Lateral Raise, Arm Circles)
-- \`arms\`: Elbow-dominant isolation (e.g., Bicep Curl, Tricep Dip, Skull Crusher)
-- \`legs\`: Lower body (e.g., Squat, Lunge, Glute Bridge, Calf Raise)
-- \`core\`: Abdominals, obliques, and spinal stability (e.g., Plank, Crunch, Dead Bug)
+---
 
-If a move is truly full-body cardio with no primary muscle (e.g., Jumping Jacks, Running), pick the closest dominant group or omit \`muscle_group\`.
+### Exercise Naming & Normalization Rules (CRITICAL)
 
-### Target/Suggested Performance Data Rules:
-Extract any suggested or prescribed performance parameters mentioned or implied in the video (e.g., on-screen overlay text, trainer cues, description, or interval pattern):
-- \`suggested_sets\`: Number of sets (e.g., 3 if 3 rounds/sets, or 1 for follow-along circuit).
-- \`suggested_reps\`: Repetition count per set if specified (e.g., 10, 12, or 15).
-- \`suggested_weight\`: Prescribed weight in kilograms if specified (e.g., 20 or 50.5; convert lbs to kg if needed).
-- \`suggested_time\`: Target duration in seconds per set if timed/isometric (e.g., 40 for 40 seconds).
-- \`suggested_distance\`: Target distance in meters if specified (e.g., 100 or 400).
-Omit any metric field if not specified for that exercise.
+1. **Standard Canonical Names**: Use standard, generic exercise names (e.g., \`Incline Dumbbell Press\`, \`Barbell Bench Press\`, \`Lat Pulldown\`).
+2. **Strip Incline Degrees & Angles**: Actively omit specific angle measurements, incline heights, or bench notch settings (e.g., strictly use \`Incline Dumbbell Press\` instead of \`Incline Dumbbell Press (25° Low Incline)\`, \`25° Incline Dumbbell Press\`, or \`Low Incline Dumbbell Press\`).
+3. **Omit Form & Grip Modifiers**: Drop parenthetical notes, grip widths, or descriptive execution cues (e.g., \`Pec Deck Fly\` instead of \`Bent Arm Pec Deck Fly\`; \`Upright Row\` instead of \`Close-Grip Barbell Upright Row\`) unless it defines an entirely separate canonical movement.
 
-### Key Muscles Rules:
-Assign \`key_muscles\` as an array of specific anatomical muscle names that this move actually uses (not the broad group). Use standard Latin/anatomical names when they add precision (e.g. \`Tibialis Anterior\`, \`Peroneus Tertius\`, \`Rectus Abdominis\`, \`Gluteus Medius\`, \`Latissimus Dorsi\`). Include 1–6 muscles, primary first. Omit the field or use \`[]\` when the move is generic cardio with no clear targeted muscles.
+---
 
-### JSON Structure Requirements:
-Return a JSON object matching this schema inside a markdown code block. Do not include any extra text:
+### Timestamp Accuracy & Synchronization Rules (CRITICAL)
 
+To achieve second-level accuracy on follow-along workouts, follow these synchronization heuristics:
+
+1. **Detect the Workout Cadence / Interval Grid**:
+   - Most follow-along workouts run on a strict mathematical interval grid (e.g., exactly 60s per block, 45s work / 15s rest, 40s work / 20s rest, or 30s intervals).
+   - Identify the repeating time grid (e.g., starting at \`:15\` or \`:00\` of every minute). All exercise starts should lock to this underlying interval grid.
+
+2. **Visual & Audio Start Triggers (Prioritize Over Speech)**:
+   - **On-Screen Timer / Progress Bar**: The timestamp is the exact second the round countdown timer appears or resets (e.g., when a 60s or 45s clock begins).
+   - **Audio Chimes / Beeps**: The timestamp is the exact moment the transition sound effect plays (e.g., 3-2-1 beep, whistle, or bell ding).
+   - **Title Overlay**: The moment the on-screen banner/text announcing the current exercise appears.
+   - **First Rep / Movement**: If no timer/beeps exist, use the exact second the instructor enters position and initiates the first repetition or static hold.
+
+3. **Beware the "Mid-Set Verbal Cue" Trap**:
+   - In coached workouts, instructors often talk through form during the first 10–15 seconds of an interval before saying *"let's begin"*, *"start"*, or *"here we go"*.
+   - **DO NOT** timestamp when the coach says *"let's begin"* mid-round. Timestamp the start of the round/timer itself.
+
+4. **Timestamp Format & Bounds**:
+   - Use \`MM:SS\` format (e.g., \`05:15\`). Use \`HH:MM:SS\` ONLY if total duration is 1 hour or longer.
+   - Do NOT prepend \`00:\` or \`01:\` to standard minute timestamps (e.g., write \`11:18\`, not \`00:11:18\` or \`01:11:18\`).
+   - Timestamps must be strictly ascending and never exceed the total video length.
+
+---
+
+### Classification & Metadata Rules
+
+#### 1. \`metric_profile\` (Choose exactly one):
+- \`BODYWEIGHT_REPS\`: Unweighted bodyweight movements with repetitions (e.g., Push-ups, Squats, Mobility Rocks).
+- \`WEIGHT_REPS\`: Exercises with external resistance (e.g., Dumbbell Press, Barbell Deadlift).
+- \`WEIGHTED_REPS\`: Bodyweight exercises with added load (e.g., Weighted Pull-ups).
+- \`TIMED_HOLD\`: Static isometric holds or timed stretch positions (e.g., Plank, Deep Squat Hold, Happy Baby).
+- \`CARDIO_DISTANCE\`: Locomotion/distance-based cardio (e.g., Running, Rowing).
+- \`LOADED_CARRY\`: Moving while holding weight (e.g., Farmer's Walk).
+- \`CUSTOM\`: Special tracking parameters.
+
+#### 2. \`muscle_group\` (Choose primary target):
+- \`chest\` | \`back\` | \`shoulders\` | \`arms\` | \`legs\` | \`core\`
+
+#### 3. \`key_muscles\`:
+- 1–6 specific anatomical muscle names (e.g., \`["Gluteus Medius", "Tensor Fasciae Latae", "Piriformis"]\`). Primary muscles first.
+
+#### 4. Prescribed Target Metrics (Extract if present/implied):
+- \`suggested_sets\`: Number of sets (typically \`1\` for follow-along circuits/mobility flows).
+- \`suggested_reps\`: Target repetitions if specified.
+- \`suggested_time\`: Target duration in seconds per round/interval (e.g., \`45\` or \`60\`).
+- \`suggested_weight\`: Prescribed load in kg if applicable.
+
+---
+
+### Output JSON Schema
+
+Return ONLY the JSON object inside a single markdown code block:
+
+\`\`\`json
 {
-  "workoutName": "string (optional exact video title if known)",
-  "author": "string (optional creator/channel name)",
-  "channelUrl": "string (optional YouTube channel URL, e.g. https://www.youtube.com/@handle)",
+  "workoutName": "string (Exact video title)",
+  "author": "string (Channel/Creator name)",
+  "channelUrl": "string (YouTube channel URL)",
   "overview": {
-    "workout_length": "string (e.g., '20 minutes' or '40 minutes')",
-    "structure": "string (e.g., 'Full Body Circuit')",
-    "interval_pattern": "string (e.g., '40 seconds per exercise')",
+    "workout_length": "string (e.g., '30 minutes')",
+    "structure": "string (e.g., 'Full Body Mobility Flow')",
+    "interval_pattern": "string (e.g., '60s intervals per exercise')",
     "equipment_needed": ["string"]
   },
   "sections": [
     {
-      "section_name": "string (e.g., 'Warm-Up', 'Upper Body', 'Core', 'HIIT', 'Cool Down')",
+      "section_name": "string (e.g., 'Full Body Mobility')",
       "exercises": [
         {
-          "name": "string (clear, standard exercise name for this move; never Rest, Recovery, or Break)",
-          "timestamp": "string (EXACT start of THIS exercise's first movement in MM:SS or HH:MM:SS, e.g. '01:21' — not rest, intro, or section start)",
-          "metric_profile": "string (ONE of: 'WEIGHT_REPS', 'BODYWEIGHT_REPS', 'WEIGHTED_REPS', 'TIMED_HOLD', 'CARDIO_DISTANCE', 'LOADED_CARRY', 'CUSTOM')",
-          "muscle_group": "string (ONE of: 'chest', 'back', 'shoulders', 'arms', 'legs', 'core')",
-          "key_muscles": ["string (anatomical names, e.g. 'Tibialis Anterior', 'Peroneus Tertius')"],
-          "suggested_sets": "number (optional default number of sets to perform, e.g. 3)",
-          "suggested_reps": "number (optional target repetitions per set, e.g. 10 or 12)",
-          "suggested_weight": "number (optional recommended weight in kg, e.g. 20 or 50.5)",
-          "suggested_time": "number (optional target duration per set in seconds, e.g. 40 or 60)",
-          "suggested_distance": "number (optional target distance per set in meters, e.g. 100 or 400)"
+          "name": "string (Canonical name without angles, degrees, or parenthetical form cues)",
+          "timestamp": "string (MM:SS start aligned to timer/beep/movement)",
+          "metric_profile": "string",
+          "muscle_group": "string",
+          "key_muscles": ["string"],
+          "suggested_sets": 1,
+          "suggested_time": 60
         }
       ]
     }
   ]
 }
-
-Here is the video link / transcript / information:
-${cleanUrl}`;
+\`\`\``;
 }
 
 const STEPS = [
@@ -183,9 +201,9 @@ export function YoutubeImportPageClient() {
     const payload =
       parsedJson && typeof parsedJson === "object"
         ? {
-            sourceVideoUrl: videoUrl.trim() || undefined,
-            ...(parsedJson as Record<string, unknown>),
-          }
+          sourceVideoUrl: videoUrl.trim() || undefined,
+          ...(parsedJson as Record<string, unknown>),
+        }
         : parsedJson;
     const validated = importWorkoutStructureSchema.safeParse(payload);
     if (!validated.success) {
@@ -203,12 +221,12 @@ export function YoutubeImportPageClient() {
       if (err instanceof ApiError && err.status === 409) {
         const existingId =
           err.body &&
-          typeof err.body === "object" &&
-          "existingWorkoutId" in err.body
+            typeof err.body === "object" &&
+            "existingWorkoutId" in err.body
             ? String(
-                (err.body as { existingWorkoutId?: string }).existingWorkoutId ??
-                  "",
-              )
+              (err.body as { existingWorkoutId?: string }).existingWorkoutId ??
+              "",
+            )
             : "";
         if (existingId) {
           router.push(`/workouts/${existingId}`);
