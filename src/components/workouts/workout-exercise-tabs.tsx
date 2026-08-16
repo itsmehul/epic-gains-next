@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import { IconChartLine, IconListChecks, IconMessage2 } from "@/components/ui/icons";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExerciseAnalyticsPanel } from "@/components/workouts/exercise-analytics-panel";
 import { ExerciseCommentsPanel } from "@/components/workouts/exercise-comments-panel";
 import { ExerciseSetsPanel } from "@/components/workouts/exercise-sets-panel";
@@ -14,7 +14,10 @@ import type { Comment } from "@/features/comments/types";
 import type { Set } from "@/features/workouts/types";
 
 const tabTriggerClassName =
-  "gap-1.5 px-2 py-1 text-xs text-primary/55 hover:text-primary/75 data-active:text-primary data-active:after:bg-primary/55 [&_svg]:size-3.5 [&_.ms-icon]:size-3.5";
+  "h-7 gap-1.5 px-2.5 py-1 text-xs data-active:border-border data-active:shadow-none! [&_svg]:size-3.5 [&_.ms-icon]:size-3.5";
+
+const tabPanelClassName =
+  "col-start-1 row-start-1 min-w-0 transition-[opacity,translate] duration-[var(--dur-medium)] ease-[var(--ease-standard)] data-starting-style:opacity-0 data-ending-style:opacity-0 motion-safe:data-starting-style:data-[activation-direction=left]:-translate-x-8 motion-safe:data-starting-style:data-[activation-direction=right]:translate-x-8 motion-safe:data-ending-style:data-[activation-direction=left]:translate-x-8 motion-safe:data-ending-style:data-[activation-direction=right]:-translate-x-8";
 
 export function WorkoutExerciseTabs({
   workoutId,
@@ -56,10 +59,10 @@ export function WorkoutExerciseTabs({
       onValueChange={(value) => {
         if (typeof value === "string") setTab(value);
       }}
-      className="gap-0"
+      className="gap-4"
     >
       <div className="px-4 md:px-0">
-        <TabsList className="h-7 w-full gap-0 p-0" variant="line">
+        <TabsList className="h-8 w-fit bg-background">
           <TabsTrigger value="sets" className={tabTriggerClassName}>
             <IconListChecks aria-hidden />
             Sets
@@ -82,8 +85,8 @@ export function WorkoutExerciseTabs({
           </TabsTrigger>
         </TabsList>
       </div>
-      <div className="mt-4">
-        <div hidden={tab !== "sets"}>
+      <div className="grid overflow-x-clip">
+        <TabsContent keepMounted value="sets" className={tabPanelClassName}>
           <ExerciseSetsPanel
             workoutId={workoutId}
             exerciseId={exerciseId}
@@ -96,21 +99,21 @@ export function WorkoutExerciseTabs({
             canResolve={canResolve}
             onExerciseResolved={onExerciseResolved}
           />
-        </div>
-        <div hidden={tab !== "comments"}>
+        </TabsContent>
+        <TabsContent keepMounted value="comments" className={tabPanelClassName}>
           <ExerciseCommentsPanel
             exerciseId={exerciseId}
             workoutId={workoutId}
             items={comments}
             readOnly={readOnly}
           />
-        </div>
-        <div hidden={tab !== "analytics"}>
+        </TabsContent>
+        <TabsContent keepMounted value="analytics" className={tabPanelClassName}>
           <ExerciseAnalyticsPanel
             sets={sets}
             metricProfile={metricProfile}
           />
-        </div>
+        </TabsContent>
       </div>
     </Tabs>
   );

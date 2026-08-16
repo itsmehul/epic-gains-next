@@ -303,13 +303,13 @@ export function WorkoutDetailPageClient() {
               >
                 <div
                   aria-hidden
-                  className="from-content-panel pointer-events-none absolute inset-y-0 left-0 z-10 w-4 bg-linear-to-r to-transparent md:hidden"
+                  className="from-content-panel pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-linear-to-r to-transparent"
                 />
                 <div
                   aria-hidden
-                  className="from-content-panel pointer-events-none absolute inset-y-0 right-0 z-10 w-4 bg-linear-to-l to-transparent md:hidden"
+                  className="from-content-panel pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-linear-to-l to-transparent"
                 />
-                <div className="overflow-x-auto overscroll-x-contain px-4 scrollbar-none md:px-0">
+                <div className="overflow-x-auto overscroll-x-contain px-8 scrollbar-none">
                   <div className="flex w-max items-stretch gap-3">
                     {workoutExercises.map((item, index) => {
                       const isActive = selectedItem?.id === item.id;
@@ -389,7 +389,7 @@ export function WorkoutDetailPageClient() {
                 </div>
               </div>
 
-              {selectedKeyMuscles.length > 0 ? (
+              {false && selectedKeyMuscles.length > 0 ? (
                 <div className="overflow-x-auto overscroll-x-contain px-4 scrollbar-none md:px-0">
                   <ul
                     className="flex w-max items-center gap-2"

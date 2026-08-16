@@ -63,6 +63,7 @@ export default function SignUpPage() {
               alt=""
               width={32}
               height={32}
+              unoptimized
               className="size-8"
               aria-hidden
             />

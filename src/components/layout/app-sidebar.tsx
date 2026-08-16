@@ -82,7 +82,8 @@ function SidebarBrand({ closeOnNavigate = false }: { closeOnNavigate?: boolean }
         alt=""
         width={36}
         height={36}
-        className="size-9 shrink-0 object-cover"
+        unoptimized
+        className="size-9 shrink-0"
         aria-hidden
       />
       <span className="flex min-w-0 flex-col">

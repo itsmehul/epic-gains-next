@@ -6,11 +6,11 @@
       <stop offset="0.78" stop-color="oklch(0.045 0.007 68)" />
       <stop offset="1" stop-color="oklch(0.02 0.005 68)" />
     </radialGradient>
-    <linearGradient id="ivory" x1="0.22" y1="0.12" x2="0.78" y2="0.86">
-      <stop offset="0" stop-color="oklch(0.995 0.012 98)" />
-      <stop offset="0.38" stop-color="oklch(0.97 0.022 95)" />
-      <stop offset="0.72" stop-color="oklch(0.9 0.045 88)" />
-      <stop offset="1" stop-color="oklch(0.82 0.07 78)" />
+    <linearGradient id="ivory" x1="-0.08" y1="-0.18" x2="1.12" y2="1.18">
+      <stop offset="0" stop-color="oklch(0.995 0 0)" />
+      <stop offset="0.28" stop-color="oklch(0.97 0 0)" />
+      <stop offset="0.62" stop-color="oklch(0.9 0 0)" />
+      <stop offset="1" stop-color="oklch(0.82 0 0)" />
     </linearGradient>
     <clipPath id="circle">
       <circle cx="512" cy="512" r="512" />

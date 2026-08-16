@@ -120,6 +120,7 @@ export function LandingPage() {
               alt=""
               width={36}
               height={36}
+              unoptimized
               className="size-9"
               aria-hidden
             />
@@ -320,6 +321,7 @@ export function LandingPage() {
               alt=""
               width={32}
               height={32}
+              unoptimized
               className="size-8"
               aria-hidden
             />

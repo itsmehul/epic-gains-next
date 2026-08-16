@@ -63,7 +63,6 @@ writePng("logos/favicon_io/favicon-16x16.png", 16);
 const py = `
 from pathlib import Path
 from PIL import Image
-import numpy as np
 
 root = Path(${JSON.stringify(publicDir)})
 icon = Image.open(root / "icons/icon512_rounded.png").convert("RGBA")
@@ -87,13 +86,7 @@ for path in sorted(splash_dir.glob("*.png")):
         continue
     canvas = Image.open(path)
     w, h = canvas.size
-    a = np.array(canvas.convert("RGBA"))
-    mask = a[:, :, 0].astype(int) + a[:, :, 1].astype(int) + a[:, :, 2].astype(int) > 40
-    ys, xs = np.where(mask)
-    if len(xs) == 0:
-        icon_size = round(min(w, h) * 0.22)
-    else:
-        icon_size = max(xs.max() - xs.min() + 1, ys.max() - ys.min() + 1)
+    icon_size = round(min(w, h) * 0.22)
     mark = logo.resize((icon_size, icon_size), Image.Resampling.LANCZOS)
     out = Image.new("RGBA", (w, h), bg)
     x = (w - icon_size) // 2
