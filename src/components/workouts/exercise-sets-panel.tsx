@@ -531,21 +531,32 @@ export function ExerciseSetsPanel({
   const targetDraftSyncKey = useMemo(() => {
     if (!resolvedTargets?.length) return "";
     const consumed = inferConsumedTargetIndices(resolvedTargets, todayLoggedSets);
-    return `${resolvedTargets.length}:${[...consumed].sort((a, b) => a - b).join(",")}`;
+    return `${todayLoggedSets.length}:${resolvedTargets.length}:${[...consumed].sort((a, b) => a - b).join(",")}`;
   }, [resolvedTargets, todayLoggedSets]);
 
   useEffect(() => {
     if (!setsReady) return;
-    if (!resolvedTargets?.length) return;
 
-    const consumedTargetIndices = inferConsumedTargetIndices(
-      resolvedTargets,
-      todayLoggedSets,
-    );
+    setDrafts((prev) => {
+      if (todayLoggedSets.length > 0) {
+        const customDrafts = prev.filter((draft) => draft.source === "custom");
+        if (
+          customDrafts.length === prev.length &&
+          customDrafts.every((row, index) => row === prev[index])
+        ) {
+          return prev;
+        }
+        return customDrafts;
+      }
 
-    setDrafts((prev) =>
-      syncTargetDrafts(prev, resolvedTargets, consumedTargetIndices),
-    );
+      if (!resolvedTargets?.length) return prev;
+
+      const consumedTargetIndices = inferConsumedTargetIndices(
+        resolvedTargets,
+        todayLoggedSets,
+      );
+      return syncTargetDrafts(prev, resolvedTargets, consumedTargetIndices);
+    });
   }, [setsReady, targetDraftSyncKey]);
 
   useEffect(() => {
@@ -609,7 +620,6 @@ export function ExerciseSetsPanel({
   const dayGroups = groupSetsByDay(visibleSets);
   const todaySets =
     dayGroups.find((group) => group.day === today)?.sets ?? [];
-  const pastGroups = dayGroups.filter((group) => group.day !== today);
 
   type TodayRowEntry = {
     rowKey: string;
@@ -701,17 +711,6 @@ export function ExerciseSetsPanel({
     .map((rowKey, index) => resolveTodayRow(rowKey, index))
     .filter((row): row is TodayRowEntry => row != null);
 
-  function rowsForDay(day: string, daySets: WorkoutSet[]) {
-    const previousGroup = dayGroups.find((group) => group.day < day);
-    return daySets.map((set, index) => {
-      const previousSet = previousGroup?.sets[index];
-      return {
-        rowKey: set.id,
-        values: valuesFromSet(set),
-        previous: previousSet ? valuesFromSet(previousSet) : null,
-      };
-    });
-  }
   const hasPendingTodayRows =
     todayRows.length > 0 ||
     Object.keys(promotedByRowKey).length > 0 ||
@@ -1118,7 +1117,7 @@ export function ExerciseSetsPanel({
                 <Button
                   type="button"
                   variant="secondary"
-                  className={canResolve ? "mt-3 w-full" : "w-full"}
+                  className={canResolve ? "mt-3 mx-auto w-fit" : "mx-auto w-fit"}
                   onClick={handleAddSet}
                 >
                   <IconPlus data-icon="inline-start" />
@@ -1153,7 +1152,7 @@ export function ExerciseSetsPanel({
                 <Button
                   type="button"
                   variant="secondary"
-                  className="w-full"
+                  className="mx-auto w-fit"
                   onClick={handleAddSet}
                 >
                   <IconPlus data-icon="inline-start" />
@@ -1161,15 +1160,6 @@ export function ExerciseSetsPanel({
                 </Button>
               )}
             </section>
-
-            {pastGroups.map((group) => (
-              <section key={group.day} className="flex flex-col gap-2">
-                <h3 className="text-muted-foreground px-1 text-[11px] font-medium tracking-wide uppercase">
-                  {formatDayHeading(group.day, today)}
-                </h3>
-                {renderHistoryRows(rowsForDay(group.day, group.sets))}
-              </section>
-            ))}
           </div>
         )}
       </SwapSize>

@@ -14,7 +14,7 @@ import type { Comment } from "@/features/comments/types";
 import type { Set } from "@/features/workouts/types";
 
 const tabTriggerClassName =
-  "h-7 gap-1.5 px-2.5 py-1 text-xs data-active:border-border data-active:shadow-none! [&_svg]:size-3.5 [&_.ms-icon]:size-3.5";
+  "h-7 gap-1.5 px-2.5 py-1 text-xs data-active:bg-surface-container-lowest data-active:shadow-xs dark:data-active:bg-surface-container-highest dark:data-active:shadow-none [&_svg]:size-3.5 [&_.ms-icon]:size-3.5";
 
 const tabPanelClassName =
   "col-start-1 row-start-1 min-w-0 transition-[opacity,translate] duration-[var(--dur-medium)] ease-[var(--ease-standard)] data-starting-style:opacity-0 data-ending-style:opacity-0 motion-safe:data-starting-style:data-[activation-direction=left]:-translate-x-8 motion-safe:data-starting-style:data-[activation-direction=right]:translate-x-8 motion-safe:data-ending-style:data-[activation-direction=left]:translate-x-8 motion-safe:data-ending-style:data-[activation-direction=right]:-translate-x-8";
@@ -62,7 +62,7 @@ export function WorkoutExerciseTabs({
       className="gap-4"
     >
       <div className="px-4 md:px-0">
-        <TabsList className="h-8 w-fit bg-background">
+        <TabsList className="h-8 w-fit bg-surface-container">
           <TabsTrigger value="sets" className={tabTriggerClassName}>
             <IconListChecks aria-hidden />
             Sets
