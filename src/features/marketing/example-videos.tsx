@@ -20,10 +20,6 @@ import {
   EXAMPLE_WORKOUT_ID,
 } from "./example-workout-data";
 
-function googleImagesSearchUrl(query: string): string {
-  return `https://www.google.com/search?q=${encodeURIComponent(query)}&tbm=isch`;
-}
-
 function findExerciseIdAtTime(seconds: number): string | null {
   let matchId: string | null = null;
   for (const item of EXAMPLE_EXERCISES) {
@@ -146,28 +142,6 @@ export function ExampleVideoShowcase() {
             </div>
           </div>
         </div>
-
-        {selected.keyMuscles.length > 0 ? (
-          <div className="overflow-x-auto overscroll-x-contain scrollbar-none">
-            <ul
-              className="flex w-max items-center gap-2"
-              aria-label="Key muscles"
-            >
-              {selected.keyMuscles.map((muscle) => (
-                <li key={muscle}>
-                  <a
-                    href={googleImagesSearchUrl(muscle)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-muted-foreground/70 hover:text-foreground text-sm font-normal tracking-wide whitespace-nowrap underline-offset-2 hover:underline"
-                  >
-                    {muscle}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
 
         <div key={selected.id} className="mt-1">
           <WorkoutExerciseTabs
