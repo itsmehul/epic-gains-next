@@ -67,7 +67,7 @@ export default function SignUpPage() {
               className="size-8"
               aria-hidden
             />
-            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-primary">
+            <p className="font-brand text-sm font-semibold tracking-tight text-primary">
               {APP_NAME}
             </p>
           </div>

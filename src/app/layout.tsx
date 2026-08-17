@@ -125,6 +125,16 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&display=swap"
+          rel="stylesheet"
+        />
         {APPLE_SPLASH_SCREENS.map((splashScreen) => (
           <link
             key={`${splashScreen.href}-${splashScreen.media}`}

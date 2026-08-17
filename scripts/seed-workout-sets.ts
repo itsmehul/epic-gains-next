@@ -75,7 +75,10 @@ function dummyMetrics(profile: MetricProfile) {
 function sessionMoments() {
   const span = Math.max(SESSIONS - 1, 1);
   return Array.from({ length: SESSIONS }, (_, sessionIndex) => {
-    const daysBack = Math.round(((span - sessionIndex) / span) * HISTORY_DAYS);
+    const daysBack = Math.max(
+      1,
+      Math.round(((span - sessionIndex) / span) * HISTORY_DAYS),
+    );
     const date = new Date();
     date.setDate(date.getDate() - daysBack);
     date.setHours(randInt(6, 21), randInt(0, 59), randInt(0, 59), 0);
@@ -173,7 +176,7 @@ async function main() {
         type: "confirm",
         name: "confirmed",
         default: false,
-        message: `Create ${rows.length} dummy set(s) (${SETS_PER_SESSION} sets × ${SESSIONS} days per exercise over ${HISTORY_DAYS} days) across ${workouts.length} workout(s) for ${existingUser.name} (${existingUser.email})?`,
+        message: `Create ${rows.length} dummy set(s) (${SETS_PER_SESSION} sets × ${SESSIONS} days per exercise over ${HISTORY_DAYS} days, excluding today) across ${workouts.length} workout(s) for ${existingUser.name} (${existingUser.email})?`,
       },
     ]);
 

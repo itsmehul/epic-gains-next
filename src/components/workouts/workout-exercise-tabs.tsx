@@ -61,7 +61,7 @@ export function WorkoutExerciseTabs({
       }}
       className="gap-4"
     >
-      <div className="px-4 md:px-0">
+      <div className="flex justify-center px-4 md:px-0">
         <TabsList className="h-8 w-fit bg-transparent">
           <TabsTrigger value="sets" className={tabTriggerClassName}>
             <IconListChecks aria-hidden />

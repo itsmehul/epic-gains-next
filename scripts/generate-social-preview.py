@@ -1,3 +1,5 @@
+import re
+import urllib.request
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
@@ -13,6 +15,41 @@ IVORY = (245, 240, 234, 255)
 MUTED = (176, 168, 160, 255)
 FONT_BOLD = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
 FONT_REG = "/System/Library/Fonts/Supplemental/Arial.ttf"
+GOOGLE_FONTS_CSS = (
+    "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700&display=swap"
+)
+
+
+def google_font_ttf(css_url: str, cache_name: str) -> Path:
+    cache = Path("/tmp") / cache_name
+    if cache.exists():
+        return cache
+    req = urllib.request.Request(css_url, headers={"User-Agent": "Mozilla/5.0"})
+    css = urllib.request.urlopen(req, timeout=30).read().decode()
+    match = re.search(r"url\((https://fonts\.gstatic\.com/[^)]+)\)", css)
+    if not match:
+        raise RuntimeError(f"No font file in Google Fonts CSS: {css_url}")
+    cache.write_bytes(urllib.request.urlopen(match.group(1), timeout=30).read())
+    return cache
+
+
+def youtube_icon(size: int) -> Image.Image:
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    pad_x = size * 0.06
+    pad_y = size * 0.22
+    draw.rounded_rectangle(
+        (pad_x, pad_y, size - pad_x, size - pad_y),
+        radius=round(size * 0.18),
+        fill=RED,
+    )
+    cx, cy = size * 0.54, size * 0.5
+    t = size * 0.16
+    draw.polygon(
+        [(cx - t * 0.7, cy - t), (cx - t * 0.7, cy + t), (cx + t * 0.95, cy)],
+        fill=(255, 255, 255, 255),
+    )
+    return img
 
 
 def rounded_mask(size: tuple[int, int], radius: int) -> Image.Image:
@@ -51,13 +88,33 @@ def main() -> None:
     canvas.paste(logo, (72, 72), logo)
 
     title_font = ImageFont.truetype(FONT_BOLD, 56)
-    brand_font = ImageFont.truetype(FONT_BOLD, 22)
+    brand_font = ImageFont.truetype(
+        str(google_font_ttf(GOOGLE_FONTS_CSS, "BricolageGrotesque-Bold.ttf")),
+        24,
+    )
     body_font = ImageFont.truetype(FONT_REG, 24)
 
     draw.text((176, 96), "Epic Gains", font=brand_font, fill=RED)
+
+    title_x, title_y = 72, 188
+    master = "Master "
+    workouts = " workouts"
+    master_w = draw.textlength(master, font=title_font)
+    icon_size = 52
+    icon = youtube_icon(icon_size)
+    ascent = title_font.getmetrics()[0]
+    icon_y = title_y + round((ascent - icon_size) / 2) + 6
+    draw.text((title_x, title_y), master, font=title_font, fill=IVORY)
+    canvas.paste(icon, (round(title_x + master_w), icon_y), icon)
+    draw.text(
+        (title_x + master_w + icon_size, title_y),
+        workouts,
+        font=title_font,
+        fill=IVORY,
+    )
     draw.multiline_text(
-        (72, 188),
-        "Master YouTube\nworkouts into a\ncollection you own.",
+        (title_x, title_y + 72),
+        "and build an epic\ncollection",
         font=title_font,
         fill=IVORY,
         spacing=8,

@@ -706,7 +706,7 @@ export function WorkoutVideoPreview({
 
             {showPlayPrompt ? (
               <div
-                className="absolute inset-0 z-20 flex items-center justify-center bg-black/35 touch-manipulation"
+                className="absolute inset-0 z-20 flex items-center justify-center bg-black/35 shadow-[inset_0_0_72px_color-mix(in_oklch,var(--foreground)_28%,transparent)] touch-manipulation"
                 onClick={handlePlayClick}
               >
                 <button

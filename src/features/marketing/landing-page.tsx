@@ -87,7 +87,7 @@ export function LandingPage({ authenticated }: { authenticated: boolean }) {
               className="size-9"
               aria-hidden
             />
-            <span className="text-[1.05rem] font-semibold tracking-tight">
+            <span className="font-brand text-[1.05rem] font-semibold tracking-tight">
               {APP_NAME}
             </span>
           </Link>
@@ -132,7 +132,7 @@ export function LandingPage({ authenticated }: { authenticated: boolean }) {
               aria-hidden
               className="icon-2-5d size-[0.85em] align-middle text-primary"
             />{" "}
-            workout videos and build an epic collection
+            workouts and build an epic collection
           </h1>
           <p className="text-muted-foreground mx-auto mt-6 max-w-xl text-lg leading-relaxed text-pretty">
             Paste a link, get timed exercises, and log the session so it lives
@@ -314,7 +314,7 @@ export function LandingPage({ authenticated }: { authenticated: boolean }) {
               className="size-8"
               aria-hidden
             />
-            <span className="text-sm font-medium">{APP_NAME}</span>
+            <span className="font-brand text-sm font-medium">{APP_NAME}</span>
           </div>
           <p className="text-muted-foreground text-sm">
             Master the video. Keep the collection.

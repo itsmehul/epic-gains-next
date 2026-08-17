@@ -86,7 +86,7 @@ function SidebarBrand({ closeOnNavigate = false }: { closeOnNavigate?: boolean }
         className="size-9 shrink-0"
         aria-hidden
       />
-      <span className="truncate font-heading text-[15px] font-semibold leading-none tracking-[-0.03em] text-sidebar-foreground">
+      <span className="font-brand truncate text-[15px] font-semibold leading-none tracking-[-0.03em] text-sidebar-foreground">
         {APP_NAME}
       </span>
     </>

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { addCalendarDays, parseIsoDate, periodRange } from "@/features/workouts/set-day";
+import {
+  addCalendarDays,
+  formatRelativeDayHeading,
+  lastSessionHeading,
+  parseIsoDate,
+  periodRange,
+} from "@/features/workouts/set-day";
 
 describe("parseIsoDate", () => {
   it("parses a calendar date", () => {
@@ -44,6 +50,30 @@ describe("periodRange", () => {
     const range = periodRange("year", friday);
     expect(range.startDay).toBe("2026-01-01");
     expect(range.endDay).toBe("2026-12-31");
+  });
+});
+
+describe("formatRelativeDayHeading", () => {
+  const today = "2026-08-17";
+
+  it("uses relative labels for recent sessions", () => {
+    expect(formatRelativeDayHeading("2026-08-17", today)).toBe("Today");
+    expect(formatRelativeDayHeading("2026-08-16", today)).toBe("Yesterday");
+    expect(formatRelativeDayHeading("2026-08-14", today)).toBe("3 days ago");
+    expect(formatRelativeDayHeading("2026-08-10", today)).toBe("Last week");
+  });
+});
+
+describe("lastSessionHeading", () => {
+  const today = "2026-08-17";
+
+  it("prefixes relative labels with last session", () => {
+    expect(lastSessionHeading("2026-08-16", today)).toBe(
+      "Last session · yesterday",
+    );
+    expect(lastSessionHeading("2026-08-14", today)).toBe(
+      "Last session · 3 days ago",
+    );
   });
 });
 

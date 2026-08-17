@@ -109,7 +109,7 @@ export function SetRowCard({
                     ? "Delete set"
                     : "Set logged"
               }
-              className="size-5 rounded-md transition-[background-color,border-color] duration-280 data-checked:bg-primary"
+              className="size-5 rounded-md border-foreground/40 bg-background transition-[background-color,border-color] duration-280 data-checked:border-primary data-checked:bg-primary"
               onCheckedChange={(checked) => {
                 if (checked && isDraft) onApprove();
                 if (!checked && isLogged) onRemove();

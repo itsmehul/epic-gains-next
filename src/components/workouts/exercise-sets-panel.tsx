@@ -10,7 +10,6 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import useMeasure from "react-use-measure";
 
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import {
   Card,
   CardContent,
@@ -18,11 +17,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
 import { ExerciseResolveCard } from "@/components/workouts/exercise-resolve-card";
 import {
   collapseGridClass,
-  IconChevronDown as SetRowChevronDown,
   SetRowCard,
+  IconChevronDown as SetRowChevronDown,
   springSnappy as setRowSpringSnappy,
   type SetRowPhase,
 } from "@/components/workouts/set-row-card";
@@ -43,8 +43,8 @@ import {
 } from "@/features/workouts/metric-profile";
 import {
   dayKey,
-  formatDayHeading,
   groupSetsByDay,
+  lastSessionHeading,
   localDateString,
 } from "@/features/workouts/set-day";
 import type { Set as WorkoutSet } from "@/features/workouts/types";
@@ -54,13 +54,18 @@ type FieldKey = SetFieldKey;
 
 type RowValues = Record<FieldKey, string>;
 
+type PlannedDraftSource = "target" | "previous";
+
 type DraftRow = {
   id: string;
-  source: "target" | "custom";
+  source: PlannedDraftSource | "custom";
   targetIndex?: number;
   values: RowValues;
   shouldFocus?: boolean;
+  sortAt: number;
 };
+
+type PlannedTarget = TargetSet & { sortAt: number };
 
 const sizeEase = [0.22, 1, 0.36, 1] as const;
 const sizeTransition = { duration: 0.28, ease: sizeEase };
@@ -145,13 +150,31 @@ function valuesFromTarget(target: TargetSet): RowValues {
   };
 }
 
-function draftFromTarget(target: TargetSet, targetIndex: number): DraftRow {
+function draftFromTarget(
+  target: PlannedTarget,
+  targetIndex: number,
+  source: PlannedDraftSource,
+): DraftRow {
   return {
     id: createDraftId(),
-    source: "target",
+    source,
     targetIndex,
     values: valuesFromTarget(target),
     shouldFocus: false,
+    sortAt: target.sortAt,
+  };
+}
+
+function setSortAt(set: WorkoutSet): number {
+  return new Date(set.updatedAt ?? set.createdAt).getTime();
+}
+
+function targetFromSet(set: WorkoutSet): TargetSet {
+  return {
+    reps: set.reps ?? null,
+    weight: set.weight ?? null,
+    time: set.time ?? null,
+    distance: set.distance ?? null,
   };
 }
 
@@ -279,31 +302,31 @@ function inferConsumedTargetIndices(
   return consumed;
 }
 
-function syncTargetDrafts(
+function syncPlannedDrafts(
   prev: DraftRow[],
-  targets: TargetSet[],
+  targets: PlannedTarget[],
   consumedTargetIndices: Set<number>,
+  source: PlannedDraftSource,
 ): DraftRow[] {
   const customDrafts = prev.filter((draft) => draft.source === "custom");
-  const existingTargetDrafts = new Map(
+  const existingPlannedDrafts = new Map(
     prev
       .filter(
-        (draft) =>
-          draft.source === "target" && draft.targetIndex != null,
+        (draft) => draft.source === source && draft.targetIndex != null,
       )
       .map((draft) => [draft.targetIndex!, draft]),
   );
 
-  const nextTargetDrafts: DraftRow[] = [];
+  const nextPlannedDrafts: DraftRow[] = [];
   for (let index = 0; index < targets.length; index += 1) {
     if (consumedTargetIndices.has(index)) continue;
-    const existing = existingTargetDrafts.get(index);
-    nextTargetDrafts.push(
-      existing ?? draftFromTarget(targets[index]!, index),
+    const existing = existingPlannedDrafts.get(index);
+    nextPlannedDrafts.push(
+      existing ?? draftFromTarget(targets[index]!, index, source),
     );
   }
 
-  const next = [...nextTargetDrafts, ...customDrafts];
+  const next = [...nextPlannedDrafts, ...customDrafts];
   if (
     next.length === prev.length &&
     next.every((row, index) => row === prev[index])
@@ -466,7 +489,6 @@ export function ExerciseSetsPanel({
   });
 
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
-  const [rowOrder, setRowOrder] = useState<string[]>([]);
   const [rowKeyBySetId, setRowKeyBySetId] = useState<Record<string, string>>(
     {},
   );
@@ -496,6 +518,29 @@ export function ExerciseSetsPanel({
   );
   const resolvedTargets =
     workoutExerciseQuery.data?.metaData?.targets ?? targetSets ?? null;
+  const dayGroups = useMemo(
+    () => groupSetsByDay(visibleSets),
+    [visibleSets],
+  );
+  const previousSessionGroup = useMemo(
+    () => dayGroups.find((group) => group.day !== today) ?? null,
+    [dayGroups, today],
+  );
+  const previousSessionSets = previousSessionGroup?.sets ?? [];
+  const plannedSource: PlannedDraftSource =
+    previousSessionSets.length > 0 ? "previous" : "target";
+  const plannedTargets = useMemo((): PlannedTarget[] => {
+    if (previousSessionSets.length > 0) {
+      return previousSessionSets.map((set) => ({
+        ...targetFromSet(set),
+        sortAt: setSortAt(set),
+      }));
+    }
+    return (resolvedTargets ?? []).map((target, index) => ({
+      ...target,
+      sortAt: index,
+    }));
+  }, [previousSessionSets, resolvedTargets]);
   const todayLoggedSets = useMemo(
     () => visibleSets.filter((set) => dayKey(set.updatedAt) === today),
     [visibleSets, today],
@@ -528,36 +573,39 @@ export function ExerciseSetsPanel({
         .join("|"),
     [rowKeyBySetId],
   );
-  const targetDraftSyncKey = useMemo(() => {
-    if (!resolvedTargets?.length) return "";
-    const consumed = inferConsumedTargetIndices(resolvedTargets, todayLoggedSets);
-    return `${todayLoggedSets.length}:${resolvedTargets.length}:${[...consumed].sort((a, b) => a - b).join(",")}`;
-  }, [resolvedTargets, todayLoggedSets]);
+  const plannedDraftSyncKey = useMemo(() => {
+    if (!plannedTargets.length) return "";
+    const consumed = inferConsumedTargetIndices(
+      plannedTargets,
+      todayLoggedSets,
+    );
+    const fingerprint = plannedTargets
+      .map(
+        (target) =>
+          `${target.reps ?? ""}:${target.weight ?? ""}:${target.time ?? ""}:${target.distance ?? ""}`,
+      )
+      .join("|");
+    return `${plannedSource}:${todayLoggedSets.length}:${fingerprint}:${[...consumed].sort((a, b) => a - b).join(",")}`;
+  }, [plannedSource, plannedTargets, todayLoggedSets]);
 
   useEffect(() => {
     if (!setsReady) return;
 
     setDrafts((prev) => {
-      if (todayLoggedSets.length > 0) {
-        const customDrafts = prev.filter((draft) => draft.source === "custom");
-        if (
-          customDrafts.length === prev.length &&
-          customDrafts.every((row, index) => row === prev[index])
-        ) {
-          return prev;
-        }
-        return customDrafts;
-      }
-
-      if (!resolvedTargets?.length) return prev;
+      if (!plannedTargets.length) return prev;
 
       const consumedTargetIndices = inferConsumedTargetIndices(
-        resolvedTargets,
+        plannedTargets,
         todayLoggedSets,
       );
-      return syncTargetDrafts(prev, resolvedTargets, consumedTargetIndices);
+      return syncPlannedDrafts(
+        prev,
+        plannedTargets,
+        consumedTargetIndices,
+        plannedSource,
+      );
     });
-  }, [setsReady, targetDraftSyncKey]);
+  }, [setsReady, plannedDraftSyncKey, plannedTargets, plannedSource, todayLoggedSets]);
 
   useEffect(() => {
     const ids = new Set(sets.map((set) => set.id));
@@ -586,38 +634,6 @@ export function ExerciseSetsPanel({
     });
   }, [todayLoggedRowKeys, rowKeyBySetIdKey, rowKeyBySetId, todayLoggedSets]);
 
-  useEffect(() => {
-    setRowOrder((prev) => {
-      const activeKeys = new Set<string>();
-
-      for (const set of todayLoggedSets) {
-        activeKeys.add(rowKeyBySetId[set.id] ?? set.id);
-      }
-      for (const draft of drafts) {
-        activeKeys.add(draft.id);
-      }
-      for (const rowKey of Object.keys(promotedByRowKey)) {
-        activeKeys.add(rowKey);
-      }
-
-      const next: string[] = [];
-      for (const rowKey of prev) {
-        if (activeKeys.has(rowKey)) {
-          next.push(rowKey);
-          activeKeys.delete(rowKey);
-        }
-      }
-      for (const rowKey of activeKeys) {
-        next.push(rowKey);
-      }
-      return next.length === prev.length &&
-        next.every((key, index) => key === prev[index])
-        ? prev
-        : next;
-    });
-  }, [draftRowKeys, promotedRowKeys, rowKeyBySetIdKey, todayLoggedRowKeys]);
-
-  const dayGroups = groupSetsByDay(visibleSets);
   const todaySets =
     dayGroups.find((group) => group.day === today)?.sets ?? [];
 
@@ -629,32 +645,35 @@ export function ExerciseSetsPanel({
     draftSource?: DraftRow["source"];
     shouldFocus: boolean;
     index: number;
+    sortAt: number;
   };
 
-  function resolveTodayRow(rowKey: string, index: number): TodayRowEntry | null {
+  function resolveTodayRow(rowKey: string): TodayRowEntry | null {
     const promoted = promotedByRowKey[rowKey];
     if (promoted) {
+      const logged = todaySets.find((set) => set.id === promoted.setId);
       return {
         rowKey,
         phase: "logged",
         setId: promoted.setId,
         values: promoted.values,
         shouldFocus: false,
-        index,
+        index: 0,
+        sortAt: logged ? setSortAt(logged) : Number.MAX_SAFE_INTEGER,
       };
     }
 
     const draft = drafts.find((row) => row.id === rowKey);
     if (draft) {
+      const approving = approvingRowKeys.has(draft.id);
       return {
         rowKey,
-        phase: approvingRowKeys.has(draft.id)
-          ? ("approving" as const)
-          : ("draft" as const),
+        phase: approving ? ("approving" as const) : ("draft" as const),
         values: draft.values,
         draftSource: draft.source,
         shouldFocus: Boolean(draft.shouldFocus),
-        index,
+        index: 0,
+        sortAt: approving ? Number.MAX_SAFE_INTEGER : draft.sortAt,
       };
     }
 
@@ -668,7 +687,8 @@ export function ExerciseSetsPanel({
         setId: logged.id,
         values: valuesFromSet(logged),
         shouldFocus: false,
-        index,
+        index: 0,
+        sortAt: setSortAt(logged),
       };
     }
 
@@ -684,7 +704,6 @@ export function ExerciseSetsPanel({
       keys.push(key);
     };
 
-    for (const key of rowOrder) addKey(key);
     for (const key of Object.keys(promotedByRowKey)) addKey(key);
     for (const key of approvingRowKeys) addKey(key);
     for (const draft of drafts) addKey(draft.id);
@@ -698,7 +717,6 @@ export function ExerciseSetsPanel({
     draftRowKeys,
     promotedRowKeys,
     rowKeyBySetIdKey,
-    rowOrder,
     todayLoggedRowKeys,
     approvingRowKeys,
     drafts,
@@ -708,8 +726,15 @@ export function ExerciseSetsPanel({
   ]);
 
   const todayRows = todayRowKeys
-    .map((rowKey, index) => resolveTodayRow(rowKey, index))
-    .filter((row): row is TodayRowEntry => row != null);
+    .map((rowKey) => resolveTodayRow(rowKey))
+    .filter((row): row is TodayRowEntry => row != null)
+    .sort((a, b) => {
+      const aChecked = a.phase === "draft" ? 1 : 0;
+      const bChecked = b.phase === "draft" ? 1 : 0;
+      if (aChecked !== bChecked) return aChecked - bChecked;
+      return b.sortAt - a.sortAt;
+    })
+    .map((row, index) => ({ ...row, index }));
 
   const hasPendingTodayRows =
     todayRows.length > 0 ||
@@ -747,6 +772,7 @@ export function ExerciseSetsPanel({
         source: "custom",
         values: valuesFromLast(lastLogged, lastDraft),
         shouldFocus: true,
+        sortAt: Date.now(),
       },
     ]);
     setEnteringRowKeys((prev) => new Set(prev).add(id));
@@ -878,7 +904,7 @@ export function ExerciseSetsPanel({
                 ariaLabel={field.label}
                 autoFocus={autoFocusWeight && field.key === firstPrimaryKey}
                 onChange={(value) => updateDraftValue(rowId, field.key, value)}
-                onBlur={() => {}}
+                onBlur={() => { }}
                 onKeyDown={(event) => {
                   if (event.key !== "Enter") return;
                   event.preventDefault();
@@ -919,7 +945,7 @@ export function ExerciseSetsPanel({
                       onChange={(value) =>
                         updateDraftValue(rowId, field.key, value)
                       }
-                      onBlur={() => {}}
+                      onBlur={() => { }}
                       onKeyDown={(event) => {
                         if (event.key !== "Enter") return;
                         event.preventDefault();
@@ -935,8 +961,8 @@ export function ExerciseSetsPanel({
 
         <div className="flex items-center justify-between gap-2 pt-0.5">
           {rowExtraFields.length > 0 &&
-          !hasExtraValues &&
-          offProfileValueKeys(values, profileFields).length === 0 ? (
+            !hasExtraValues &&
+            offProfileValueKeys(values, profileFields).length === 0 ? (
             <Button
               type="button"
               variant="ghost"
@@ -996,7 +1022,7 @@ export function ExerciseSetsPanel({
     rows: { rowKey: string; values: RowValues }[],
   ) {
     return (
-      <ul className="text-muted-foreground divide-border/50 divide-y overflow-clip rounded-xl bg-muted/10">
+      <ul className="text-muted-foreground divide-border/50 divide-y overflow-clip rounded-xl border border-border/60 bg-muted/10">
         {rows.map((row) => {
           const summary = formatSetSummary(row.values);
           return (
@@ -1017,7 +1043,7 @@ export function ExerciseSetsPanel({
   function renderSetRows(rows: TodayRowEntry[]) {
     return (
       <LayoutGroup id={`${baseId}-today-rows`}>
-        <ul className="divide-border/60 divide-y overflow-clip rounded-xl bg-muted/20">
+        <ul className="divide-border/60 divide-y overflow-clip rounded-xl border border-border/60 bg-muted/20">
           <AnimatePresence initial={false} mode="popLayout">
             {rows.map((row) => {
               const busy =
@@ -1028,9 +1054,11 @@ export function ExerciseSetsPanel({
               const subtitle =
                 row.phase === "logged"
                   ? "Logged"
-                  : row.draftSource === "target"
-                    ? "Draft · save to log"
-                    : "Draft · custom";
+                  : row.draftSource === "previous"
+                    ? "Draft · last session"
+                    : row.draftSource === "target"
+                      ? "Draft · save to log"
+                      : "Draft · custom";
 
               return (
                 <SetRowCard
@@ -1129,14 +1157,11 @@ export function ExerciseSetsPanel({
         ) : (
           <div className="flex flex-col gap-4">
             <section className="flex flex-col gap-2">
-              <div className="flex items-baseline justify-between gap-3 px-1">
-                <h3 className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
-                  {formatDayHeading(today)}
-                </h3>
-                <span className="text-muted-foreground text-[11px] tabular-nums">
-                  {todayRows.length} {todayRows.length === 1 ? "set" : "sets"}
-                </span>
-              </div>
+              <h3 className="text-muted-foreground px-1 text-sm font-medium tracking-wide">
+                {previousSessionGroup
+                  ? lastSessionHeading(previousSessionGroup.day)
+                  : "Suggested sets and reps"}
+              </h3>
               {hasPendingTodayRows ? (
                 readOnly ? (
                   renderHistoryRows(todayRows)

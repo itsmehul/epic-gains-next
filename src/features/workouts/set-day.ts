@@ -128,9 +128,11 @@ export function formatDayHeading(
 ): string {
   if (isoDate === today) return "Today";
 
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (isoDate === localDateString(yesterday)) return "Yesterday";
+  const yesterday = parseIsoDate(today);
+  if (yesterday) {
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (isoDate === localDateString(yesterday)) return "Yesterday";
+  }
 
   const date = new Date(`${isoDate}T00:00:00`);
   return date.toLocaleDateString(undefined, {
@@ -138,6 +140,46 @@ export function formatDayHeading(
     month: "short",
     day: "numeric",
   });
+}
+
+export function formatRelativeDayHeading(
+  isoDate: string,
+  today = localDateString(),
+): string {
+  if (isoDate === today) return "Today";
+
+  const start = parseIsoDate(isoDate);
+  const todayDate = parseIsoDate(today);
+  if (!start || !todayDate) return formatDayHeading(isoDate, today);
+
+  const diffDays = Math.round(
+    (todayDate.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
+  );
+
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays > 1 && diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays >= 7 && diffDays < 14) return "Last week";
+  if (diffDays >= 14 && diffDays < 30) {
+    const weeks = Math.round(diffDays / 7);
+    return weeks === 1 ? "Last week" : `${weeks} weeks ago`;
+  }
+
+  return formatDayHeading(isoDate, today);
+}
+
+export function lastSessionHeading(
+  isoDate: string,
+  today = localDateString(),
+): string {
+  const relative = formatRelativeDayHeading(isoDate, today);
+  const when =
+    relative === "Today" ||
+    relative === "Yesterday" ||
+    relative === "Last week" ||
+    / ago$/.test(relative)
+      ? relative.toLowerCase()
+      : relative;
+  return `Last session · ${when}`;
 }
 
 export function groupSetsByDay<
