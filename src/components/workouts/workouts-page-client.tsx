@@ -12,6 +12,7 @@ import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 
+import { AchievementChessRank } from "@/components/achievements/achievement-chess-rank";
 import { GlobalAchievementHeader } from "@/components/achievements/global-achievement-header";
 import {
   AppShellBody,
@@ -36,7 +37,10 @@ import {
   personInitials,
 } from "@/components/workouts/workout-feed-card";
 import type { MuscleGroup } from "@/db/schema/workout-schema";
-import { useAchievements } from "@/features/achievements/hooks";
+import {
+  useAchievements,
+  useProfileAchievements,
+} from "@/features/achievements/hooks";
 import type { AchievementListItem } from "@/features/achievements/types";
 import { useFollowingFeed } from "@/features/social/hooks";
 import type { FeedWorkoutItem, SocialUser } from "@/features/social/types";
@@ -144,6 +148,7 @@ function WorkoutShelf({
   archiveUserId,
   onDeleteWorkout,
   showLoggedStats = true,
+  showCommunityOverlay = false,
   headerAddon,
 }: {
   title: string;
@@ -154,8 +159,14 @@ function WorkoutShelf({
   archiveUserId?: string;
   onDeleteWorkout?: (workout: WorkoutWithStats) => void;
   showLoggedStats?: boolean;
+  showCommunityOverlay?: boolean;
   headerAddon?: ReactNode;
 }) {
+  const ownerAchievements = useProfileAchievements(
+    owner?.username ?? "",
+    Boolean(owner?.username),
+  );
+
   if (workouts.length === 0 && !emptyHint) return null;
 
   return (
@@ -173,6 +184,12 @@ function WorkoutShelf({
             <h2 className="truncate text-base font-semibold tracking-tight">
               {title}
             </h2>
+            {ownerAchievements.data ? (
+              <AchievementChessRank
+                maxSizePx={22}
+                unlockedCount={ownerAchievements.data.unlockedCount}
+              />
+            ) : null}
           </Link>
         ) : (
           <h2 className="shrink-0 truncate text-base font-semibold tracking-tight">
@@ -194,6 +211,7 @@ function WorkoutShelf({
                 <WorkoutFeedCard
                   workout={workout}
                   showLoggedStats={showLoggedStats}
+                  showCommunityOverlay={showCommunityOverlay}
                   onDelete={
                     onDeleteWorkout &&
                       archiveUserId &&
@@ -648,6 +666,7 @@ export function WorkoutsPageClient() {
                       title="Public"
                       workouts={catalogWorkouts}
                       showLoggedStats={false}
+                      showCommunityOverlay
                     />
                   </motion.div>
                 )}

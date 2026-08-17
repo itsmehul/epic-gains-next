@@ -4,6 +4,7 @@ import { WORKOUT_ACHIEVEMENT_COUNT } from "@/features/achievements/catalog";
 import type { AchievementSetRow } from "@/features/achievements/evaluate";
 import {
   buildWorkoutAchievementStats,
+  communityWorkoutTierProgress,
   evaluateAchievements,
   workoutLadderUnlockedCount,
   workoutTierProgress,
@@ -354,5 +355,23 @@ describe("evaluateAchievements", () => {
     expect(byTier.silver.unlocked).toBe(0);
     expect(byTier.gold.total).toBe(byTier.bronze.total);
     expect(byTier.platinum.total).toBe(byTier.bronze.total);
+  });
+
+  it("aggregates community tier progress and bronze completions", () => {
+    const roster = ["e1", "e2"];
+    const partial = [
+      row({ updatedAt: "2026-08-01", exerciseId: "e1" }),
+      row({ updatedAt: "2026-08-01", exerciseId: "e2" }),
+    ];
+    const empty = communityWorkoutTierProgress([], roster);
+    expect(empty.completedCount).toBe(0);
+    expect(empty.tiers.every((item) => item.unlocked === 0)).toBe(true);
+
+    const mixed = communityWorkoutTierProgress([partial, []], roster);
+    expect(mixed.completedCount).toBe(0);
+    const bronze = mixed.tiers.find((item) => item.tier === "bronze");
+    expect(bronze?.unlocked).toBeGreaterThan(0);
+    expect(bronze?.completers).toBe(0);
+    expect(mixed.tiers.every((item) => item.completers === 0)).toBe(true);
   });
 });

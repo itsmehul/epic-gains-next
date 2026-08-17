@@ -4,6 +4,7 @@ import { IconLock } from "@/components/ui/icons";
 import { useState } from "react";
 import { useParams } from "next/navigation";
 
+import { AchievementChessRank } from "@/components/achievements/achievement-chess-rank";
 import { AchievementTile } from "@/components/achievements/achievement-tile";
 import {
   ProfileInsightsGrid,
@@ -92,9 +93,16 @@ export function ProfilePageClient() {
                   <AvatarFallback>{personInitials(profile.name)}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
-                  <p className="text-lg font-semibold leading-tight tracking-tight">
-                    {profile.name}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-lg font-semibold leading-tight tracking-tight">
+                      {profile.name}
+                    </p>
+                    {canViewWorkouts && achievementsQuery.data ? (
+                      <AchievementChessRank
+                        unlockedCount={achievementsQuery.data.unlockedCount}
+                      />
+                    ) : null}
+                  </div>
                   <p className="text-muted-foreground text-sm">
                     @{profile.username}
                   </p>

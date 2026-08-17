@@ -60,6 +60,7 @@ export const IconCalendarEvent = createIcon("calendar_month");
 export const IconChartBar = createIcon("bar_chart");
 export const IconChartLine = createIcon("show_chart");
 export const IconCheck = createIcon("check");
+export const IconChessPawn = createIcon("chess_pawn");
 export const IconChevronDown = createIcon("expand_more");
 export const IconChevronRight = createIcon("chevron_right");
 export const IconChevronUp = createIcon("expand_less");

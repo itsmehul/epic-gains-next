@@ -177,26 +177,25 @@ export function WorkoutFeedCard({
   owner,
   onDelete,
   showLoggedStats = true,
+  showCommunityOverlay = false,
   className,
 }: {
   workout: WorkoutWithStats;
   owner?: SocialUser;
   onDelete?: () => void;
   showLoggedStats?: boolean;
+  showCommunityOverlay?: boolean;
   className?: string;
 }) {
   const thumbnail = workout.videoUrl
     ? getYouTubeThumbnailUrl(workout.videoUrl)
     : null;
   const youtubeAuthor = workout.author?.trim() || "Imported workout";
-  const createdLabel = formatWorkoutDate(workout.createdAt);
   const lastLoggedLabel =
     showLoggedStats && workout.stats.lastLoggedAt
       ? formatWorkoutDate(workout.stats.lastLoggedAt)
       : null;
-  const byline = owner
-    ? [owner.name, createdLabel].filter(Boolean).join(" · ")
-    : [youtubeAuthor, createdLabel].filter(Boolean).join(" · ");
+  const byline = owner ? owner.name : youtubeAuthor;
 
   return (
     <article className={cn("group flex w-55 flex-col gap-2.5", className)}>
@@ -295,6 +294,14 @@ export function WorkoutFeedCard({
           <p className="text-muted-foreground mt-0.5 truncate text-xs">
             {byline}
           </p>
+          {showCommunityOverlay ? (
+            <WorkoutTierRewardStrip
+              className="mt-1"
+              showCompleters
+              tone="onSurface"
+              tiers={workout.stats.achievementTiers ?? []}
+            />
+          ) : null}
           {owner && workout.author?.trim() ? (
             <p className="text-muted-foreground/80 truncate text-[11px]">
               {workout.author.trim()}

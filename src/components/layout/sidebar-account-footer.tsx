@@ -1,5 +1,6 @@
 "use client";
 
+import { AchievementChessRank } from "@/components/achievements/achievement-chess-rank";
 import {
   IconLoader2,
   IconLogout,
@@ -16,6 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { SheetClose } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
+import { useAchievements } from "@/features/achievements/hooks";
 import { signOut } from "@/infrastructure/auth/client";
 import { cn } from "@/shared/utils";
 
@@ -39,6 +41,7 @@ export function SidebarAccountFooter({
 }: SidebarAccountFooterProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const achievementsQuery = useAchievements();
   const { resolvedTheme, setTheme } = useTheme();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isThemeReady, setIsThemeReady] = useState(false);
@@ -105,6 +108,12 @@ export function SidebarAccountFooter({
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-sidebar-foreground">
             {accountProfile.name}
           </span>
+          {achievementsQuery.data ? (
+            <AchievementChessRank
+              maxSizePx={20}
+              unlockedCount={achievementsQuery.data.unlockedCount}
+            />
+          ) : null}
         </div>
 
         <div className="space-y-0.5 border-t border-sidebar-border/45 px-3 py-2">

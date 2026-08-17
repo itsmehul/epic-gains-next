@@ -24,6 +24,10 @@ export type WorkoutListStats = {
   achievementTotalCount: number;
   /** Bronze–platinum progress for the viewer on this workout. */
   achievementTiers: WorkoutTierProgress[];
+  /** Distinct members of this workout. */
+  memberCount: number;
+  /** Members who fully unlocked bronze on this workout. */
+  completedCount: number;
 };
 
 export type WorkoutWithStats = Workout & {

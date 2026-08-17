@@ -29,6 +29,7 @@ import {
 } from "@/db/schema";
 import type { MetricProfile, MuscleGroup } from "@/db/schema/workout-schema";
 import {
+  communityWorkoutTierProgress,
   prescribedSetsFromTargets,
   workoutTierProgress,
   type WorkoutRosterExercise,
@@ -96,12 +97,17 @@ export function workoutMuscleGroupCondition(muscleGroups: MuscleGroup[]) {
 
 export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
   workouts: T[],
-  options?: { viewerId?: string; includeSetStats?: boolean },
+  options?: {
+    viewerId?: string;
+    includeSetStats?: boolean;
+    includeCommunityStats?: boolean;
+  },
 ) {
   if (workouts.length === 0) return [];
 
   const ids = workouts.map((item) => item.id);
   const includeSetStats = options?.includeSetStats !== false;
+  const includeCommunityStats = options?.includeCommunityStats === true;
   const setViewerFilter = options?.viewerId
     ? and(
       inArray(workoutSet.workoutId, ids),
@@ -133,8 +139,31 @@ export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
       distance: number | null;
     }[],
   );
+  const emptyCommunitySetQuery = Promise.resolve(
+    [] as {
+      workoutId: string;
+      userId: string;
+      exerciseId: string;
+      updatedAt: Date;
+      metricProfile: MetricProfile | null;
+      reps: number | null;
+      weight: number | null;
+      time: number | null;
+      distance: number | null;
+    }[],
+  );
+  const emptyMemberQuery = Promise.resolve(
+    [] as { workoutId: string; memberCount: number }[],
+  );
 
-  const [exerciseRows, setRows, dayRows, ladderSetRows] = await Promise.all([
+  const [
+    exerciseRows,
+    setRows,
+    dayRows,
+    ladderSetRows,
+    communitySetRows,
+    memberRows,
+  ] = await Promise.all([
     db
       .select({
         workoutId: workoutExercise.workoutId,
@@ -196,6 +225,33 @@ export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
         .innerJoin(exercise, eq(exercise.id, workoutSet.exerciseId))
         .where(setViewerFilter)
       : emptyLadderQuery,
+    includeCommunityStats
+      ? db
+        .select({
+          workoutId: workoutSet.workoutId,
+          userId: workoutSet.userId,
+          exerciseId: workoutSet.exerciseId,
+          updatedAt: workoutSet.updatedAt,
+          metricProfile: exercise.metricProfile,
+          reps: workoutSet.reps,
+          weight: workoutSet.weight,
+          time: workoutSet.time,
+          distance: workoutSet.distance,
+        })
+        .from(workoutSet)
+        .innerJoin(exercise, eq(exercise.id, workoutSet.exerciseId))
+        .where(inArray(workoutSet.workoutId, ids))
+      : emptyCommunitySetQuery,
+    includeCommunityStats
+      ? db
+        .select({
+          workoutId: workoutMembership.workoutId,
+          memberCount: count(),
+        })
+        .from(workoutMembership)
+        .where(inArray(workoutMembership.workoutId, ids))
+        .groupBy(workoutMembership.workoutId)
+      : emptyMemberQuery,
   ]);
 
   const exerciseByWorkout = new Map<string, number>();
@@ -254,6 +310,32 @@ export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
     days.push(dayKey(row.loggedAt));
     daysByWorkout.set(row.workoutId, days);
   }
+  const memberCountByWorkout = new Map(
+    memberRows.map((row) => [row.workoutId, Number(row.memberCount)]),
+  );
+  const communityRowsByWorkoutUser = new Map<
+    string,
+    Map<
+      string,
+      {
+        workoutId: string;
+        exerciseId: string;
+        updatedAt: Date | string;
+        metricProfile: MetricProfile | null;
+        reps: number | null;
+        weight: number | null;
+        time: number | null;
+        distance: number | null;
+      }[]
+    >
+  >();
+  for (const row of communitySetRows) {
+    const byUser = communityRowsByWorkoutUser.get(row.workoutId) ?? new Map();
+    const list = byUser.get(row.userId) ?? [];
+    list.push(row);
+    byUser.set(row.userId, list);
+    communityRowsByWorkoutUser.set(row.workoutId, byUser);
+  }
 
   const byOwner = new Map<string, T[]>();
   for (const item of workouts) {
@@ -299,7 +381,27 @@ export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
       updatedAt: row.updatedAt,
     }));
     const roster = rosterByWorkout.get(item.id) ?? [];
-    const achievementTiers = workoutTierProgress(ladderRows, roster);
+    const viewerTiers = workoutTierProgress(ladderRows, roster);
+    const communityUsers = [
+      ...(communityRowsByWorkoutUser.get(item.id)?.values() ?? []),
+    ].map((rows) =>
+      rows.map((row) => ({
+        workoutId: row.workoutId,
+        exerciseId: row.exerciseId,
+        muscleGroup: null,
+        keyMuscles: [],
+        metricProfile: row.metricProfile,
+        reps: row.reps,
+        weight: row.weight,
+        time: row.time,
+        distance: row.distance,
+        updatedAt: row.updatedAt,
+      })),
+    );
+    const community = includeCommunityStats
+      ? communityWorkoutTierProgress(communityUsers, roster)
+      : null;
+    const achievementTiers = community?.tiers ?? viewerTiers;
     const bronze = achievementTiers.find((tier) => tier.tier === "bronze");
     return {
       ...item,
@@ -318,6 +420,8 @@ export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
         achievementUnlockedCount: bronze?.unlocked ?? 0,
         achievementTotalCount: bronze?.total ?? 0,
         achievementTiers,
+        memberCount: memberCountByWorkout.get(item.id) ?? 0,
+        completedCount: community?.completedCount ?? 0,
       },
     };
   });
@@ -383,7 +487,10 @@ export async function listCatalogWorkouts(
     .where(and(...conditions))
     .orderBy(desc(workout.createdAt));
 
-  return enrichWorkoutsWithStats(workouts, { includeSetStats: false });
+  return enrichWorkoutsWithStats(workouts, {
+    includeSetStats: false,
+    includeCommunityStats: true,
+  });
 }
 
 export async function listWorkoutsForProfile(profileUserId: string) {

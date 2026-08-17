@@ -539,6 +539,8 @@ export type WorkoutTierProgress = {
   tier: WorkoutAchievementTier;
   unlocked: number;
   total: number;
+  /** Members who fully unlocked this tier. Set for community overlays. */
+  completers?: number;
 };
 
 /** Per-tier progress for the viewing user's sets on one workout. */
@@ -556,6 +558,48 @@ export function workoutTierProgress(
       total: group.length,
     };
   });
+}
+
+/** Best per-tier progress across members, plus per-medal completer counts. */
+export function communityWorkoutTierProgress(
+  userRows: AchievementSetRow[][],
+  rosterInput: WorkoutRosterInput,
+): { tiers: WorkoutTierProgress[]; completedCount: number } {
+  const empty = workoutTierProgress([], rosterInput).map((item) => ({
+    ...item,
+    completers: 0,
+  }));
+  if (userRows.length === 0) {
+    return { tiers: empty, completedCount: 0 };
+  }
+
+  const maxByTier = new Map(
+    empty.map((item) => [item.tier, { ...item }] as const),
+  );
+
+  for (const rows of userRows) {
+    const tiers = workoutTierProgress(rows, rosterInput);
+    for (const item of tiers) {
+      const current = maxByTier.get(item.tier);
+      if (!current) continue;
+      const finished = item.total > 0 && item.unlocked >= item.total;
+      maxByTier.set(item.tier, {
+        ...current,
+        unlocked: Math.max(current.unlocked, item.unlocked),
+        total: Math.max(item.total, current.total),
+        completers: (current.completers ?? 0) + (finished ? 1 : 0),
+      });
+    }
+  }
+
+  const tiers = WORKOUT_ACHIEVEMENT_TIER_VALUES.map(
+    (tier) => maxByTier.get(tier) ?? empty.find((item) => item.tier === tier)!,
+  );
+  return {
+    tiers,
+    completedCount:
+      tiers.find((item) => item.tier === "bronze")?.completers ?? 0,
+  };
 }
 
 /** Live bronze ladder progress for a single started workout (feed). */
