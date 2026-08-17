@@ -732,7 +732,7 @@ export function ExerciseSetsPanel({
       const aChecked = a.phase === "draft" ? 1 : 0;
       const bChecked = b.phase === "draft" ? 1 : 0;
       if (aChecked !== bChecked) return aChecked - bChecked;
-      return b.sortAt - a.sortAt;
+      return a.sortAt - b.sortAt;
     })
     .map((row, index) => ({ ...row, index }));
 
