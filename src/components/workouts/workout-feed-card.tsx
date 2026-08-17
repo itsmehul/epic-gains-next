@@ -63,47 +63,59 @@ export function formatWorkoutDate(value: Date | string) {
   });
 }
 
-function formatVolume(volume: number) {
-  if (volume <= 0) return null;
-  if (volume >= 1000) return `${(volume / 1000).toFixed(1)}k`;
-  return volume % 1 === 0 ? String(volume) : volume.toFixed(1);
-}
-
 function formatVolumeChange(pct: number) {
   const rounded = Math.round(Math.abs(pct));
   if (rounded === 0) return "Flat";
   return `${pct > 0 ? "+" : "−"}${rounded}%`;
 }
 
+function LastTwoWeeksLogged({
+  loggedDays,
+}: {
+  loggedDays: boolean[];
+}) {
+  const letters = ["M", "T", "W", "T", "F", "S", "S"] as const;
+
+  return (
+    <div
+      className="-mx-0.5 overflow-x-auto overscroll-x-contain scrollbar-none"
+      aria-label="Last two weeks logged"
+    >
+      <div className="flex w-max gap-1.5 px-0.5 text-sm leading-none font-medium">
+        {loggedDays.map((logged, index) => (
+          <span
+            key={index}
+            className={cn(
+              "shrink-0",
+              logged
+                ? "text-foreground font-semibold"
+                : "text-muted-foreground/35",
+            )}
+          >
+            {letters[index % 7]}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function WorkoutMetaLine({ stats }: { stats: WorkoutListStats }) {
-  const lastLogged = stats.lastLoggedAt
-    ? formatWorkoutDate(stats.lastLoggedAt)
-    : null;
-  const volumeLabel = formatVolume(stats.volume);
   const volumeChange = stats.volumeChangePct;
 
   const parts: { key: string; node: ReactNode }[] = [];
 
-  if (stats.exerciseCount > 0) {
-    parts.push({
-      key: "exercises",
-      node:
-        stats.loggedExerciseCount > 0
-          ? `${stats.loggedExerciseCount}/${stats.exerciseCount} exercises`
-          : `${stats.exerciseCount} ${stats.exerciseCount === 1 ? "exercise" : "exercises"}`,
-    });
-  }
   if (stats.setCount > 0) {
     parts.push({
       key: "sets",
       node: `${stats.setCount} ${stats.setCount === 1 ? "set" : "sets"}`,
     });
   }
-  if (volumeLabel) {
-    parts.push({ key: "volume", node: `${volumeLabel} vol` });
-  }
-  if (lastLogged) {
-    parts.push({ key: "logged", node: lastLogged });
+  if (stats.loggedDayCount > 0) {
+    parts.push({
+      key: "days",
+      node: `${stats.loggedDayCount} ${stats.loggedDayCount === 1 ? "day" : "days"}`,
+    });
   }
   if (volumeChange != null) {
     const tone =
@@ -138,15 +150,24 @@ export function WorkoutMetaLine({ stats }: { stats: WorkoutListStats }) {
     return <p className="text-muted-foreground text-xs">No sets logged yet</p>;
   }
 
+  const last14 = stats.loggedLast14Days ?? [];
+
   return (
-    <p className="text-muted-foreground line-clamp-2 text-xs leading-relaxed">
-      {parts.map((part, index) => (
-        <span key={part.key}>
-          {index > 0 ? <span className="text-muted-foreground/40"> · </span> : null}
-          {part.node}
-        </span>
-      ))}
-    </p>
+    <div className="flex flex-col gap-1.5">
+      <p className="text-muted-foreground line-clamp-2 text-xs leading-relaxed">
+        {parts.map((part, index) => (
+          <span key={part.key}>
+            {index > 0 ? (
+              <span className="text-muted-foreground/40"> · </span>
+            ) : null}
+            {part.node}
+          </span>
+        ))}
+      </p>
+      {last14.length === 14 ? (
+        <LastTwoWeeksLogged loggedDays={last14} />
+      ) : null}
+    </div>
   );
 }
 

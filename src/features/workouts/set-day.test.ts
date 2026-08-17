@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   addCalendarDays,
   formatRelativeDayHeading,
+  lastTwoIsoWeeksLogged,
   lastSessionHeading,
   parseIsoDate,
   periodRange,
@@ -81,5 +82,29 @@ describe("addCalendarDays", () => {
   it("adds calendar days across month boundaries", () => {
     expect(addCalendarDays("2026-08-01", -1)).toBe("2026-07-31");
     expect(addCalendarDays("2026-07-31", 1)).toBe("2026-08-01");
+  });
+});
+
+describe("lastTwoIsoWeeksLogged", () => {
+  it("covers previous and current Monday–Sunday weeks", () => {
+    // Monday 2026-08-17: previous week 10–16, current 17–23.
+    expect(
+      lastTwoIsoWeeksLogged(["2026-08-15", "2026-08-17"], "2026-08-17"),
+    ).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
   });
 });

@@ -12,6 +12,10 @@ export type WorkoutListStats = {
   loggedExerciseCount: number;
   volume: number;
   lastLoggedAt: Date | string | null;
+  /** Distinct calendar days with at least one set. */
+  loggedDayCount: number;
+  /** Previous + current Mon–Sun weeks, oldest → newest. */
+  loggedLast14Days: boolean[];
   /** Volume change vs previous workout (by createdAt). Null when not comparable. */
   volumeChangePct: number | null;
 };

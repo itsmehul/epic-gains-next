@@ -12,6 +12,7 @@ import {
   inArray,
   isNull,
   max,
+  min,
   or,
   sql,
 } from "drizzle-orm";
@@ -27,6 +28,7 @@ import {
   set as workoutSet,
 } from "@/db/schema";
 import type { MuscleGroup } from "@/db/schema/workout-schema";
+import { dayKey, lastTwoIsoWeeksLogged } from "@/features/workouts/set-day";
 import { isRestWorkoutItem } from "@/features/workouts/workout-item";
 
 export type WorkoutInsert = typeof workout.$inferInsert;
@@ -101,7 +103,7 @@ export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
     )
     : inArray(workoutSet.workoutId, ids);
 
-  const [exerciseRows, setRows] = await Promise.all([
+  const [exerciseRows, setRows, dayRows] = await Promise.all([
     db
       .select({
         workoutId: workoutExercise.workoutId,
@@ -128,6 +130,17 @@ export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
       .from(workoutSet)
       .where(setViewerFilter)
       .groupBy(workoutSet.workoutId),
+    db
+      .select({
+        workoutId: workoutSet.workoutId,
+        loggedAt: min(workoutSet.createdAt),
+      })
+      .from(workoutSet)
+      .where(setViewerFilter)
+      .groupBy(
+        workoutSet.workoutId,
+        sql`date_trunc('day', ${workoutSet.createdAt})`,
+      ),
   ]);
 
   const exerciseByWorkout = new Map<string, number>();
@@ -153,6 +166,12 @@ export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
       },
     ]),
   );
+  const daysByWorkout = new Map<string, string[]>();
+  for (const row of dayRows) {
+    const days = daysByWorkout.get(row.workoutId) ?? [];
+    days.push(dayKey(row.loggedAt));
+    daysByWorkout.set(row.workoutId, days);
+  }
 
   const byOwner = new Map<string, T[]>();
   for (const item of workouts) {
@@ -194,6 +213,10 @@ export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
         loggedExerciseCount: setStats?.loggedExerciseCount ?? 0,
         volume: setStats?.volume ?? 0,
         lastLoggedAt: setStats?.lastLoggedAt ?? null,
+        loggedDayCount: daysByWorkout.get(item.id)?.length ?? 0,
+        loggedLast14Days: lastTwoIsoWeeksLogged(
+          daysByWorkout.get(item.id) ?? [],
+        ),
         volumeChangePct: volumeChangeById.get(item.id) ?? null,
       },
     };

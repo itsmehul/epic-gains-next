@@ -91,6 +91,22 @@ export function addCalendarDays(isoDate: string, days: number): string {
   return localDateString(parsed);
 }
 
+/**
+ * Logged flags for the previous and current Monday–Sunday weeks
+ * (14 days, oldest → newest).
+ */
+export function lastTwoIsoWeeksLogged(
+  days: Iterable<string>,
+  today = localDateString(),
+): boolean[] {
+  const unique = new Set(days);
+  const on = parseIsoDate(today) ?? new Date();
+  const start = addCalendarDays(periodRange("week", on).startDay, -7);
+  return Array.from({ length: 14 }, (_, index) =>
+    unique.has(addCalendarDays(start, index)),
+  );
+}
+
 /** Inclusive calendar range. `end` on the returned PeriodRange is exclusive. */
 export function inclusiveDateRange(
   startDay: string,
