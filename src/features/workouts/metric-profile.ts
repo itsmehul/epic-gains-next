@@ -22,3 +22,25 @@ export function fieldsForMetricProfile(
 ): MetricProfileFields {
   return PROFILE_FIELDS[profile ?? "CUSTOM"];
 }
+
+function isPositiveMetric(value: number | null | undefined) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+export function setFillsMetricProfile(
+  set: Partial<Record<SetFieldKey, number | null | undefined>>,
+  profile: MetricProfile | null | undefined,
+): boolean {
+  if (profile == null || profile === "CUSTOM") {
+    return (
+      isPositiveMetric(set.reps) ||
+      isPositiveMetric(set.weight) ||
+      isPositiveMetric(set.time) ||
+      isPositiveMetric(set.distance)
+    );
+  }
+
+  return fieldsForMetricProfile(profile).primary.every((field) =>
+    isPositiveMetric(set[field]),
+  );
+}

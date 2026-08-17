@@ -45,6 +45,7 @@ function createIcon(name: string, filled = false) {
   return Icon;
 }
 
+export const IconAwardStar = createIcon("award_star");
 export const IconAlertTriangle = createIcon("warning");
 export const IconArrowLeft = createIcon("arrow_back");
 export const IconArrowRight = createIcon("arrow_forward");
@@ -63,11 +64,14 @@ export const IconChevronDown = createIcon("expand_more");
 export const IconChevronRight = createIcon("chevron_right");
 export const IconChevronUp = createIcon("expand_less");
 export const IconCircleCheckFilled = createIcon("check_circle", true);
+export const IconCrown = createIcon("crown");
 export const IconCopy = createIcon("content_copy");
+export const IconDiamondShine = createIcon("diamond_shine");
 export const IconDotsVertical = createIcon("more_vert");
 export const IconExternalLink = createIcon("open_in_new");
 export const IconFlame = createIcon("local_fire_department");
 export const IconFocus2 = createIcon("center_focus_strong");
+export const IconGamepad = createIcon("sports_esports");
 export const IconKey = createIcon("vpn_key");
 export const IconLayoutSidebar = createIcon("view_sidebar");
 export const IconListChecks = createIcon("checklist");
@@ -75,6 +79,7 @@ export const IconLoader2 = createIcon("progress_activity");
 export const IconLock = createIcon("lock");
 export const IconLogout = createIcon("logout");
 export const IconMaximize = createIcon("fullscreen");
+export const IconMilitaryTech = createIcon("military_tech");
 export const IconMessage2 = createIcon("chat");
 export const IconMinimize = createIcon("fullscreen_exit");
 export const IconMoon = createIcon("dark_mode");

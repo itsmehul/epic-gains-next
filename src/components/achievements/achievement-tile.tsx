@@ -2,6 +2,7 @@ import {
   IconCalendarEvent,
   IconCheck,
   IconFocus2,
+  IconGamepad,
   IconLock,
   IconNotebook,
   IconPlayerPlay,
@@ -16,7 +17,9 @@ import {
 } from "@/components/ui/progress";
 import {
   ACHIEVEMENT_CATEGORY_LABELS,
+  WORKOUT_ACHIEVEMENT_TIER_LABELS,
   type AchievementCategory,
+  type WorkoutAchievementTier,
 } from "@/features/achievements/catalog";
 import type { AchievementListItem } from "@/features/achievements/types";
 import { cn } from "@/shared/utils";
@@ -26,6 +29,17 @@ const CATEGORY_ICONS: Record<AchievementCategory, typeof IconTrophy> = {
   days: IconCalendarEvent,
   tapes: IconPlayerPlay,
   targets: IconFocus2,
+  hud: IconGamepad,
+};
+
+const TIER_BADGE_CLASS: Record<WorkoutAchievementTier, string> = {
+  bronze:
+    "border-transparent bg-[oklch(0.72_0.12_70_/_0.22)] text-[oklch(0.45_0.1_55)] dark:text-[oklch(0.84_0.1_75)]",
+  silver:
+    "border-transparent bg-zinc-500/15 text-zinc-700 dark:text-zinc-300",
+  gold: "border-transparent bg-amber-500/18 text-amber-800 dark:text-amber-300",
+  platinum:
+    "border-transparent bg-cyan-500/15 text-cyan-800 dark:text-cyan-200",
 };
 
 export function formatUnlockedAt(value: Date | string | null) {
@@ -80,6 +94,14 @@ export function AchievementTile({ item }: { item: AchievementListItem }) {
           <p className="truncate text-[16px] leading-6 font-medium tracking-[0.15px]">
             {hidden ? "Secret" : item.name}
           </p>
+          {item.tier ? (
+            <Badge
+              variant="secondary"
+              className={cn("h-5 px-1.5 text-[10px]", TIER_BADGE_CLASS[item.tier])}
+            >
+              {WORKOUT_ACHIEVEMENT_TIER_LABELS[item.tier]}
+            </Badge>
+          ) : null}
           {item.unlocked ? (
             <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
               {ACHIEVEMENT_CATEGORY_LABELS[item.category]}
@@ -89,6 +111,11 @@ export function AchievementTile({ item }: { item: AchievementListItem }) {
         <p className="text-muted-foreground mt-0.5 line-clamp-2 text-sm leading-5 tracking-[0.25px]">
           {hidden ? "Keep logging sets to reveal this one." : item.description}
         </p>
+        {item.workoutName && !hidden ? (
+          <p className="text-muted-foreground/80 mt-0.5 truncate text-xs">
+            {item.workoutName}
+          </p>
+        ) : null}
         {!item.unlocked ? (
           <div className="mt-2.5 flex items-center gap-3">
             <Progress className="min-w-0 flex-1 gap-0" value={pct}>

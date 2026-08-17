@@ -204,7 +204,10 @@ export function ProfilePageClient() {
                             new Date(a.unlockedAt as Date | string).getTime(),
                         )
                         .map((item) => (
-                          <AchievementTile item={item} key={item.id} />
+                          <AchievementTile
+                            item={item}
+                            key={`${item.id}:${item.workoutId ?? ""}`}
+                          />
                         ))}
                     </div>
                   )}

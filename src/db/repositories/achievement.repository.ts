@@ -1,45 +1,137 @@
 import "server-only";
 
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
   exercise,
   set as workoutSet,
   userAchievement,
+  workout,
+  workoutExercise,
 } from "@/db/schema";
 import {
   ACHIEVEMENT_BY_ID,
-  TOTAL_GAMERSCORE,
-  type AchievementDefinition,
+  GLOBAL_GAMERSCORE,
 } from "@/features/achievements/catalog";
 import {
-  buildAchievementStats,
   evaluateAchievements,
+  prescribedSetsFromTargets,
+  type AchievementSetRow,
+  type EvaluatedAchievement,
+  type WorkoutRosterExercise,
 } from "@/features/achievements/evaluate";
+import type {
+  AchievementListItem,
+  UnlockedAchievement,
+} from "@/features/achievements/types";
+import { isRestWorkoutItem } from "@/features/workouts/workout-item";
 
-export type UnlockedAchievement = AchievementDefinition & {
-  unlockedAt: Date;
-};
+export type { AchievementListItem, UnlockedAchievement };
 
-export type AchievementListItem = AchievementDefinition & {
-  progress: number;
-  unlocked: boolean;
-  unlockedAt: Date | null;
-};
+function evaluatedKey(item: EvaluatedAchievement) {
+  return item.workoutId ? `${item.id}::${item.workoutId}` : item.id;
+}
+
+function toUnlocked(
+  item: EvaluatedAchievement,
+  names: Map<string, string>,
+  unlockedAt: Date,
+): UnlockedAchievement | null {
+  const definition = ACHIEVEMENT_BY_ID.get(item.id);
+  if (!definition) return null;
+  return {
+    id: definition.id,
+    name: definition.name,
+    description: item.description,
+    gamerscore: definition.gamerscore,
+    category: definition.category,
+    scope: definition.scope,
+    secret: definition.secret,
+    target: item.target,
+    workoutId: item.workoutId,
+    workoutName: item.workoutId ? (names.get(item.workoutId) ?? null) : null,
+    unlockedAt,
+    tier: definition.scope === "workout" ? definition.tier : undefined,
+  };
+}
 
 async function loadSetRows(userId: string) {
   return db
     .select({
+      id: workoutSet.id,
       workoutId: workoutSet.workoutId,
       exerciseId: workoutSet.exerciseId,
       muscleGroup: exercise.muscleGroup,
       keyMuscles: exercise.keyMuscles,
+      metricProfile: exercise.metricProfile,
+      reps: workoutSet.reps,
+      weight: workoutSet.weight,
+      time: workoutSet.time,
+      distance: workoutSet.distance,
       updatedAt: workoutSet.updatedAt,
     })
     .from(workoutSet)
     .innerJoin(exercise, eq(exercise.id, workoutSet.exerciseId))
     .where(eq(workoutSet.userId, userId));
+}
+
+function toEvalRows(
+  rows: Awaited<ReturnType<typeof loadSetRows>>,
+): AchievementSetRow[] {
+  return rows.map((row) => ({
+    workoutId: row.workoutId,
+    exerciseId: row.exerciseId,
+    muscleGroup: row.muscleGroup,
+    keyMuscles: row.keyMuscles,
+    metricProfile: row.metricProfile,
+    reps: row.reps,
+    weight: row.weight,
+    time: row.time,
+    distance: row.distance,
+    updatedAt: row.updatedAt,
+  }));
+}
+
+async function loadRosterByWorkout(workoutIds: string[]) {
+  const map = new Map<string, WorkoutRosterExercise[]>();
+  if (workoutIds.length === 0) return map;
+
+  const rows = await db
+    .select({
+      workoutId: workoutExercise.workoutId,
+      exerciseId: workoutExercise.exerciseId,
+      name: workoutExercise.name,
+      tags: workoutExercise.tags,
+      metaData: workoutExercise.metaData,
+      metricProfile: exercise.metricProfile,
+    })
+    .from(workoutExercise)
+    .innerJoin(exercise, eq(exercise.id, workoutExercise.exerciseId))
+    .where(inArray(workoutExercise.workoutId, workoutIds));
+
+  for (const row of rows) {
+    if (isRestWorkoutItem(row)) continue;
+    const list = map.get(row.workoutId) ?? [];
+    list.push({
+      exerciseId: row.exerciseId,
+      metricProfile: row.metricProfile,
+      prescribedSets: prescribedSetsFromTargets(row.metaData?.targets),
+    });
+    map.set(row.workoutId, list);
+  }
+  return map;
+}
+
+async function loadWorkoutNames(workoutIds: string[]) {
+  const map = new Map<string, string>();
+  if (workoutIds.length === 0) return map;
+  const rows = await db
+    .select({ id: workout.id, name: workout.name })
+    .from(workout)
+    .where(inArray(workout.id, workoutIds));
+  for (const row of rows) map.set(row.id, row.name);
+  return map;
 }
 
 async function listUnlocks(userId: string) {
@@ -49,7 +141,7 @@ async function listUnlocks(userId: string) {
     .where(eq(userAchievement.userId, userId));
 }
 
-async function insertUnlocks(userId: string, achievementIds: string[]) {
+async function insertGlobalUnlocks(userId: string, achievementIds: string[]) {
   if (achievementIds.length === 0) return [];
 
   return db
@@ -66,35 +158,62 @@ async function insertUnlocks(userId: string, achievementIds: string[]) {
 
 export async function unlockNewAchievementsForUser(
   userId: string,
+  options?: { createdSetId?: string },
 ): Promise<UnlockedAchievement[]> {
   const [rows, existing] = await Promise.all([
     loadSetRows(userId),
     listUnlocks(userId),
   ]);
-  const already = new Set(existing.map((row) => row.achievementId));
-  const earned = evaluateAchievements(buildAchievementStats(rows)).filter(
-    (item) => item.unlocked && !already.has(item.id),
+  const workoutIds = [...new Set(rows.map((row) => row.workoutId))];
+  const [rosterByWorkout, names] = await Promise.all([
+    loadRosterByWorkout(workoutIds),
+    loadWorkoutNames(workoutIds),
+  ]);
+
+  const current = evaluateAchievements(toEvalRows(rows), rosterByWorkout);
+  const previousRows = options?.createdSetId
+    ? rows.filter((row) => row.id !== options.createdSetId)
+    : rows;
+  const previous = options?.createdSetId
+    ? evaluateAchievements(toEvalRows(previousRows), rosterByWorkout)
+    : current;
+
+  const previousUnlocked = new Set(
+    previous.filter((item) => item.unlocked).map(evaluatedKey),
   );
-  const inserted = await insertUnlocks(
+  const alreadyGlobal = new Set(existing.map((row) => row.achievementId));
+
+  const newlyEvaluated = current.filter((item) => {
+    if (!item.unlocked) return false;
+    if (item.scope === "global") return !alreadyGlobal.has(item.id);
+    return !previousUnlocked.has(evaluatedKey(item));
+  });
+
+  const inserted = await insertGlobalUnlocks(
     userId,
-    earned.map((item) => item.id),
+    newlyEvaluated
+      .filter((item) => item.scope === "global")
+      .map((item) => item.id),
   );
   const insertedIds = new Set(inserted.map((row) => row.achievementId));
   const unlockedAtById = new Map(
     inserted.map((row) => [row.achievementId, row.unlockedAt]),
   );
+  const now = new Date();
 
-  return earned
-    .filter((item) => insertedIds.has(item.id))
-    .map((item) => {
-      const definition = ACHIEVEMENT_BY_ID.get(item.id);
-      if (!definition) return null;
-      return {
-        ...definition,
-        unlockedAt: unlockedAtById.get(item.id) ?? new Date(),
-      };
-    })
-    .filter((item): item is UnlockedAchievement => item !== null);
+  const unlocked: UnlockedAchievement[] = [];
+  for (const item of newlyEvaluated) {
+    if (item.scope === "global" && !insertedIds.has(item.id)) continue;
+    const mapped = toUnlocked(
+      item,
+      names,
+      item.scope === "global"
+        ? (unlockedAtById.get(item.id) ?? now)
+        : now,
+    );
+    if (mapped) unlocked.push(mapped);
+  }
+  return unlocked;
 }
 
 export async function listAchievementsForUser(
@@ -107,29 +226,48 @@ export async function listAchievementsForUser(
   unlockedCount: number;
 }> {
   const persistUnlocks = options?.persistUnlocks ?? true;
-  const newlyUnlocked = persistUnlocks
-    ? await unlockNewAchievementsForUser(userId)
-    : [];
+  if (persistUnlocks) {
+    await unlockNewAchievementsForUser(userId);
+  }
   const [rows, unlocks] = await Promise.all([
     loadSetRows(userId),
     listUnlocks(userId),
   ]);
-  const unlockedAtById = new Map(
+  const workoutIds = [...new Set(rows.map((row) => row.workoutId))];
+  const [rosterByWorkout, names] = await Promise.all([
+    loadRosterByWorkout(workoutIds),
+    loadWorkoutNames(workoutIds),
+  ]);
+  const globalUnlockedAt = new Map(
     unlocks.map((row) => [row.achievementId, row.unlockedAt]),
   );
-  for (const item of newlyUnlocked) {
-    if (!unlockedAtById.has(item.id)) {
-      unlockedAtById.set(item.id, item.unlockedAt);
-    }
-  }
 
-  const items = evaluateAchievements(buildAchievementStats(rows)).map(
-    (item) => ({
-      ...item,
-      unlocked: unlockedAtById.has(item.id) || item.unlocked,
-      unlockedAt: unlockedAtById.get(item.id) ?? null,
-    }),
-  );
+  const evaluated = evaluateAchievements(toEvalRows(rows), rosterByWorkout);
+  const items: AchievementListItem[] = evaluated.map((item) => {
+    const persistedAt =
+      item.scope === "global"
+        ? (globalUnlockedAt.get(item.id) ?? null)
+        : null;
+    return {
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      gamerscore: item.gamerscore,
+      category: item.category,
+      scope: item.scope,
+      secret: item.secret,
+      target: item.target,
+      progress: item.progress,
+      unlocked:
+        item.scope === "global"
+          ? Boolean(persistedAt) || item.unlocked
+          : item.unlocked,
+      workoutId: item.workoutId,
+      workoutName: item.workoutId ? (names.get(item.workoutId) ?? null) : null,
+      unlockedAt: persistedAt,
+      tier: item.tier,
+    };
+  });
 
   const gamerscore = items
     .filter((item) => item.unlocked)
@@ -138,7 +276,11 @@ export async function listAchievementsForUser(
   return {
     items,
     gamerscore,
-    totalGamerscore: TOTAL_GAMERSCORE,
+    totalGamerscore:
+      GLOBAL_GAMERSCORE +
+      evaluated
+        .filter((item) => item.scope === "workout")
+        .reduce((sum, item) => sum + item.gamerscore, 0),
     unlockedCount: items.filter((item) => item.unlocked).length,
   };
 }

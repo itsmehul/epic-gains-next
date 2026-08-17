@@ -27,7 +27,12 @@ import {
   workoutMembership,
   set as workoutSet,
 } from "@/db/schema";
-import type { MuscleGroup } from "@/db/schema/workout-schema";
+import type { MetricProfile, MuscleGroup } from "@/db/schema/workout-schema";
+import {
+  prescribedSetsFromTargets,
+  workoutTierProgress,
+  type WorkoutRosterExercise,
+} from "@/features/achievements/evaluate";
 import { dayKey, lastTwoIsoWeeksLogged } from "@/features/workouts/set-day";
 import { isRestWorkoutItem } from "@/features/workouts/workout-item";
 
@@ -91,11 +96,12 @@ export function workoutMuscleGroupCondition(muscleGroups: MuscleGroup[]) {
 
 export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
   workouts: T[],
-  options?: { viewerId?: string },
+  options?: { viewerId?: string; includeSetStats?: boolean },
 ) {
   if (workouts.length === 0) return [];
 
   const ids = workouts.map((item) => item.id);
+  const includeSetStats = options?.includeSetStats !== false;
   const setViewerFilter = options?.viewerId
     ? and(
       inArray(workoutSet.workoutId, ids),
@@ -103,47 +109,97 @@ export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
     )
     : inArray(workoutSet.workoutId, ids);
 
-  const [exerciseRows, setRows, dayRows] = await Promise.all([
+  const emptySetQuery = Promise.resolve(
+    [] as {
+      workoutId: string;
+      setCount: number;
+      loggedExerciseCount: number;
+      volume: number;
+      lastLoggedAt: Date | null;
+    }[],
+  );
+  const emptyDayQuery = Promise.resolve(
+    [] as { workoutId: string; loggedAt: Date }[],
+  );
+  const emptyLadderQuery = Promise.resolve(
+    [] as {
+      workoutId: string;
+      exerciseId: string;
+      updatedAt: Date;
+      metricProfile: MetricProfile | null;
+      reps: number | null;
+      weight: number | null;
+      time: number | null;
+      distance: number | null;
+    }[],
+  );
+
+  const [exerciseRows, setRows, dayRows, ladderSetRows] = await Promise.all([
     db
       .select({
         workoutId: workoutExercise.workoutId,
+        exerciseId: workoutExercise.exerciseId,
         name: workoutExercise.name,
         tags: workoutExercise.tags,
         videoUrl: workoutExercise.videoUrl,
+        metaData: workoutExercise.metaData,
+        metricProfile: exercise.metricProfile,
       })
       .from(workoutExercise)
+      .innerJoin(exercise, eq(exercise.id, workoutExercise.exerciseId))
       .where(inArray(workoutExercise.workoutId, ids)),
-    db
-      .select({
-        workoutId: workoutSet.workoutId,
-        setCount: count(),
-        loggedExerciseCount: countDistinct(workoutSet.exerciseId),
-        volume: sql<number>`coalesce(sum(
+    includeSetStats
+      ? db
+        .select({
+          workoutId: workoutSet.workoutId,
+          setCount: count(),
+          loggedExerciseCount: countDistinct(workoutSet.exerciseId),
+          volume: sql<number>`coalesce(sum(
           case
             when ${workoutSet.weight} is not null and ${workoutSet.reps} is not null
             then ${workoutSet.weight} * ${workoutSet.reps}
             else 0
           end
         ), 0)`.mapWith(Number),
-        lastLoggedAt: max(workoutSet.createdAt),
-      })
-      .from(workoutSet)
-      .where(setViewerFilter)
-      .groupBy(workoutSet.workoutId),
-    db
-      .select({
-        workoutId: workoutSet.workoutId,
-        loggedAt: min(workoutSet.createdAt),
-      })
-      .from(workoutSet)
-      .where(setViewerFilter)
-      .groupBy(
-        workoutSet.workoutId,
-        sql`date_trunc('day', ${workoutSet.createdAt})`,
-      ),
+          lastLoggedAt: max(workoutSet.createdAt),
+        })
+        .from(workoutSet)
+        .where(setViewerFilter)
+        .groupBy(workoutSet.workoutId)
+      : emptySetQuery,
+    includeSetStats
+      ? db
+        .select({
+          workoutId: workoutSet.workoutId,
+          loggedAt: min(workoutSet.createdAt),
+        })
+        .from(workoutSet)
+        .where(setViewerFilter)
+        .groupBy(
+          workoutSet.workoutId,
+          sql`date_trunc('day', ${workoutSet.createdAt})`,
+        )
+      : emptyDayQuery,
+    includeSetStats && options?.viewerId
+      ? db
+        .select({
+          workoutId: workoutSet.workoutId,
+          exerciseId: workoutSet.exerciseId,
+          updatedAt: workoutSet.updatedAt,
+          metricProfile: exercise.metricProfile,
+          reps: workoutSet.reps,
+          weight: workoutSet.weight,
+          time: workoutSet.time,
+          distance: workoutSet.distance,
+        })
+        .from(workoutSet)
+        .innerJoin(exercise, eq(exercise.id, workoutSet.exerciseId))
+        .where(setViewerFilter)
+      : emptyLadderQuery,
   ]);
 
   const exerciseByWorkout = new Map<string, number>();
+  const rosterByWorkout = new Map<string, WorkoutRosterExercise[]>();
   const videoUrlByWorkout = new Map<string, string | null>();
   for (const row of exerciseRows) {
     if (isRestWorkoutItem(row)) continue;
@@ -151,9 +207,34 @@ export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
       row.workoutId,
       (exerciseByWorkout.get(row.workoutId) ?? 0) + 1,
     );
+    const roster = rosterByWorkout.get(row.workoutId) ?? [];
+    roster.push({
+      exerciseId: row.exerciseId,
+      metricProfile: row.metricProfile,
+      prescribedSets: prescribedSetsFromTargets(row.metaData?.targets),
+    });
+    rosterByWorkout.set(row.workoutId, roster);
     if (!videoUrlByWorkout.has(row.workoutId) && row.videoUrl) {
       videoUrlByWorkout.set(row.workoutId, row.videoUrl);
     }
+  }
+  const ladderRowsByWorkout = new Map<
+    string,
+    {
+      workoutId: string;
+      exerciseId: string;
+      updatedAt: Date | string;
+      metricProfile: MetricProfile | null;
+      reps: number | null;
+      weight: number | null;
+      time: number | null;
+      distance: number | null;
+    }[]
+  >();
+  for (const row of ladderSetRows) {
+    const list = ladderRowsByWorkout.get(row.workoutId) ?? [];
+    list.push(row);
+    ladderRowsByWorkout.set(row.workoutId, list);
   }
   const setByWorkout = new Map(
     setRows.map((row) => [
@@ -168,6 +249,7 @@ export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
   );
   const daysByWorkout = new Map<string, string[]>();
   for (const row of dayRows) {
+    if (!row.loggedAt) continue;
     const days = daysByWorkout.get(row.workoutId) ?? [];
     days.push(dayKey(row.loggedAt));
     daysByWorkout.set(row.workoutId, days);
@@ -204,6 +286,21 @@ export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
 
   return workouts.map((item) => {
     const setStats = setByWorkout.get(item.id);
+    const ladderRows = (ladderRowsByWorkout.get(item.id) ?? []).map((row) => ({
+      workoutId: row.workoutId,
+      exerciseId: row.exerciseId,
+      muscleGroup: null,
+      keyMuscles: [],
+      metricProfile: row.metricProfile,
+      reps: row.reps,
+      weight: row.weight,
+      time: row.time,
+      distance: row.distance,
+      updatedAt: row.updatedAt,
+    }));
+    const roster = rosterByWorkout.get(item.id) ?? [];
+    const achievementTiers = workoutTierProgress(ladderRows, roster);
+    const bronze = achievementTiers.find((tier) => tier.tier === "bronze");
     return {
       ...item,
       videoUrl: videoUrlByWorkout.get(item.id) ?? null,
@@ -218,6 +315,9 @@ export async function enrichWorkoutsWithStats<T extends WorkoutRow>(
           daysByWorkout.get(item.id) ?? [],
         ),
         volumeChangePct: volumeChangeById.get(item.id) ?? null,
+        achievementUnlockedCount: bronze?.unlocked ?? 0,
+        achievementTotalCount: bronze?.total ?? 0,
+        achievementTiers,
       },
     };
   });
@@ -271,7 +371,7 @@ export async function listWorkoutsForUser(
 }
 
 export async function listCatalogWorkouts(
-  viewerId: string,
+  _viewerId: string,
   options?: ListWorkoutsOptions,
 ) {
   const conditions = [isNull(workout.archivedAt)];
@@ -283,7 +383,7 @@ export async function listCatalogWorkouts(
     .where(and(...conditions))
     .orderBy(desc(workout.createdAt));
 
-  return enrichWorkoutsWithStats(workouts, { viewerId });
+  return enrichWorkoutsWithStats(workouts, { includeSetStats: false });
 }
 
 export async function listWorkoutsForProfile(profileUserId: string) {

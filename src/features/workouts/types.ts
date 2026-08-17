@@ -1,5 +1,6 @@
 import type { exercise, set, workout, workoutExercise } from "@/db/schema";
 import type { MuscleGroup } from "@/db/schema/workout-schema";
+import type { WorkoutTierProgress } from "@/features/achievements/evaluate";
 
 export type Workout = typeof workout.$inferSelect;
 export type Exercise = typeof exercise.$inferSelect;
@@ -18,6 +19,11 @@ export type WorkoutListStats = {
   loggedLast14Days: boolean[];
   /** Volume change vs previous workout (by createdAt). Null when not comparable. */
   volumeChangePct: number | null;
+  /** Unlocked bronze rungs for the viewer on this workout. */
+  achievementUnlockedCount: number;
+  achievementTotalCount: number;
+  /** Bronze–platinum progress for the viewer on this workout. */
+  achievementTiers: WorkoutTierProgress[];
 };
 
 export type WorkoutWithStats = Workout & {

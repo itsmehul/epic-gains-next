@@ -24,7 +24,7 @@ export function AchievementUnlockToaster() {
         ...prev,
         ...items.map((item, index) => ({
           ...item,
-          key: `${item.id}-${Date.now()}-${index}`,
+          key: `${item.id}-${item.workoutId ?? "g"}-${Date.now()}-${index}`,
         })),
       ]);
     }
@@ -71,6 +71,11 @@ export function AchievementUnlockToaster() {
                 <p className="truncate text-base font-medium tracking-[0.15px]">
                   {current.name}
                 </p>
+                {current.workoutName ? (
+                  <p className="truncate text-xs opacity-80">
+                    {current.workoutName}
+                  </p>
+                ) : null}
                 <p className="text-sm font-medium opacity-85">
                   {current.gamerscore}G
                 </p>

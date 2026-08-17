@@ -12,6 +12,7 @@ import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 
+import { GlobalAchievementHeader } from "@/components/achievements/global-achievement-header";
 import {
   AppShellBody,
   AppShellHeader,
@@ -19,11 +20,6 @@ import {
 } from "@/components/layout/app-shell";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  WorkoutFeedCard,
-  WorkoutFeedSkeleton,
-  personInitials,
-} from "@/components/workouts/workout-feed-card";
 import {
   Dialog,
   DialogContent,
@@ -34,7 +30,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  WorkoutFeedCard,
+  WorkoutFeedSkeleton,
+  personInitials,
+} from "@/components/workouts/workout-feed-card";
 import type { MuscleGroup } from "@/db/schema/workout-schema";
+import { useAchievements } from "@/features/achievements/hooks";
+import type { AchievementListItem } from "@/features/achievements/types";
 import { useFollowingFeed } from "@/features/social/hooks";
 import type { FeedWorkoutItem, SocialUser } from "@/features/social/types";
 import { useDeleteWorkout, useWorkouts } from "@/features/workouts/hooks";
@@ -140,6 +143,8 @@ function WorkoutShelf({
   emptyHint,
   archiveUserId,
   onDeleteWorkout,
+  showLoggedStats = true,
+  headerAddon,
 }: {
   title: string;
   href?: string;
@@ -148,6 +153,8 @@ function WorkoutShelf({
   emptyHint?: ReactNode;
   archiveUserId?: string;
   onDeleteWorkout?: (workout: WorkoutWithStats) => void;
+  showLoggedStats?: boolean;
+  headerAddon?: ReactNode;
 }) {
   if (workouts.length === 0 && !emptyHint) return null;
 
@@ -157,7 +164,7 @@ function WorkoutShelf({
         {owner ? (
           <Link
             href={href ?? `/u/${owner.username}`}
-            className="flex min-w-0 items-center gap-2.5"
+            className="flex min-w-0 shrink-0 items-center gap-2.5"
           >
             <Avatar size="sm">
               {owner.image ? <AvatarImage alt="" src={owner.image} /> : null}
@@ -168,10 +175,11 @@ function WorkoutShelf({
             </h2>
           </Link>
         ) : (
-          <h2 className="truncate text-base font-semibold tracking-tight">
+          <h2 className="shrink-0 truncate text-base font-semibold tracking-tight">
             {title}
           </h2>
         )}
+        {headerAddon}
       </header>
       {workouts.length === 0 ? (
         <div className="text-muted-foreground text-sm">{emptyHint}</div>
@@ -185,6 +193,7 @@ function WorkoutShelf({
               <li key={workout.id}>
                 <WorkoutFeedCard
                   workout={workout}
+                  showLoggedStats={showLoggedStats}
                   onDelete={
                     onDeleteWorkout &&
                       archiveUserId &&
@@ -329,6 +338,14 @@ export function WorkoutsPageClient() {
     q: debouncedSearch,
     muscleGroups,
   });
+  const achievementsQuery = useAchievements();
+  const globalAchievements = useMemo(
+    () =>
+      (achievementsQuery.data?.items ?? []).filter(
+        (item: AchievementListItem) => item.scope === "global",
+      ),
+    [achievementsQuery.data?.items],
+  );
 
   const personalWorkouts = useMemo(
     () => sortWorkoutsByCreatedAtAsc(mineQuery.data?.items ?? []),
@@ -569,6 +586,9 @@ export function WorkoutsPageClient() {
                       workouts={personalWorkouts}
                       archiveUserId={session?.user?.id}
                       onDeleteWorkout={setDeleteTarget}
+                      headerAddon={
+                        <GlobalAchievementHeader items={globalAchievements} />
+                      }
                     />
                   </motion.div>
                 )}
@@ -627,6 +647,7 @@ export function WorkoutsPageClient() {
                       }
                       title="Public"
                       workouts={catalogWorkouts}
+                      showLoggedStats={false}
                     />
                   </motion.div>
                 )}

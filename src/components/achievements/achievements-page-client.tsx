@@ -18,6 +18,8 @@ import {
 import {
   ACHIEVEMENT_CATEGORY_LABELS,
   ACHIEVEMENT_CATEGORY_VALUES,
+  WORKOUT_ACHIEVEMENT_TIER_LABELS,
+  WORKOUT_ACHIEVEMENT_TIER_VALUES,
 } from "@/features/achievements/catalog";
 import { useAchievements } from "@/features/achievements/hooks";
 import { cn } from "@/shared/utils";
@@ -58,8 +60,35 @@ export function AchievementsPageClient() {
   const filtered = useMemo(() => {
     if (!data) return [];
     if (tab === "all") return data.items;
+    if (tab === "overall") {
+      return data.items.filter((item) => item.scope === "global");
+    }
+    if (tab === "workouts") {
+      return data.items.filter((item) => item.scope === "workout");
+    }
     return data.items.filter((item) => item.category === tab);
   }, [data, tab]);
+
+  const workoutGroups = useMemo(() => {
+    if (tab !== "workouts" && tab !== "all") return [];
+    const groups = new Map<string, typeof filtered>();
+    for (const item of filtered) {
+      if (item.scope !== "workout" || !item.workoutId) continue;
+      const list = groups.get(item.workoutId) ?? [];
+      list.push(item);
+      groups.set(item.workoutId, list);
+    }
+    return [...groups.entries()].map(([workoutId, items]) => ({
+      workoutId,
+      name: items[0]?.workoutName ?? "Workout",
+      items,
+    }));
+  }, [filtered, tab]);
+
+  const overallItems = useMemo(() => {
+    if (tab === "workouts") return [];
+    return filtered.filter((item) => item.scope === "global");
+  }, [filtered, tab]);
 
   const unlockPct =
     !data || data.items.length === 0
@@ -120,6 +149,16 @@ export function AchievementsPageClient() {
                   label="All"
                   onSelect={() => setTab("all")}
                 />
+                <FilterChip
+                  active={tab === "overall"}
+                  label="Overall"
+                  onSelect={() => setTab("overall")}
+                />
+                <FilterChip
+                  active={tab === "workouts"}
+                  label="Workouts"
+                  onSelect={() => setTab("workouts")}
+                />
                 {ACHIEVEMENT_CATEGORY_VALUES.map((category) => (
                   <FilterChip
                     key={category}
@@ -130,10 +169,75 @@ export function AchievementsPageClient() {
                 ))}
               </div>
 
-              <div className="flex flex-col gap-2">
-                {filtered.map((item) => (
-                  <AchievementTile item={item} key={item.id} />
-                ))}
+              <div className="flex flex-col gap-6">
+                {tab !== "workouts" && overallItems.length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    {tab === "all" ? (
+                      <h2 className="text-muted-foreground text-xs font-medium tracking-[0.4px] uppercase">
+                        Overall
+                      </h2>
+                    ) : null}
+                    {overallItems.map((item) => (
+                      <AchievementTile item={item} key={item.id} />
+                    ))}
+                  </div>
+                ) : null}
+                {(tab === "all" || tab === "workouts") &&
+                workoutGroups.length > 0
+                  ? workoutGroups.map((group) => (
+                      <div className="flex flex-col gap-4" key={group.workoutId}>
+                        <h2 className="text-muted-foreground text-xs font-medium tracking-[0.4px] uppercase">
+                          {group.name}
+                        </h2>
+                        {WORKOUT_ACHIEVEMENT_TIER_VALUES.map((tier) => {
+                          const items = group.items.filter(
+                            (item) => item.tier === tier,
+                          );
+                          if (items.length === 0) return null;
+                          return (
+                            <div className="flex flex-col gap-2" key={tier}>
+                              <h3 className="text-muted-foreground/80 text-[11px] font-medium tracking-[0.35px] uppercase">
+                                {WORKOUT_ACHIEVEMENT_TIER_LABELS[tier]}
+                              </h3>
+                              {items.map((item) => (
+                                <AchievementTile
+                                  item={item}
+                                  key={`${item.id}:${item.workoutId ?? ""}`}
+                                />
+                              ))}
+                            </div>
+                          );
+                        })}
+                        {group.items.some((item) => !item.tier) ? (
+                          <div className="flex flex-col gap-2">
+                            <h3 className="text-muted-foreground/80 text-[11px] font-medium tracking-[0.35px] uppercase">
+                              HUD
+                            </h3>
+                            {group.items
+                              .filter((item) => !item.tier)
+                              .map((item) => (
+                                <AchievementTile
+                                  item={item}
+                                  key={`${item.id}:${item.workoutId ?? ""}`}
+                                />
+                              ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))
+                  : null}
+                {tab !== "all" &&
+                tab !== "overall" &&
+                tab !== "workouts"
+                  ? filtered
+                      .filter((item) => item.scope === "workout")
+                      .map((item) => (
+                        <AchievementTile
+                          item={item}
+                          key={`${item.id}:${item.workoutId ?? ""}`}
+                        />
+                      ))
+                  : null}
               </div>
             </>
           )}

@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   addCalendarDays,
   formatRelativeDayHeading,
-  lastTwoIsoWeeksLogged,
   lastSessionHeading,
+  lastTwoIsoWeeksLogged,
   parseIsoDate,
   periodRange,
 } from "@/features/workouts/set-day";

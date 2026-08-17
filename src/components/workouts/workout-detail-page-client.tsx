@@ -4,6 +4,7 @@ import { IconChevronRight, IconCircleCheckFilled } from "@/components/ui/icons";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { WorkoutTierRewardIcon } from "@/components/achievements/workout-tier-rewards";
 import {
   AppShellBody,
   AppShellHeader,
@@ -17,6 +18,11 @@ import {
   WorkoutVideoPreview,
   type WorkoutVideoPreviewHandle,
 } from "@/components/workouts/workout-video-preview";
+import { useAchievements } from "@/features/achievements/hooks";
+import {
+  WORKOUT_ACHIEVEMENT_TIER_LABELS,
+  WORKOUT_ACHIEVEMENT_TIER_VALUES,
+} from "@/features/achievements/catalog";
 import {
   useSets,
   useWorkout,
@@ -185,6 +191,7 @@ export function WorkoutDetailPageClient() {
   const workoutQuery = useWorkout(workoutId);
   const workoutExercisesQuery = useWorkoutExercises({ workoutId });
   const setsQuery = useSets({ workoutId });
+  const achievementsQuery = useAchievements();
 
   const isLoading =
     workoutQuery.isLoading ||
@@ -268,6 +275,10 @@ export function WorkoutDetailPageClient() {
   const selectedKeyMuscles = selectedItem
     ? (exerciseById.get(selectedItem.exerciseId)?.keyMuscles ?? [])
     : [];
+  const workoutAchievements =
+    achievementsQuery.data?.items.filter(
+      (item) => item.scope === "workout" && item.workoutId === workoutId,
+    ) ?? [];
 
   return (
     <AppShellScroll>
@@ -291,6 +302,39 @@ export function WorkoutDetailPageClient() {
                 channelUrl={workoutQuery.data?.channelUrl}
                 onTimeUpdate={handleVideoTimeUpdate}
               />
+            </div>
+          ) : null}
+
+          {workoutAchievements.some((item) => item.tier) ? (
+            <div className="grid grid-cols-4 gap-2 px-4 md:px-0">
+              {WORKOUT_ACHIEVEMENT_TIER_VALUES.map((tier) => {
+                const items = workoutAchievements.filter(
+                  (item) => item.tier === tier,
+                );
+                const unlocked = items.filter((item) => item.unlocked).length;
+                return (
+                  <div
+                    key={tier}
+                    className="bg-muted/50 flex flex-col items-center gap-1.5 rounded-xl px-2 py-2.5"
+                  >
+                    <WorkoutTierRewardIcon
+                      className="size-7 drop-shadow-sm"
+                      item={{
+                        tier,
+                        unlocked,
+                        total: items.length,
+                      }}
+                      tone="onSurface"
+                    />
+                    <p className="text-muted-foreground text-[10px] font-medium tracking-[0.2px] uppercase">
+                      {WORKOUT_ACHIEVEMENT_TIER_LABELS[tier]}
+                    </p>
+                    <p className="text-muted-foreground text-[11px] tabular-nums">
+                      {unlocked}/{items.length || 7}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
           ) : null}
 

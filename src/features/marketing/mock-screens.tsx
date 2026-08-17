@@ -4,6 +4,7 @@ import {
   IconCheck,
   IconChevronRight,
   IconFocus2,
+  IconGamepad,
   IconLayoutSidebar,
   IconLock,
   IconNotebook,
@@ -47,6 +48,7 @@ const CATEGORY_ICONS: Record<AchievementCategory, typeof IconTrophy> = {
   days: IconCalendarEvent,
   tapes: IconPlayerPlay,
   targets: IconFocus2,
+  hud: IconGamepad,
 };
 
 const MOCK_ACHIEVEMENTS: AchievementListItem[] = [
@@ -59,6 +61,9 @@ const MOCK_ACHIEVEMENTS: AchievementListItem[] = [
     target: 1,
     progress: 1,
     unlocked: true,
+    scope: "global",
+    workoutId: null,
+    workoutName: null,
     unlockedAt: new Date(Date.now() - 12 * 86_400_000),
   },
   {
@@ -70,6 +75,9 @@ const MOCK_ACHIEVEMENTS: AchievementListItem[] = [
     target: 10,
     progress: 10,
     unlocked: true,
+    scope: "global",
+    workoutId: null,
+    workoutName: null,
     unlockedAt: new Date(Date.now() - 8 * 86_400_000),
   },
   {
@@ -81,6 +89,9 @@ const MOCK_ACHIEVEMENTS: AchievementListItem[] = [
     target: 40,
     progress: 28,
     unlocked: false,
+    scope: "global",
+    workoutId: null,
+    workoutName: null,
     unlockedAt: null,
   },
   {
@@ -92,6 +103,9 @@ const MOCK_ACHIEVEMENTS: AchievementListItem[] = [
     target: 2,
     progress: 2,
     unlocked: true,
+    scope: "global",
+    workoutId: null,
+    workoutName: null,
     unlockedAt: new Date(Date.now() - 5 * 86_400_000),
   },
   {
@@ -104,6 +118,9 @@ const MOCK_ACHIEVEMENTS: AchievementListItem[] = [
     target: 40,
     progress: 12,
     unlocked: false,
+    scope: "global",
+    workoutId: null,
+    workoutName: null,
     unlockedAt: null,
   },
 ];

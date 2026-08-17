@@ -3,7 +3,6 @@ import "server-only";
 import { and, desc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import { follow, user, workout, workoutMembership } from "@/db/schema";
 import {
   getUserById,
   listFollowing,
@@ -16,6 +15,7 @@ import {
   workoutMuscleGroupCondition,
   type ListWorkoutsOptions,
 } from "@/db/repositories/workout.repository";
+import { follow, user, workout, workoutMembership } from "@/db/schema";
 
 export async function listVisibleWorkoutsForUser(
   _viewerId: string,
@@ -121,44 +121,52 @@ export async function listFollowingFeed(
 
   const rows = options?.limit ? await query.limit(options.limit) : await query;
 
-  const uniqueWorkouts = new Map<string, (typeof rows)[number]>();
+  const uniqueMemberships = new Map<string, (typeof rows)[number]>();
   for (const row of rows) {
     if (!row.ownerUsername) continue;
-    if (!uniqueWorkouts.has(row.id)) uniqueWorkouts.set(row.id, row);
+    uniqueMemberships.set(`${row.id}:${row.memberUserId}`, row);
   }
-  const visible = [...uniqueWorkouts.values()];
+  const visible = [...uniqueMemberships.values()];
   if (visible.length === 0) return [];
 
-  const enriched = await enrichWorkoutsWithStats(
-    visible.map((row) => ({
-      id: row.id,
-      name: row.name,
-      author: row.author,
-      channelUrl: row.channelUrl,
-      youtubeVideoId: row.youtubeVideoId,
-      userId: row.userId,
-      archivedAt: row.archivedAt,
-      createdAt: row.createdAt,
-    })),
-    { viewerId },
+  const byMember = new Map<string, typeof visible>();
+  for (const row of visible) {
+    const list = byMember.get(row.memberUserId) ?? [];
+    list.push(row);
+    byMember.set(row.memberUserId, list);
+  }
+
+  const sections = await Promise.all(
+    [...byMember.entries()].map(async ([memberUserId, memberRows]) => {
+      const enriched = await enrichWorkoutsWithStats(
+        memberRows.map((row) => ({
+          id: row.id,
+          name: row.name,
+          author: row.author,
+          channelUrl: row.channelUrl,
+          youtubeVideoId: row.youtubeVideoId,
+          userId: memberUserId,
+          archivedAt: row.archivedAt,
+          createdAt: row.createdAt,
+        })),
+        { viewerId: memberUserId },
+      );
+
+      return enriched.map((item, index) => {
+        const row = memberRows[index]!;
+        return {
+          ...item,
+          owner: {
+            id: memberUserId,
+            name: row.ownerName,
+            username: row.ownerUsername!,
+            image: row.ownerImage,
+            isPrivate: row.ownerIsPrivate,
+          },
+        };
+      });
+    }),
   );
 
-  const ownerById = new Map(
-    visible.map((row) => [
-      row.id,
-      {
-        id: row.userId ?? row.memberUserId,
-        name: row.ownerName,
-        username: row.ownerUsername!,
-        image: row.ownerImage,
-        isPrivate: row.ownerIsPrivate,
-      },
-    ]),
-  );
-
-  return enriched.flatMap((item) => {
-    const owner = ownerById.get(item.id);
-    if (!owner) return [];
-    return [{ ...item, owner }];
-  });
+  return sections.flat();
 }

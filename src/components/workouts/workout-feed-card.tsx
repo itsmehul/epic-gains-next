@@ -11,6 +11,7 @@ import {
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { WorkoutTierRewardStrip } from "@/components/achievements/workout-tier-rewards";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -175,11 +176,13 @@ export function WorkoutFeedCard({
   workout,
   owner,
   onDelete,
+  showLoggedStats = true,
   className,
 }: {
   workout: WorkoutWithStats;
   owner?: SocialUser;
   onDelete?: () => void;
+  showLoggedStats?: boolean;
   className?: string;
 }) {
   const thumbnail = workout.videoUrl
@@ -187,12 +190,9 @@ export function WorkoutFeedCard({
     : null;
   const youtubeAuthor = workout.author?.trim() || "Imported workout";
   const createdLabel = formatWorkoutDate(workout.createdAt);
-  const progressPct =
-    workout.stats.exerciseCount > 0
-      ? Math.round(
-        (workout.stats.loggedExerciseCount / workout.stats.exerciseCount) *
-        100,
-      )
+  const lastLoggedLabel =
+    showLoggedStats && workout.stats.lastLoggedAt
+      ? formatWorkoutDate(workout.stats.lastLoggedAt)
       : null;
   const byline = owner
     ? [owner.name, createdLabel].filter(Boolean).join(" · ")
@@ -223,10 +223,16 @@ export function WorkoutFeedCard({
               <IconPlayerPlayFilled className="size-5 translate-x-px" />
             </span>
           </div>
-          {progressPct != null && workout.stats.setCount > 0 ? (
-            <span className="absolute right-1.5 bottom-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-white">
-              {progressPct}% logged
+          {showLoggedStats && lastLoggedLabel ? (
+            <span className="absolute top-1.5 left-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[11px] font-medium text-white">
+              {lastLoggedLabel}
             </span>
+          ) : null}
+          {showLoggedStats && workout.stats.setCount > 0 ? (
+            <WorkoutTierRewardStrip
+              className="absolute right-1.5 bottom-1.5"
+              tiers={workout.stats.achievementTiers ?? []}
+            />
           ) : workout.stats.exerciseCount > 0 ? (
             <span className="absolute right-1.5 bottom-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-white">
               {workout.stats.exerciseCount}{" "}
@@ -294,9 +300,11 @@ export function WorkoutFeedCard({
               {workout.author.trim()}
             </p>
           ) : null}
-          <div className="mt-1">
-            <WorkoutMetaLine stats={workout.stats} />
-          </div>
+          {showLoggedStats ? (
+            <div className="mt-1">
+              <WorkoutMetaLine stats={workout.stats} />
+            </div>
+          ) : null}
         </div>
       </div>
     </article>

@@ -92,6 +92,7 @@ export async function POST(req: Request) {
 
     const unlockedAchievements = await unlockNewAchievementsForUser(
       session.user.id,
+      { createdSetId: item.id },
     );
 
     return NextResponse.json(

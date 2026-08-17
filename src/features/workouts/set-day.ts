@@ -190,9 +190,9 @@ export function lastSessionHeading(
   const relative = formatRelativeDayHeading(isoDate, today);
   const when =
     relative === "Today" ||
-    relative === "Yesterday" ||
-    relative === "Last week" ||
-    / ago$/.test(relative)
+      relative === "Yesterday" ||
+      relative === "Last week" ||
+      / ago$/.test(relative)
       ? relative.toLowerCase()
       : relative;
   return `Last session · ${when}`;
