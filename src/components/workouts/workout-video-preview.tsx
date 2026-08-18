@@ -46,6 +46,7 @@ type YTPlayer = {
   getDuration: () => number;
   loadModule: (module: string) => void;
   unloadModule: (module: string) => void;
+  setOption: (module: string, option: string, value: unknown) => void;
   destroy: () => void;
 };
 
@@ -54,6 +55,7 @@ type YTNamespace = {
     element: string | HTMLElement,
     config: {
       videoId: string;
+      host?: string;
       width?: string | number;
       height?: string | number;
       playerVars?: Record<string, number | string>;
@@ -63,6 +65,7 @@ type YTNamespace = {
           data: number;
           target: YTPlayer;
         }) => void;
+        onApiChange?: (event: { target: YTPlayer }) => void;
       };
     },
   ) => YTPlayer;
@@ -138,6 +141,21 @@ function isIdleState(state: number) {
   );
 }
 
+function disableCaptions(player: YTPlayer) {
+  try {
+    player.setOption("captions", "track", {});
+    player.setOption("cc", "track", {});
+  } catch {
+    // Caption options are unavailable until the module loads.
+  }
+  try {
+    player.unloadModule("captions");
+    player.unloadModule("cc");
+  } catch {
+    // Caption modules may already be unavailable.
+  }
+}
+
 export type WorkoutVideoPreviewHandle = {
   seekTo: (seconds: number) => void;
 };
@@ -168,12 +186,12 @@ export function WorkoutVideoPreview({
   const hideControlsTimerRef = useRef<number | null>(null);
   const mediaUnlockedRef = useRef(false);
   const ignoreSurfaceClickRef = useRef(false);
+  const captionsOnRef = useRef(false);
 
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [buffering, setBuffering] = useState(false);
-  const [touchDevice, setTouchDevice] = useState(true);
   const [showPlayPrompt, setShowPlayPrompt] = useState(true);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
@@ -193,23 +211,6 @@ export function WorkoutVideoPreview({
     );
     iframe.setAttribute("allowfullscreen", "true");
   }
-
-  useEffect(() => {
-    const coarse = window.matchMedia("(pointer: coarse)");
-    const noHover = window.matchMedia("(hover: none)");
-    const sync = () => {
-      setTouchDevice(
-        coarse.matches || noHover.matches || navigator.maxTouchPoints > 0,
-      );
-    };
-    sync();
-    coarse.addEventListener("change", sync);
-    noHover.addEventListener("change", sync);
-    return () => {
-      coarse.removeEventListener("change", sync);
-      noHover.removeEventListener("change", sync);
-    };
-  }, []);
 
   const clearHideControlsTimer = useEffectEvent(() => {
     if (hideControlsTimerRef.current != null) {
@@ -308,6 +309,7 @@ export function WorkoutVideoPreview({
     setCurrentTime(0);
     setDuration(0);
     setCaptionsOn(false);
+    captionsOnRef.current = false;
     setError(null);
 
     void loadYouTubeApi()
@@ -316,30 +318,28 @@ export function WorkoutVideoPreview({
 
         player = new YT.Player(mount, {
           videoId,
+          host: "https://www.youtube-nocookie.com",
           width: "100%",
           height: "100%",
           playerVars: {
             autoplay: 0,
             cc_load_policy: 0,
+            color: "white",
             controls: 0,
             disablekb: 1,
+            enablejsapi: 1,
             fs: 0,
             iv_load_policy: 3,
-            modestbranding: 1,
             playsinline: 1,
             rel: 0,
             origin: window.location.origin,
+            widget_referrer: window.location.href,
           },
           events: {
             onReady: (event) => {
               if (cancelled) return;
               playerRef.current = event.target;
-              try {
-                event.target.unloadModule("captions");
-                event.target.unloadModule("cc");
-              } catch {
-                // Caption modules may already be unavailable.
-              }
+              disableCaptions(event.target);
               setReady(true);
               setDuration(event.target.getDuration() || 0);
               allowIframeAutoplay(host);
@@ -380,6 +380,10 @@ export function WorkoutVideoPreview({
                 clearHideControlsTimer();
                 syncFromPlayer();
               }
+            },
+            onApiChange: (event) => {
+              if (cancelled || captionsOnRef.current) return;
+              disableCaptions(event.target);
             },
           },
         });
@@ -461,7 +465,7 @@ export function WorkoutVideoPreview({
     togglePlayback();
   }
 
-  function handleSurfaceClick() {
+  function handleSurfaceClick(event: { nativeEvent: Event }) {
     if (ignoreSurfaceClickRef.current) {
       ignoreSurfaceClickRef.current = false;
       return;
@@ -469,8 +473,14 @@ export function WorkoutVideoPreview({
 
     if (!ready) return;
 
+    const pointerType =
+      "pointerType" in event.nativeEvent
+        ? String((event.nativeEvent as PointerEvent).pointerType)
+        : "mouse";
+
     // Phone UX: when playing with hidden controls, first tap only reveals chrome.
-    if (playing && !controlsVisible && touchDevice) {
+    // Mouse already reveals on pointermove; treat the click as play/pause.
+    if (playing && !controlsVisible && pointerType !== "mouse") {
       revealControls();
       return;
     }
@@ -557,11 +567,12 @@ export function WorkoutVideoPreview({
 
     try {
       if (captionsOn) {
-        player.unloadModule("captions");
-        player.unloadModule("cc");
+        captionsOnRef.current = false;
+        disableCaptions(player);
         setCaptionsOn(false);
         return;
       }
+      captionsOnRef.current = true;
       player.loadModule("captions");
       player.loadModule("cc");
       setCaptionsOn(true);
@@ -709,6 +720,15 @@ export function WorkoutVideoPreview({
                 className="absolute inset-0 z-20 flex items-center justify-center touch-manipulation"
                 onClick={handlePlayClick}
               >
+                <img
+                  src={`https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`}
+                  alt=""
+                  className="pointer-events-none absolute inset-0 size-full object-cover"
+                  onError={(event) => {
+                    event.currentTarget.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+                  }}
+                />
+                <div className="pointer-events-none absolute inset-0 bg-black/35" />
                 <button
                   type="button"
                   className="relative z-10 flex size-14 touch-manipulation items-center justify-center rounded-full bg-white text-black shadow-lg"
