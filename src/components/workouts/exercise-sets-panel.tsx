@@ -3,6 +3,7 @@
 import {
   IconLoader2,
   IconPlus,
+  IconTimer,
   IconTrash,
 } from "@/components/ui/icons";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { ExerciseResolveCard } from "@/components/workouts/exercise-resolve-card";
+import { SetTimerDialog } from "@/components/workouts/set-timer-dialog";
 import {
   collapseGridClass,
   SetRowCard,
@@ -34,6 +36,7 @@ import {
   useCreateSet,
   useDeleteSet,
   useSimilarExercises,
+  useUpdateSet,
   useWorkoutExercise,
 } from "@/features/workouts/hooks";
 import {
@@ -244,6 +247,22 @@ function offProfileValueKeys(
   return (Object.keys(values) as FieldKey[]).filter(
     (key) => !profileKeys.has(key) && values[key].trim() !== "",
   );
+}
+
+function rowHasTime(
+  values: RowValues,
+  fields: MetricProfileFields,
+): boolean {
+  return (
+    fields.primary.includes("time") ||
+    fields.extra.includes("time") ||
+    values.time.trim() !== ""
+  );
+}
+
+function formatTrackedTime(seconds: number): string {
+  const rounded = Math.round(Math.max(0, seconds) * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded);
 }
 
 function extraFieldsForValues(
@@ -473,6 +492,7 @@ export function ExerciseSetsPanel({
   onExerciseResolved,
 }: ExerciseSetsPanelProps) {
   const createSet = useCreateSet();
+  const updateSet = useUpdateSet();
   const deleteSet = useDeleteSet();
   const reduceMotion = useReducedMotion();
   const transition = reduceMotion ? { duration: 0 } : sizeTransition;
@@ -506,6 +526,7 @@ export function ExerciseSetsPanel({
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showExtras, setShowExtras] = useState(false);
+  const [timerRowKey, setTimerRowKey] = useState<string | null>(null);
   const baseId = useId().replace(/:/g, "");
   const profileFields = fieldsForMetricProfile(metricProfile);
   const primaryFields = profileFields.primary.map((key) => FIELD_BY_KEY[key]);
@@ -852,6 +873,32 @@ export function ExerciseSetsPanel({
     );
   }
 
+  function applyTrackedTime(rowKey: string, seconds: number) {
+    const next = formatTrackedTime(seconds);
+    const row = resolveTodayRow(rowKey);
+    if (!row) return;
+
+    if (row.phase === "draft") {
+      updateDraftValue(rowKey, "time", next);
+      return;
+    }
+
+    if (row.phase === "logged" && row.setId) {
+      const payload = toPayload({ ...row.values, time: next });
+      setPromotedByRowKey((prev) => {
+        const existing = prev[rowKey];
+        if (!existing) return prev;
+        return {
+          ...prev,
+          [rowKey]: { ...existing, values: { ...existing.values, time: next } },
+        };
+      });
+      void updateSet.mutateAsync({ id: row.setId, ...payload }).catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to update time");
+      });
+    }
+  }
+
   function removeDraft(draftId: string) {
     setDrafts((prev) => prev.filter((row) => row.id !== draftId));
     setExpandedId((prev) => (prev === draftId ? null : prev));
@@ -859,6 +906,71 @@ export function ExerciseSetsPanel({
 
   function toggleExpanded(id: string) {
     setExpandedId((prev) => (prev === id ? null : id));
+  }
+
+  function renderMetricField({
+    rowId,
+    field,
+    values,
+    busy,
+    autoFocus,
+  }: {
+    rowId: string;
+    field: FieldDef;
+    values: RowValues;
+    busy: boolean;
+    autoFocus?: boolean;
+  }) {
+    const input = (
+      <SetMetricInput
+        id={`${baseId}-${rowId}-${field.key}`}
+        value={values[field.key]}
+        disabled={busy}
+        inputMode={field.inputMode}
+        step={field.step}
+        ariaLabel={field.label}
+        autoFocus={autoFocus}
+        onChange={(value) => updateDraftValue(rowId, field.key, value)}
+        onBlur={() => { }}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          void approveDraft(rowId);
+        }}
+      />
+    );
+
+    return (
+      <div key={field.key} className="space-y-1">
+        <label
+          htmlFor={`${baseId}-${rowId}-${field.key}`}
+          className="text-muted-foreground flex items-baseline justify-between px-0.5 text-[11px] font-medium tracking-wide uppercase"
+        >
+          <span>{field.label}</span>
+          <span className="normal-case tracking-normal opacity-70">
+            {field.unit}
+          </span>
+        </label>
+        {field.key === "time" ? (
+          <div className="flex items-center gap-1.5">
+            {input}
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              className="size-11 shrink-0 rounded-xl"
+              aria-label="Start set timer"
+              disabled={busy}
+              onClick={() => setTimerRowKey(rowId)}
+            >
+              <IconTimer className="size-5" />
+            </Button>
+          </div>
+        ) : (
+          input
+        )}
+      </div>
+    );
   }
 
   function renderDraftEditor({
@@ -884,35 +996,15 @@ export function ExerciseSetsPanel({
     return (
       <div className="space-y-3 px-3 pb-2 pt-1">
         <div className="grid grid-cols-2 gap-2">
-          {primaryFields.map((field) => (
-            <div key={field.key} className="space-y-1">
-              <label
-                htmlFor={`${baseId}-${rowId}-${field.key}`}
-                className="text-muted-foreground flex items-baseline justify-between px-0.5 text-[11px] font-medium tracking-wide uppercase"
-              >
-                <span>{field.label}</span>
-                <span className="normal-case tracking-normal opacity-70">
-                  {field.unit}
-                </span>
-              </label>
-              <SetMetricInput
-                id={`${baseId}-${rowId}-${field.key}`}
-                value={values[field.key]}
-                disabled={busy}
-                inputMode={field.inputMode}
-                step={field.step}
-                ariaLabel={field.label}
-                autoFocus={autoFocusWeight && field.key === firstPrimaryKey}
-                onChange={(value) => updateDraftValue(rowId, field.key, value)}
-                onBlur={() => { }}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter") return;
-                  event.preventDefault();
-                  void approveDraft(rowId);
-                }}
-              />
-            </div>
-          ))}
+          {primaryFields.map((field) =>
+            renderMetricField({
+              rowId,
+              field,
+              values,
+              busy,
+              autoFocus: autoFocusWeight && field.key === firstPrimaryKey,
+            }),
+          )}
         </div>
 
         {rowExtraFields.length > 0 ? (
@@ -924,36 +1016,14 @@ export function ExerciseSetsPanel({
           >
             <div className="min-h-0 overflow-clip">
               <div className="grid grid-cols-2 gap-2 pb-0.5">
-                {rowExtraFields.map((field) => (
-                  <div key={field.key} className="space-y-1">
-                    <label
-                      htmlFor={`${baseId}-${rowId}-${field.key}`}
-                      className="text-muted-foreground flex items-baseline justify-between px-0.5 text-[11px] font-medium tracking-wide uppercase"
-                    >
-                      <span>{field.label}</span>
-                      <span className="normal-case tracking-normal opacity-70">
-                        {field.unit}
-                      </span>
-                    </label>
-                    <SetMetricInput
-                      id={`${baseId}-${rowId}-${field.key}`}
-                      value={values[field.key]}
-                      disabled={busy}
-                      inputMode={field.inputMode}
-                      step={field.step}
-                      ariaLabel={field.label}
-                      onChange={(value) =>
-                        updateDraftValue(rowId, field.key, value)
-                      }
-                      onBlur={() => { }}
-                      onKeyDown={(event) => {
-                        if (event.key !== "Enter") return;
-                        event.preventDefault();
-                        void approveDraft(rowId);
-                      }}
-                    />
-                  </div>
-                ))}
+                {rowExtraFields.map((field) =>
+                  renderMetricField({
+                    rowId,
+                    field,
+                    values,
+                    busy,
+                  }),
+                )}
               </div>
             </div>
           </div>
@@ -1084,6 +1154,11 @@ export function ExerciseSetsPanel({
                       removeDraft(row.rowKey);
                     }
                   }}
+                  onOpenTimer={
+                    !readOnly && rowHasTime(row.values, profileFields)
+                      ? () => setTimerRowKey(row.rowKey)
+                      : undefined
+                  }
                   editor={renderDraftEditor({
                     rowId: row.rowKey,
                     values: row.values,
@@ -1204,6 +1279,25 @@ export function ExerciseSetsPanel({
           </motion.p>
         ) : null}
       </AnimatePresence>
+
+      <SetTimerDialog
+        open={timerRowKey != null}
+        presetSeconds={
+          timerRowKey
+            ? (parseOptionalNumber(resolveTodayRow(timerRowKey)?.values.time ?? "") ?? 0)
+            : 0
+        }
+        onOpenChange={(open) => {
+          if (!open) setTimerRowKey(null);
+        }}
+        onKeepPreset={() => {
+          setTimerRowKey(null);
+        }}
+        onTrackElapsed={(elapsedSeconds) => {
+          if (!timerRowKey) return;
+          applyTrackedTime(timerRowKey, elapsedSeconds);
+        }}
+      />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { IconChevronDown, IconLoader2 } from "@/components/ui/icons";
+import { IconChevronDown, IconLoader2, IconTimer } from "@/components/ui/icons";
 import { motion, type Transition } from "motion/react";
 
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,6 +27,7 @@ type SetRowCardProps = {
   onToggleExpanded: () => void;
   onApprove: () => void;
   onRemove: () => void;
+  onOpenTimer?: () => void;
   editor: React.ReactNode;
 };
 
@@ -45,6 +46,7 @@ export function SetRowCard({
   onToggleExpanded,
   onApprove,
   onRemove,
+  onOpenTimer,
   editor,
 }: SetRowCardProps) {
   const isDraft = phase === "draft";
@@ -97,6 +99,21 @@ export function SetRowCard({
               </span>
             </span>
           </button>
+
+          {onOpenTimer ? (
+            <button
+              type="button"
+              aria-label="Start set timer"
+              disabled={busy || isApproving}
+              className="text-muted-foreground hover:text-foreground inline-flex size-8 shrink-0 items-center justify-center rounded-full outline-none transition-colors hover:bg-foreground/8 focus-visible:ring-2 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-50"
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenTimer();
+              }}
+            >
+              <IconTimer className="size-5" />
+            </button>
+          ) : null}
 
           <div className="relative flex size-5 shrink-0 items-center justify-center">
             <Checkbox
