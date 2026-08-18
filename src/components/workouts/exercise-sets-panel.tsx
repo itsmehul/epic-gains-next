@@ -527,6 +527,8 @@ export function ExerciseSetsPanel({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showExtras, setShowExtras] = useState(false);
   const [timerRowKey, setTimerRowKey] = useState<string | null>(null);
+  const timerRowKeyRef = useRef<string | null>(null);
+  timerRowKeyRef.current = timerRowKey;
   const baseId = useId().replace(/:/g, "");
   const profileFields = fieldsForMetricProfile(metricProfile);
   const primaryFields = profileFields.primary.map((key) => FIELD_BY_KEY[key]);
@@ -648,6 +650,13 @@ export function ExerciseSetsPanel({
         if (!logged) continue;
         const stableKey = rowKeyBySetId[promoted.setId] ?? promoted.setId;
         if (stableKey !== rowKey) continue;
+        const loggedValues = valuesFromSet(logged);
+        const matchesOptimistic =
+          loggedValues.reps === promoted.values.reps &&
+          loggedValues.weight === promoted.values.weight &&
+          loggedValues.time === promoted.values.time &&
+          loggedValues.distance === promoted.values.distance;
+        if (!matchesOptimistic) continue;
         delete next[rowKey];
         changed = true;
       }
@@ -875,27 +884,30 @@ export function ExerciseSetsPanel({
 
   function applyTrackedTime(rowKey: string, seconds: number) {
     const next = formatTrackedTime(seconds);
+
+    setDrafts((prev) =>
+      prev.map((draft) =>
+        draft.id === rowKey
+          ? { ...draft, values: { ...draft.values, time: next } }
+          : draft,
+      ),
+    );
+
     const row = resolveTodayRow(rowKey);
-    if (!row) return;
-
-    if (row.phase === "draft") {
-      updateDraftValue(rowKey, "time", next);
-      return;
-    }
-
-    if (row.phase === "logged" && row.setId) {
-      const payload = toPayload({ ...row.values, time: next });
-      setPromotedByRowKey((prev) => {
-        const existing = prev[rowKey];
-        if (!existing) return prev;
-        return {
-          ...prev,
-          [rowKey]: { ...existing, values: { ...existing.values, time: next } },
-        };
-      });
-      void updateSet.mutateAsync({ id: row.setId, ...payload }).catch((err) => {
-        setError(err instanceof Error ? err.message : "Failed to update time");
-      });
+    if (row?.phase === "logged" && row.setId) {
+      const values = { ...row.values, time: next };
+      setPromotedByRowKey((prev) => ({
+        ...prev,
+        [rowKey]: {
+          setId: row.setId!,
+          values: { ...(prev[rowKey]?.values ?? row.values), time: next },
+        },
+      }));
+      void updateSet.mutateAsync({ id: row.setId, ...toPayload(values) }).catch(
+        (err) => {
+          setError(err instanceof Error ? err.message : "Failed to update time");
+        },
+      );
     }
   }
 
@@ -1290,12 +1302,11 @@ export function ExerciseSetsPanel({
         onOpenChange={(open) => {
           if (!open) setTimerRowKey(null);
         }}
-        onKeepPreset={() => {
+        onSelectTime={(seconds) => {
+          const rowKey = timerRowKeyRef.current ?? timerRowKey;
+          if (!rowKey) return;
+          applyTrackedTime(rowKey, seconds);
           setTimerRowKey(null);
-        }}
-        onTrackElapsed={(elapsedSeconds) => {
-          if (!timerRowKey) return;
-          applyTrackedTime(timerRowKey, elapsedSeconds);
         }}
       />
     </div>

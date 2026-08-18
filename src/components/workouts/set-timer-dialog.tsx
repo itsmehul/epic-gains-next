@@ -20,8 +20,7 @@ type SetTimerDialogProps = {
   open: boolean;
   presetSeconds: number;
   onOpenChange: (open: boolean) => void;
-  onKeepPreset: () => void;
-  onTrackElapsed: (elapsedSeconds: number) => void;
+  onSelectTime: (seconds: number) => void;
 };
 
 function formatStopwatch(totalMs: number): string {
@@ -103,8 +102,7 @@ export function SetTimerDialog({
   open,
   presetSeconds,
   onOpenChange,
-  onKeepPreset,
-  onTrackElapsed,
+  onSelectTime,
 }: SetTimerDialogProps) {
   const targetMs = Math.max(0, presetSeconds) * 1000;
   const hasPreset = targetMs > 0;
@@ -116,6 +114,7 @@ export function SetTimerDialog({
   const accumulatedRef = useRef(0);
   const rafRef = useRef<number | null>(null);
   const completeChimePlayedRef = useRef(false);
+  const stoppedSecondsRef = useRef(0);
 
   const computeElapsedMs = () => {
     const base = accumulatedRef.current;
@@ -196,12 +195,18 @@ export function SetTimerDialog({
     setIsRunning(false);
     setElapsedMs(totalMs);
     const elapsedSeconds = Math.max(0, totalMs / 1000);
+    stoppedSecondsRef.current = elapsedSeconds;
     if (!hasPreset) {
-      onTrackElapsed(elapsedSeconds);
+      onSelectTime(elapsedSeconds);
       onOpenChange(false);
       return;
     }
     setPhase("review");
+  };
+
+  const commitSelectedTime = (seconds: number) => {
+    onSelectTime(seconds);
+    onOpenChange(false);
   };
 
   const elapsedSeconds = Math.max(0, elapsedMs / 1000);
@@ -325,8 +330,7 @@ export function SetTimerDialog({
                 size="lg"
                 className="h-12 rounded-full"
                 onClick={() => {
-                  onTrackElapsed(elapsedSeconds);
-                  onOpenChange(false);
+                  commitSelectedTime(stoppedSecondsRef.current || elapsedSeconds);
                 }}
               >
                 Track {formatSecondsLabel(elapsedSeconds)}
@@ -337,8 +341,7 @@ export function SetTimerDialog({
                 variant="secondary"
                 className="h-12 rounded-full"
                 onClick={() => {
-                  onKeepPreset();
-                  onOpenChange(false);
+                  commitSelectedTime(presetSeconds);
                 }}
               >
                 Keep {formatSecondsLabel(presetSeconds)}
