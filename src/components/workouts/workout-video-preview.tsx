@@ -20,7 +20,6 @@ import {
   type Ref,
 } from "react";
 
-import { AuroraBackground } from "@/components/ui/aurora-background";
 import { Button } from "@/components/ui/button";
 import { WorkoutChannelLink } from "@/components/workouts/workout-channel-link";
 import {
@@ -706,9 +705,8 @@ export function WorkoutVideoPreview({
             />
 
             {showPlayPrompt ? (
-              <AuroraBackground
-                className="absolute inset-0 z-20 bg-black/35 touch-manipulation"
-                showRadialGradient={false}
+              <div
+                className="absolute inset-0 z-20 flex items-center justify-center touch-manipulation"
                 onClick={handlePlayClick}
               >
                 <button
@@ -724,7 +722,7 @@ export function WorkoutVideoPreview({
                     <IconPlayerPlayFilled className="size-7 translate-x-0.5" />
                   )}
                 </button>
-              </AuroraBackground>
+              </div>
             ) : null}
 
             {playing && buffering ? (
