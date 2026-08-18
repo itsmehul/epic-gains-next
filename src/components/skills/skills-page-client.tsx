@@ -37,7 +37,7 @@ export function SkillsPageClient() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <IconSparkles className="size-5" />
-              Performance report
+              Performance summary
             </CardTitle>
             <CardDescription>
               Recaps yesterday’s training with volume, PRs, and session notes,

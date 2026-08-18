@@ -19,6 +19,7 @@
     "setup": "tsx scripts/setup.ts",
     "db:reset-non-user": "tsx scripts/reset-non-user-data.ts",
     "db:seed-sets": "tsx scripts/seed-workout-sets.ts",
+    "db:delete-sets": "tsx scripts/delete-workout-sets.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
