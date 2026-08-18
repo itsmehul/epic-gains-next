@@ -3,10 +3,10 @@ import type { Comment } from "@/features/comments/types";
 import type { Set } from "@/features/workouts/types";
 import { defaultAvatarUrl } from "@/shared/avatar";
 
-export const EXAMPLE_WORKOUT_ID = "demo-mobility";
-export const EXAMPLE_VIDEO_URL = "https://www.youtube.com/watch?v=gXs3GRt3QpY";
-export const EXAMPLE_CHANNEL_URL = "https://www.youtube.com/c/EDRFitness";
-export const EXAMPLE_AUTHOR = "EDR Fitness";
+export const EXAMPLE_WORKOUT_ID = "demo-mib-circuit";
+export const EXAMPLE_VIDEO_URL = "https://www.youtube.com/watch?v=Kuv0xThzxrU";
+export const EXAMPLE_CHANNEL_URL = "https://www.youtube.com/@menshealthmag";
+export const EXAMPLE_AUTHOR = "Men's Health";
 
 const YOU = {
   id: "demo-you",
@@ -124,33 +124,33 @@ function repHistory(exerciseId: string, prefix: string, today: number): Set[] {
 
 function timeHistory(exerciseId: string, prefix: string): Set[] {
   return [
-    makeSet({ id: `${prefix}-t0`, exerciseId, daysAgo: 0, time: 45, minute: 20 }),
+    makeSet({ id: `${prefix}-t0`, exerciseId, daysAgo: 0, time: 20, minute: 20 }),
     makeSet({
       id: `${prefix}-3-0`,
       exerciseId,
       daysAgo: 3,
-      time: 40,
+      time: 20,
       minute: 20,
     }),
     makeSet({
       id: `${prefix}-7-0`,
       exerciseId,
       daysAgo: 7,
-      time: 38,
+      time: 18,
       minute: 20,
     }),
     makeSet({
       id: `${prefix}-14-0`,
       exerciseId,
       daysAgo: 14,
-      time: 35,
+      time: 15,
       minute: 20,
     }),
     makeSet({
       id: `${prefix}-21-0`,
       exerciseId,
       daysAgo: 21,
-      time: 30,
+      time: 12,
       minute: 20,
     }),
   ];
@@ -162,398 +162,181 @@ type RawExercise = {
   metric_profile: MetricProfile;
   muscle_group: MuscleGroup;
   key_muscles: string[];
+  suggested_sets: number;
+  suggested_reps?: number;
+  suggested_time?: number;
 };
 
 const RAW_EXERCISES: RawExercise[] = [
   {
-    name: "Hip Openers",
-    timestamp: "00:24",
-    metric_profile: "BODYWEIGHT_REPS",
-    muscle_group: "legs",
-    key_muscles: [
-      "Gluteus Medius",
-      "Gluteus Minimus",
-      "Piriformis",
-      "Iliopsoas",
-      "Tensor Fasciae Latae",
-    ],
-  },
-  {
-    name: "90/90 Good Morning",
-    timestamp: "01:24",
-    metric_profile: "BODYWEIGHT_REPS",
-    muscle_group: "legs",
-    key_muscles: [
-      "Gluteus Maximus",
-      "Piriformis",
-      "Gemelli",
-      "Obturator Internus",
-      "Erector Spinae",
-    ],
-  },
-  {
-    name: "90/90 Seated Rotation",
-    timestamp: "02:24",
+    name: "Bear Crawl",
+    timestamp: "01:26",
     metric_profile: "BODYWEIGHT_REPS",
     muscle_group: "core",
     key_muscles: [
-      "Internal Obliques",
-      "External Obliques",
-      "Gluteus Medius",
-      "Piriformis",
-      "Erector Spinae",
-    ],
-  },
-  {
-    name: "90/90 Good Morning",
-    timestamp: "03:24",
-    metric_profile: "BODYWEIGHT_REPS",
-    muscle_group: "legs",
-    key_muscles: [
-      "Gluteus Maximus",
-      "Piriformis",
-      "Gemelli",
-      "Obturator Internus",
-      "Erector Spinae",
-    ],
-  },
-  {
-    name: "90/90 Seated Rotation",
-    timestamp: "04:24",
-    metric_profile: "BODYWEIGHT_REPS",
-    muscle_group: "core",
-    key_muscles: [
-      "Internal Obliques",
-      "External Obliques",
-      "Gluteus Medius",
-      "Piriformis",
-      "Erector Spinae",
-    ],
-  },
-  {
-    name: "World's Greatest Stretch",
-    timestamp: "05:24",
-    metric_profile: "BODYWEIGHT_REPS",
-    muscle_group: "legs",
-    key_muscles: [
-      "Iliopsoas",
-      "Thoracic Extensors",
-      "Gluteus Maximus",
-      "Hamstrings",
-      "Adductor Magnus",
-    ],
-  },
-  {
-    name: "Half Kneeling Twist",
-    timestamp: "06:24",
-    metric_profile: "BODYWEIGHT_REPS",
-    muscle_group: "core",
-    key_muscles: [
-      "External Obliques",
-      "Internal Obliques",
-      "Iliopsoas",
-      "Rectus Femoris",
-      "Erector Spinae",
-    ],
-  },
-  {
-    name: "Half Kneeling Windmill",
-    timestamp: "07:24",
-    metric_profile: "BODYWEIGHT_REPS",
-    muscle_group: "core",
-    key_muscles: [
-      "External Obliques",
-      "Internal Obliques",
-      "Quadratus Lumborum",
-      "Iliopsoas",
-      "Gluteus Medius",
-    ],
-  },
-  {
-    name: "World's Greatest Stretch",
-    timestamp: "08:24",
-    metric_profile: "BODYWEIGHT_REPS",
-    muscle_group: "legs",
-    key_muscles: [
-      "Iliopsoas",
-      "Thoracic Extensors",
-      "Gluteus Maximus",
-      "Hamstrings",
-      "Adductor Magnus",
-    ],
-  },
-  {
-    name: "Half Kneeling Twist",
-    timestamp: "09:24",
-    metric_profile: "BODYWEIGHT_REPS",
-    muscle_group: "core",
-    key_muscles: [
-      "External Obliques",
-      "Internal Obliques",
-      "Iliopsoas",
-      "Rectus Femoris",
-      "Erector Spinae",
-    ],
-  },
-  {
-    name: "Half Kneeling Windmill",
-    timestamp: "10:24",
-    metric_profile: "BODYWEIGHT_REPS",
-    muscle_group: "core",
-    key_muscles: [
-      "External Obliques",
-      "Internal Obliques",
-      "Quadratus Lumborum",
-      "Iliopsoas",
-      "Gluteus Medius",
-    ],
-  },
-  {
-    name: "Spinal Waves",
-    timestamp: "11:24",
-    metric_profile: "BODYWEIGHT_REPS",
-    muscle_group: "back",
-    key_muscles: [
-      "Erector Spinae",
-      "Multifidus",
       "Rectus Abdominis",
-      "Latissimus Dorsi",
-      "Hamstrings",
-    ],
-  },
-  {
-    name: "Scorpion Kick",
-    timestamp: "12:24",
-    metric_profile: "BODYWEIGHT_REPS",
-    muscle_group: "legs",
-    key_muscles: [
-      "Gluteus Maximus",
-      "Hamstrings",
-      "Iliopsoas",
-      "External Obliques",
-      "Gastrocnemius",
-    ],
-  },
-  {
-    name: "Pigeon Stretch",
-    timestamp: "13:24",
-    metric_profile: "TIMED_HOLD",
-    muscle_group: "legs",
-    key_muscles: [
-      "Piriformis",
-      "Gluteus Maximus",
-      "Gluteus Medius",
-      "Tensor Fasciae Latae",
-      "Iliopsoas",
-    ],
-  },
-  {
-    name: "Scorpion Kick",
-    timestamp: "14:24",
-    metric_profile: "BODYWEIGHT_REPS",
-    muscle_group: "legs",
-    key_muscles: [
-      "Gluteus Maximus",
-      "Hamstrings",
-      "Iliopsoas",
-      "External Obliques",
-      "Gastrocnemius",
-    ],
-  },
-  {
-    name: "Pigeon Stretch",
-    timestamp: "15:24",
-    metric_profile: "TIMED_HOLD",
-    muscle_group: "legs",
-    key_muscles: [
-      "Piriformis",
-      "Gluteus Maximus",
-      "Gluteus Medius",
-      "Tensor Fasciae Latae",
-      "Iliopsoas",
-    ],
-  },
-  {
-    name: "Cossack Squat",
-    timestamp: "16:24",
-    metric_profile: "BODYWEIGHT_REPS",
-    muscle_group: "legs",
-    key_muscles: [
-      "Adductor Magnus",
-      "Adductor Longus",
-      "Gracilis",
+      "Transversus Abdominis",
+      "Deltoids",
       "Quadriceps",
-      "Gluteus Medius",
+      "Gluteus Maximus",
     ],
+    suggested_sets: 1,
+    suggested_time: 20,
   },
   {
-    name: "Pancake Thoracic Spine Rotation",
-    timestamp: "17:24",
-    metric_profile: "BODYWEIGHT_REPS",
-    muscle_group: "back",
-    key_muscles: [
-      "Thoracic Extensors",
-      "Rhomboids",
-      "Hamstrings",
-      "Adductor Magnus",
-      "Internal Obliques",
-    ],
-  },
-  {
-    name: "Cossack Squat",
-    timestamp: "18:24",
+    name: "Bodyweight Squat",
+    timestamp: "01:47",
     metric_profile: "BODYWEIGHT_REPS",
     muscle_group: "legs",
     key_muscles: [
-      "Adductor Magnus",
-      "Adductor Longus",
-      "Gracilis",
       "Quadriceps",
-      "Gluteus Medius",
+      "Gluteus Maximus",
+      "Hamstrings",
+      "Erector Spinae",
     ],
+    suggested_sets: 1,
+    suggested_time: 20,
   },
   {
-    name: "Pancake Shoulder Stretch",
-    timestamp: "19:24",
-    metric_profile: "TIMED_HOLD",
+    name: "Dumbbell Burpee",
+    timestamp: "02:30",
+    metric_profile: "WEIGHTED_REPS",
+    muscle_group: "legs",
+    key_muscles: [
+      "Quadriceps",
+      "Gluteus Maximus",
+      "Pectoralis Major",
+      "Deltoids",
+      "Rectus Abdominis",
+    ],
+    suggested_sets: 3,
+    suggested_reps: 8,
+  },
+  {
+    name: "Curl and Press",
+    timestamp: "02:58",
+    metric_profile: "WEIGHT_REPS",
     muscle_group: "shoulders",
     key_muscles: [
-      "Anterior Deltoid",
-      "Pectoralis Major",
-      "Hamstrings",
-      "Adductor Magnus",
       "Biceps Brachii",
+      "Anterior Deltoid",
+      "Lateral Deltoid",
+      "Triceps Brachii",
     ],
+    suggested_sets: 3,
+    suggested_reps: 8,
   },
   {
-    name: "Natural Leg Extension",
-    timestamp: "20:24",
-    metric_profile: "BODYWEIGHT_REPS",
+    name: "Goblet Squat",
+    timestamp: "03:13",
+    metric_profile: "WEIGHT_REPS",
     muscle_group: "legs",
     key_muscles: [
-      "Rectus Femoris",
-      "Vastus Lateralis",
-      "Vastus Medialis",
-      "Vastus Intermedius",
+      "Quadriceps",
+      "Gluteus Maximus",
+      "Adductors",
+      "Rectus Abdominis",
+      "Erector Spinae",
+    ],
+    suggested_sets: 3,
+    suggested_reps: 8,
+  },
+  {
+    name: "Overhead Tricep Extension",
+    timestamp: "03:40",
+    metric_profile: "WEIGHT_REPS",
+    muscle_group: "arms",
+    key_muscles: [
+      "Triceps Brachii",
+      "Anterior Deltoid",
       "Rectus Abdominis",
     ],
+    suggested_sets: 3,
+    suggested_reps: 8,
   },
   {
-    name: "Low Lunge Lift-Off",
-    timestamp: "21:24",
-    metric_profile: "BODYWEIGHT_REPS",
+    name: "Reverse Lunge Curl",
+    timestamp: "04:15",
+    metric_profile: "WEIGHT_REPS",
     muscle_group: "legs",
     key_muscles: [
-      "Iliopsoas",
-      "Rectus Femoris",
+      "Quadriceps",
       "Gluteus Maximus",
-      "Tensor Fasciae Latae",
-      "Pectineus",
+      "Hamstrings",
+      "Biceps Brachii",
+      "Rectus Abdominis",
     ],
+    suggested_sets: 3,
+    suggested_reps: 8,
   },
   {
-    name: "Low Lunge Lift-Off",
-    timestamp: "22:24",
+    name: "Lateral Raise",
+    timestamp: "04:49",
+    metric_profile: "WEIGHT_REPS",
+    muscle_group: "shoulders",
+    key_muscles: ["Lateral Deltoid", "Anterior Deltoid", "Trapezius"],
+    suggested_sets: 3,
+    suggested_reps: 8,
+  },
+  {
+    name: "Front Raise",
+    timestamp: "04:53",
+    metric_profile: "WEIGHT_REPS",
+    muscle_group: "shoulders",
+    key_muscles: ["Anterior Deltoid", "Lateral Deltoid", "Serratus Anterior"],
+    suggested_sets: 3,
+    suggested_reps: 8,
+  },
+  {
+    name: "Upright Row",
+    timestamp: "04:55",
+    metric_profile: "WEIGHT_REPS",
+    muscle_group: "shoulders",
+    key_muscles: ["Lateral Deltoid", "Trapezius", "Biceps Brachii"],
+    suggested_sets: 3,
+    suggested_reps: 8,
+  },
+  {
+    name: "Plank Punch",
+    timestamp: "05:23",
     metric_profile: "BODYWEIGHT_REPS",
-    muscle_group: "legs",
+    muscle_group: "core",
     key_muscles: [
-      "Iliopsoas",
-      "Rectus Femoris",
-      "Gluteus Maximus",
-      "Tensor Fasciae Latae",
-      "Pectineus",
-    ],
-  },
-  {
-    name: "Puppy Dog Stretch",
-    timestamp: "23:24",
-    metric_profile: "TIMED_HOLD",
-    muscle_group: "back",
-    key_muscles: [
-      "Latissimus Dorsi",
-      "Pectoralis Major",
-      "Thoracic Spine Extensors",
-      "Teres Major",
+      "Rectus Abdominis",
+      "Transversus Abdominis",
+      "Obliques",
       "Anterior Deltoid",
     ],
+    suggested_sets: 3,
+    suggested_reps: 8,
   },
   {
-    name: "Quadruped Thoracic Spine Rotation",
-    timestamp: "24:24",
+    name: "Plank Pulse",
+    timestamp: "05:28",
     metric_profile: "BODYWEIGHT_REPS",
-    muscle_group: "back",
+    muscle_group: "core",
     key_muscles: [
-      "Thoracic Extensors",
-      "Rhomboids",
-      "Middle Trapezius",
-      "Internal Obliques",
-      "External Obliques",
-    ],
-  },
-  {
-    name: "Quadruped Thoracic Spine Rotation",
-    timestamp: "25:24",
-    metric_profile: "BODYWEIGHT_REPS",
-    muscle_group: "back",
-    key_muscles: [
-      "Thoracic Extensors",
-      "Rhomboids",
-      "Middle Trapezius",
-      "Internal Obliques",
-      "External Obliques",
-    ],
-  },
-  {
-    name: "Bridge",
-    timestamp: "26:24",
-    metric_profile: "TIMED_HOLD",
-    muscle_group: "back",
-    key_muscles: [
-      "Erector Spinae",
-      "Gluteus Maximus",
-      "Latissimus Dorsi",
-      "Pectoralis Major",
       "Rectus Abdominis",
-    ],
-  },
-  {
-    name: "Plow Pose",
-    timestamp: "27:24",
-    metric_profile: "TIMED_HOLD",
-    muscle_group: "back",
-    key_muscles: [
+      "Transversus Abdominis",
+      "Serratus Anterior",
       "Erector Spinae",
-      "Hamstrings",
-      "Trapezius",
-      "Rhomboids",
-      "Gastrocnemius",
     ],
+    suggested_sets: 3,
+    suggested_reps: 8,
   },
   {
-    name: "Supine Spinal Twist",
-    timestamp: "28:24",
-    metric_profile: "TIMED_HOLD",
+    name: "Plank Pike",
+    timestamp: "05:37",
+    metric_profile: "BODYWEIGHT_REPS",
     muscle_group: "core",
     key_muscles: [
-      "Gluteus Medius",
-      "Piriformis",
-      "External Obliques",
-      "Pectoralis Major",
-      "Erector Spinae",
+      "Rectus Abdominis",
+      "Transversus Abdominis",
+      "Hip Flexors",
+      "Serratus Anterior",
     ],
-  },
-  {
-    name: "Supine Spinal Twist",
-    timestamp: "29:24",
-    metric_profile: "TIMED_HOLD",
-    muscle_group: "core",
-    key_muscles: [
-      "Gluteus Medius",
-      "Piriformis",
-      "External Obliques",
-      "Pectoralis Major",
-      "Erector Spinae",
-    ],
+    suggested_sets: 3,
+    suggested_reps: 8,
   },
 ];
 
@@ -567,309 +350,153 @@ type DemoCommentSeed = {
 };
 
 const COMMENTS_BY_EXERCISE: Record<string, DemoCommentSeed[]> = {
-  "ex-hip-openers": [
+  "ex-bear-crawl": [
     {
-      id: "c-ho-1",
+      id: "c-bc-1",
       daysAgo: 0,
       hour: 9,
       minute: 41,
-      text: "Slow circles, not huge ones. Left hip still clicks if I rush the first two reps.",
+      text: "Started slow then sped up. Shoulders were the limiter, not the legs.",
     },
     {
-      id: "c-ho-2",
-      daysAgo: 7,
-      author: JORDAN,
-      hour: 18,
-      minute: 12,
-      text: "Cue I stole: imagine drawing a small oval with the knee, not swinging the whole leg.",
-    },
-  ],
-  "ex-90-90-good-morning": [
-    {
-      id: "c-gm-1",
-      daysAgo: 0,
-      text: "Hinge from the hips, keep the chest long. I was rounding the low back to fake range.",
-    },
-    {
-      id: "c-gm-2",
-      daysAgo: 14,
-      author: PRIYA,
-      hour: 7,
-      minute: 22,
-      text: "If the front shin lifts, you lost the 90/90. Reset before you fold.",
-    },
-  ],
-  "ex-90-90-seated-rotation": [
-    {
-      id: "c-sr-1",
-      daysAgo: 0,
-      hour: 10,
-      minute: 18,
-      text: "Rotate from the ribs, not the neck. Exhale as you turn — range opened up after the third breath.",
-    },
-    {
-      id: "c-sr-2",
-      daysAgo: 3,
-      author: JORDAN,
-      text: "Hand on the back knee helps me stay stacked instead of collapsing into the sit bone.",
-    },
-  ],
-  "ex-world-s-greatest-stretch": [
-    {
-      id: "c-wgs-1",
-      daysAgo: 0,
-      text: "Front heel wanted to lift. Keep the back hip heavy and rotate from the ribcage, not the neck.",
-    },
-    {
-      id: "c-wgs-2",
+      id: "c-bc-2",
       daysAgo: 3,
       author: PRIYA,
-      hour: 8,
-      minute: 5,
-      text: "Drop the back knee if the hip flexor cramps. Depth is optional; square hips are not.",
-    },
-    {
-      id: "c-wgs-3",
-      daysAgo: 14,
-      author: JORDAN,
-      hour: 19,
-      minute: 40,
-      text: "Reach the top arm like you are putting something on a high shelf. That cue fixed my shrug.",
+      text: "Hips stay low. If they pike up, the core unloads.",
     },
   ],
-  "ex-half-kneeling-twist": [
+  "ex-bodyweight-squat": [
     {
-      id: "c-hkt-1",
+      id: "c-bws-1",
       daysAgo: 0,
-      text: "Squeeze the back glute before you twist. Otherwise the pelvis spins with the ribs.",
+      text: "Weight on the heels, sit-to-a-chair cue actually helped.",
     },
     {
-      id: "c-hkt-2",
+      id: "c-bws-2",
       daysAgo: 7,
-      author: PRIYA,
-      text: "Front foot feels more stable if I press the big toe down. Tiny change, way less wobble.",
-    },
-  ],
-  "ex-half-kneeling-windmill": [
-    {
-      id: "c-hkw-1",
-      daysAgo: 0,
-      hour: 11,
-      minute: 2,
-      text: "Follow the top hand with your eyes. I was looking at the floor and losing the thoracic turn.",
-    },
-    {
-      id: "c-hkw-2",
-      daysAgo: 21,
       author: JORDAN,
-      text: "If the bottom shoulder dumps, shorten the reach. Quality over touching the floor.",
+      text: "Twenty seconds is plenty if the last five stay honest.",
     },
   ],
-  "ex-spinal-waves": [
+  "ex-dumbbell-burpee": [
     {
-      id: "c-sw-1",
+      id: "c-db-1",
       daysAgo: 0,
-      text: "Move one vertebra at a time. I was dumping into lumbar flexion instead of sequencing the spine.",
+      text: "Neutral spine on the way down. Lost it once when I rushed the jump.",
     },
     {
-      id: "c-sw-2",
-      daysAgo: 7,
-      author: PRIYA,
-      hour: 16,
-      minute: 8,
-      text: "Start from the tailbone on the way up. Reverse that and it feels like a different drill.",
-    },
-  ],
-  "ex-scorpion-kick": [
-    {
-      id: "c-sk-1",
-      daysAgo: 0,
-      text: "Keep the planted hip heavy. The kick is a hip opener, not a low-back twist.",
-    },
-    {
-      id: "c-sk-2",
-      daysAgo: 14,
-      author: JORDAN,
-      hour: 20,
-      minute: 15,
-      text: "Point the kicking toes and it loads the glute more. Felt it immediately.",
-    },
-  ],
-  "ex-pigeon-stretch": [
-    {
-      id: "c-pg-1",
-      daysAgo: 0,
-      text: "Square the hips before folding. Right side still tighter — stay taller if the knee complains.",
-    },
-    {
-      id: "c-pg-2",
+      id: "c-db-2",
       daysAgo: 3,
       author: PRIYA,
-      text: "Prop the hip with a block on the tight side. Folding without that just yanks the knee.",
-    },
-    {
-      id: "c-pg-3",
-      daysAgo: 21,
-      author: JORDAN,
-      hour: 6,
-      minute: 50,
-      text: "Breathe into the back of the hip for four counts. Hold got easier after that.",
+      text: "Keep the bells in hand the whole way. No dumping them at the floor.",
     },
   ],
-  "ex-cossack-squat": [
+  "ex-curl-and-press": [
     {
-      id: "c-cs-1",
+      id: "c-cp-1",
       daysAgo: 0,
-      text: "Sit into the heel, not the toes. Left adductor is the limiter, not the depth.",
+      text: "Curl first, then press. If I swing the curl the press gets sloppy.",
     },
     {
-      id: "c-cs-2",
-      daysAgo: 7,
-      author: PRIYA,
-      hour: 9,
-      minute: 30,
-      text: "Could not get the opposite leg straight last week. Closer today.",
-    },
-    {
-      id: "c-cs-3",
-      daysAgo: 21,
-      author: JORDAN,
-      text: "Hold a light kettlebell as a counterweight if you keep falling backward.",
-    },
-  ],
-  "ex-pancake-thoracic-spine-rotation": [
-    {
-      id: "c-pt-1",
-      daysAgo: 0,
-      text: "Sit tall first, then rotate. If the hamstrings yank you forward, bend the knees a little.",
-    },
-    {
-      id: "c-pt-2",
-      daysAgo: 14,
-      author: PRIYA,
-      text: "Reach the back of the hand toward the ceiling, not just the fingers. More upper-back.",
-    },
-  ],
-  "ex-pancake-shoulder-stretch": [
-    {
-      id: "c-pss-1",
-      daysAgo: 0,
-      hour: 10,
-      minute: 44,
-      text: "Walk the hands forward until the armpits feel the stretch. Hips stay heavy on the floor.",
-    },
-    {
-      id: "c-pss-2",
-      daysAgo: 7,
-      author: JORDAN,
-      text: "If the low back rounds, scoot the sit bones back. This is a shoulder drill, not a pancake PR.",
-    },
-  ],
-  "ex-natural-leg-extension": [
-    {
-      id: "c-nle-1",
-      daysAgo: 0,
-      text: "Control the lower. Quads shake around rep 8 — that is the set, not flopping back up.",
-    },
-    {
-      id: "c-nle-2",
-      daysAgo: 14,
-      author: PRIYA,
-      hour: 12,
-      minute: 11,
-      text: "Pad under the ankles if the floor bites. Range felt cleaner after that.",
-    },
-  ],
-  "ex-low-lunge-lift-off": [
-    {
-      id: "c-lll-1",
-      daysAgo: 0,
-      text: "Tuck the pelvis before you lift. Otherwise it is just a backbend in disguise.",
-    },
-    {
-      id: "c-lll-2",
-      daysAgo: 3,
-      author: JORDAN,
-      text: "Hands on the front thigh help me stay stacked. Floor versions were too easy to cheat.",
-    },
-  ],
-  "ex-puppy-dog-stretch": [
-    {
-      id: "c-pd-1",
-      daysAgo: 0,
-      text: "Walk the hands farther, keep hips over knees. Chest was collapsing toward the floor.",
-    },
-    {
-      id: "c-pd-2",
-      daysAgo: 7,
-      author: PRIYA,
-      hour: 17,
-      minute: 3,
-      text: "Think armpits toward the mat, not forehead. Melts the lats more.",
-    },
-  ],
-  "ex-quadruped-thoracic-spine-rotation": [
-    {
-      id: "c-qts-1",
-      daysAgo: 0,
-      text: "Hand behind the head, elbow to the ceiling. I was rotating the whole torso instead of the upper back.",
-    },
-    {
-      id: "c-qts-2",
-      daysAgo: 14,
-      author: JORDAN,
-      text: "Brace the opposite hand into the floor so the hips stay quiet.",
-    },
-  ],
-  "ex-bridge": [
-    {
-      id: "c-br-1",
-      daysAgo: 0,
-      hour: 11,
-      minute: 20,
-      text: "Press through the hands and lift the chest. Shoulders were dumping toward the ears.",
-    },
-    {
-      id: "c-br-2",
-      daysAgo: 21,
-      author: PRIYA,
-      text: "Feet a little closer to the hips made the hold feel like glutes, not low back.",
-    },
-  ],
-  "ex-plow-pose": [
-    {
-      id: "c-pp-1",
-      daysAgo: 0,
-      text: "Do not force the toes to the floor. Support the back and keep the neck unloaded.",
-    },
-    {
-      id: "c-pp-2",
-      daysAgo: 7,
-      author: JORDAN,
-      hour: 8,
-      minute: 55,
-      text: "Bent knees still count. Straight legs were yanking my cervical spine.",
-    },
-  ],
-  "ex-supine-spinal-twist": [
-    {
-      id: "c-sst-1",
-      daysAgo: 0,
-      text: "Both shoulders stay on the floor. If the top one lifts, back off the knee.",
-    },
-    {
-      id: "c-sst-2",
-      daysAgo: 3,
-      author: PRIYA,
-      text: "Look away from the knees. Neck unwind plus hip unwind at the same time.",
-    },
-    {
-      id: "c-sst-3",
+      id: "c-cp-2",
       daysAgo: 14,
       author: JORDAN,
       hour: 21,
       minute: 6,
-      text: "Right side still needs a pillow under the knee. Left side is already on the floor.",
+      text: "Heels down, ribs stacked. This is a core move disguised as arms.",
+    },
+  ],
+  "ex-goblet-squat": [
+    {
+      id: "c-gs-1",
+      daysAgo: 0,
+      text: "The bell pulling me forward is the whole point. Brace harder, not lighter.",
+    },
+    {
+      id: "c-gs-2",
+      daysAgo: 7,
+      author: PRIYA,
+      text: "Elbows inside the knees at the bottom. Depth was better this week.",
+    },
+  ],
+  "ex-overhead-tricep-extension": [
+    {
+      id: "c-ote-1",
+      daysAgo: 0,
+      text: "Elbows back, not flared. Standing version lights up the midline.",
+    },
+    {
+      id: "c-ote-2",
+      daysAgo: 3,
+      author: JORDAN,
+      text: "If the low back arches, the weight is too heavy.",
+    },
+  ],
+  "ex-reverse-lunge-curl": [
+    {
+      id: "c-rlc-1",
+      daysAgo: 0,
+      text: "Curl on the way down. Balance failed when I tried to curl on the way up.",
+    },
+    {
+      id: "c-rlc-2",
+      daysAgo: 14,
+      author: PRIYA,
+      text: "Shorten the step if the front knee caves. Form over the extra inch.",
+    },
+  ],
+  "ex-lateral-raise": [
+    {
+      id: "c-lr-1",
+      daysAgo: 0,
+      text: "Control the eccentric. No back arch to cheat the last two reps.",
+    },
+  ],
+  "ex-front-raise": [
+    {
+      id: "c-fr-1",
+      daysAgo: 0,
+      text: "Stopped at shoulder height. Higher just turns into a shrug.",
+    },
+  ],
+  "ex-upright-row": [
+    {
+      id: "c-ur-1",
+      daysAgo: 0,
+      text: "Chin stays quiet. If it juts forward, the traps have taken over.",
+    },
+    {
+      id: "c-ur-2",
+      daysAgo: 7,
+      author: JORDAN,
+      text: "Lighter than the raises. This one gets ugly fast.",
+    },
+  ],
+  "ex-plank-punch": [
+    {
+      id: "c-pp-1",
+      daysAgo: 0,
+      text: "Eight punches, hips still. If they rock, the punch is too big.",
+    },
+  ],
+  "ex-plank-pulse": [
+    {
+      id: "c-plp-1",
+      daysAgo: 0,
+      text: "Whole body rocks, not just the shoulders. Tiny range, hard brace.",
+    },
+  ],
+  "ex-plank-pike": [
+    {
+      id: "c-pk-1",
+      daysAgo: 0,
+      text: "Pull the belly in on the way up. Pike from the hips, not a down-dog dump.",
+    },
+    {
+      id: "c-pk-2",
+      daysAgo: 3,
+      author: PRIYA,
+      text: "Three core moves back to back is the actual finisher. Don't rest between them.",
     },
   ],
 };
@@ -890,17 +517,26 @@ export type ExampleExercise = {
 const setsByExerciseId = new Map<string, Set[]>();
 const commentsByExerciseId = new Map<string, Comment[]>();
 
+function targetFor(item: RawExercise): TargetSet[] {
+  const count = item.suggested_sets;
+  const one: TargetSet = {
+    reps: item.suggested_reps ?? null,
+    time: item.suggested_time ?? null,
+  };
+  return Array.from({ length: count }, () => ({ ...one }));
+}
+
 export const EXAMPLE_EXERCISES: ExampleExercise[] = RAW_EXERCISES.map((item, index) => {
   const exerciseId = `ex-${slug(item.name)}`;
   const prefix = slug(item.name).slice(0, 12);
 
   if (!setsByExerciseId.has(exerciseId)) {
-    if (item.metric_profile === "TIMED_HOLD") {
+    if (item.suggested_time && !item.suggested_reps) {
       setsByExerciseId.set(exerciseId, timeHistory(exerciseId, prefix));
     } else {
       setsByExerciseId.set(
         exerciseId,
-        repHistory(exerciseId, prefix, 10 + (seed(item.name) % 6)),
+        repHistory(exerciseId, prefix, item.suggested_reps ?? 8 + (seed(item.name) % 3)),
       );
     }
   }
@@ -922,8 +558,7 @@ export const EXAMPLE_EXERCISES: ExampleExercise[] = RAW_EXERCISES.map((item, ind
     muscleGroup: item.muscle_group,
     keyMuscles: item.key_muscles,
     metricProfile: item.metric_profile,
-    targetSets:
-      item.metric_profile === "TIMED_HOLD" ? [{ time: 40 }] : [{ reps: 12 }],
+    targetSets: targetFor(item),
     sets: setsByExerciseId.get(exerciseId) ?? [],
     comments: commentsByExerciseId.get(exerciseId) ?? [],
   };

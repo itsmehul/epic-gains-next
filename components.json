@@ -23,6 +23,7 @@
   "menuAccent": "subtle",
   "registries": {
     "@cult-ui": "https://cult-ui.com/r/{name}.json",
-    "@bklit": "https://ui.bklit.com/r/{name}.json"
+    "@bklit": "https://ui.bklit.com/r/{name}.json",
+    "@aceternity": "https://ui.aceternity.com/registry/{name}.json"
   }
 }

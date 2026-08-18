@@ -1,27 +1,9 @@
 "use client";
 
-import {
-  IconCalendarEvent,
-  IconFocus2,
-  IconGamepad,
-  IconNotebook,
-  IconPlayerPlay,
-  IconTrophy,
-} from "@/components/ui/icons";
 import Link from "next/link";
 
-import { Badge } from "@/components/ui/badge";
-import type { AchievementCategory } from "@/features/achievements/catalog";
 import type { AchievementListItem } from "@/features/achievements/types";
 import { cn } from "@/shared/utils";
-
-const CATEGORY_ICONS: Record<AchievementCategory, typeof IconTrophy> = {
-  ink: IconNotebook,
-  days: IconCalendarEvent,
-  tapes: IconPlayerPlay,
-  targets: IconFocus2,
-  hud: IconGamepad,
-};
 
 export function GlobalAchievementHeader({
   items,
@@ -38,32 +20,32 @@ export function GlobalAchievementHeader({
 
   return (
     <div className={cn("flex min-w-0 flex-1 items-center gap-2", className)}>
-      <Badge
-        render={<Link href="/achievements" />}
-        variant="secondary"
-        className="h-5 px-1.5 text-[11px] tabular-nums"
+      <Link
+        href="/achievements"
+        className="text-muted-foreground hover:text-foreground shrink-0 text-xs tabular-nums transition-colors"
         aria-label={`${unlocked.length} of ${total} overall achievements unlocked`}
       >
         {unlocked.length}/{total}
-      </Badge>
+      </Link>
       {unlocked.length > 0 ? (
         <div className="-mx-0.5 min-w-0 flex-1 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none">
-          <ul className="flex w-max items-center gap-1.5">
-            {unlocked.map((item) => {
-              const Icon = CATEGORY_ICONS[item.category];
-              return (
-                <li key={item.id}>
-                  <Link
-                    href="/achievements"
-                    className="bg-muted text-foreground hover:bg-muted/80 inline-flex h-6 max-w-40 items-center gap-1 rounded-full px-2 text-xs font-medium tracking-[0.1px]"
-                    title={item.description}
-                  >
-                    <Icon className="size-3.5 shrink-0" />
-                    <span className="truncate">{item.name}</span>
-                  </Link>
-                </li>
-              );
-            })}
+          <ul className="text-muted-foreground flex w-max items-center gap-2 text-xs">
+            {unlocked.map((item, index) => (
+              <li key={item.id} className="flex items-center gap-2">
+                {index > 0 ? (
+                  <span className="text-muted-foreground/40" aria-hidden>
+                    ·
+                  </span>
+                ) : null}
+                <Link
+                  href="/achievements"
+                  className="hover:text-foreground inline-flex max-w-40 truncate transition-colors"
+                  title={item.description}
+                >
+                  {item.name}
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
       ) : null}
