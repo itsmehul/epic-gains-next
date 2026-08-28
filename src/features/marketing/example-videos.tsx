@@ -55,11 +55,16 @@ export function ExampleVideoShowcase() {
       skipChipScrollRef.current = false;
       return;
     }
-    activeChipRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-      inline: "center",
-    });
+    const chip = activeChipRef.current;
+    const strip = chip?.closest<HTMLElement>("[data-exercise-strip]");
+    if (!chip || !strip) return;
+    const chipRect = chip.getBoundingClientRect();
+    const stripRect = strip.getBoundingClientRect();
+    const nextLeft =
+      strip.scrollLeft +
+      (chipRect.left - stripRect.left) -
+      (stripRect.width - chipRect.width) / 2;
+    strip.scrollTo({ left: nextLeft, behavior: "smooth" });
   }, [selected.id]);
 
   return (
@@ -86,7 +91,10 @@ export function ExampleVideoShowcase() {
             aria-hidden
             className="from-background pointer-events-none absolute inset-y-0 right-0 z-10 w-4 bg-linear-to-l to-transparent md:hidden"
           />
-          <div className="overflow-x-auto overscroll-x-contain scrollbar-none md:px-0">
+          <div
+            data-exercise-strip
+            className="overflow-x-auto overscroll-x-contain scrollbar-none md:px-0"
+          >
             <div className="flex w-max items-stretch gap-3">
               {EXAMPLE_EXERCISES.map((item, index) => {
                 const isActive = selected.id === item.id;

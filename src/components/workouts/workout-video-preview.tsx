@@ -202,14 +202,28 @@ export function WorkoutVideoPreview({
 
   const videoId = getYouTubeVideoId(videoUrl);
 
-  function allowIframeAutoplay(playerHost: HTMLElement | null) {
+  function hardenPlayerIframe(playerHost: HTMLElement | null) {
     const iframe = playerHost?.querySelector("iframe");
-    if (!iframe) return;
+    if (!iframe || iframe.dataset.egHardened === "1") return;
+    iframe.dataset.egHardened = "1";
+    iframe.setAttribute("tabindex", "-1");
     iframe.setAttribute(
       "allow",
       "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen",
     );
     iframe.setAttribute("allowfullscreen", "true");
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    const restoreWindowScroll = () => {
+      if (window.scrollX === scrollX && window.scrollY === scrollY) return;
+      window.scrollTo({ left: scrollX, top: scrollY, behavior: "instant" });
+    };
+    restoreWindowScroll();
+    iframe.addEventListener("load", restoreWindowScroll, { once: true });
+    iframe.addEventListener("focus", () => {
+      iframe.blur();
+      restoreWindowScroll();
+    });
   }
 
   const clearHideControlsTimer = useEffectEvent(() => {
@@ -296,6 +310,8 @@ export function WorkoutVideoPreview({
 
     let cancelled = false;
     let player: YTPlayer | null = null;
+    let iframeObserver: MutationObserver | null = null;
+    let iframeGuardTimer: number | null = null;
     const mount = document.createElement("div");
     mount.className = "size-full";
     host.replaceChildren(mount);
@@ -315,6 +331,12 @@ export function WorkoutVideoPreview({
     void loadYouTubeApi()
       .then((YT) => {
         if (cancelled) return;
+
+        iframeObserver = new MutationObserver(() => {
+          hardenPlayerIframe(host);
+        });
+        iframeObserver.observe(host, { childList: true, subtree: true });
+        iframeGuardTimer = window.setTimeout(() => iframeObserver?.disconnect(), 4000);
 
         player = new YT.Player(mount, {
           videoId,
@@ -342,7 +364,7 @@ export function WorkoutVideoPreview({
               disableCaptions(event.target);
               setReady(true);
               setDuration(event.target.getDuration() || 0);
-              allowIframeAutoplay(host);
+              hardenPlayerIframe(host);
 
               const pending = pendingSeekRef.current;
               if (pending != null) {
@@ -396,6 +418,8 @@ export function WorkoutVideoPreview({
     return () => {
       cancelled = true;
       playerRef.current = null;
+      iframeObserver?.disconnect();
+      if (iframeGuardTimer != null) window.clearTimeout(iframeGuardTimer);
       clearHideControlsTimer();
       try {
         player?.destroy();
@@ -444,7 +468,7 @@ export function WorkoutVideoPreview({
       setShowPlayPrompt(false);
       setBuffering(true);
       setPlaying(true);
-      allowIframeAutoplay(hostRef.current);
+      hardenPlayerIframe(hostRef.current);
       // Same-gesture mute/play/unmute unlocks iOS when a custom overlay
       // (not the iframe) receives the tap.
       if (!mediaUnlockedRef.current) {
