@@ -17,6 +17,7 @@ import {
   IMPORT_VIDEO_ELIGIBILITY_MCP,
   VIDEO_PLAYBACK_REJECT_REASON,
 } from "../src/features/workouts/import-eligibility";
+import { generateYoutubeImportPrompt } from "../src/features/workouts/import-prompt";
 import {
   extractYoutubeWatchUrls,
   fetchYoutubeOembed,
@@ -95,8 +96,8 @@ const TASK_TOOL_NAMES: Record<TaskId, string[]> = {
 
 function createWorkoutSystem(): string {
   return [
-    "Epic Gains MCP creates follow-along workouts with import_full_workout.",
-    "Call only that tool when the video is eligible. The attached video is the source of truth for moves and times.",
+    "Follow the user prompt exactly — it is the same extraction prompt as /workouts/import.",
+    "The attached video is the source of truth. After you extract the JSON, call import_full_workout once with that JSON plus sourceVideoUrl. Do not convert MM:SS timestamps to seconds or invent videoEndTime.",
     IMPORT_VIDEO_ELIGIBILITY_MCP,
     "Do not search the web for timestamps, chapters, or transcripts.",
   ].join("\n");
@@ -115,33 +116,15 @@ function createWorkoutPrompt(
     .filter(Boolean)
     .join("\n");
 
-  return `A YouTube follow-along workout video is attached.
+  return `${generateYoutubeImportPrompt(youtubeUrl)}
+
+If the video is eligible, call import_full_workout once with the extracted JSON plus sourceVideoUrl=${youtubeUrl}.
+Do not convert timestamps to seconds. Do not invent videoEndTime.
+If it is not eligible, do not call any tool.
 
 ${meta}
 
-Watch the video. If it is eligible, call import_full_workout once with sourceVideoUrl=${youtubeUrl}.
-If it is not eligible, do not call any tool. Explain using the refusal reasons.
-
-Use the title, author, and channelUrl above when provided. Read duration from the video; last move ends there.
-
-Eligibility:
-${IMPORT_VIDEO_ELIGIBILITY_MCP}
-
-Rules:
-- List only real exercises/stretches. Skip rest, water breaks, intro, and preview.
-- Use canonical exercise names (no incline degrees or grip notes).
-- Detect the interval grid (60s blocks, 45/15, 40/20, or 30s). Lock every start to that grid (timer reset, beep, or overlay — not a mid-set "let's begin").
-- One grid slot = one exercise. Do not merge two intervals into a single move.
-- Skip rest slots. Still emit a continuous timeline: each videoEndTime equals the next videoStartTime (stretch the prior work end to the next work start, or drop rest from the list and keep work blocks back-to-back on the grid).
-- Times must be seconds (not MM:SS).
-- For every exercise set:
-  - metric_profile: BODYWEIGHT_REPS (unweighted reps), TIMED_HOLD (isometric/stretch), WEIGHT_REPS, WEIGHTED_REPS, CARDIO_DISTANCE, LOADED_CARRY, or CUSTOM.
-  - muscle_group: chest | back | shoulders | arms | legs | core.
-  - key_muscles: 1–6 anatomical names, primary first.
-  - suggested_sets: typically 1 for follow-along circuits/HIIT/mobility.
-  - suggested_time: work interval in seconds (e.g. 45 or 60), not rest.
-  - tags: section labels such as warmup, hiit, cooldown.
-- Do not invent moves you cannot see. After the tool returns, summarize the created workout from tool output only.`;
+After the tool returns, summarize the created workout from tool output only.`;
 }
 
 function getImportPromptPrompt(youtubeUrl: string): string {
@@ -311,6 +294,22 @@ function toolCallInput(call: { input?: unknown }): unknown {
 function formatImportTimeline(input: unknown): string {
   if (typeof input !== "object" || input === null) {
     return "(no input)";
+  }
+  const structured = input as {
+    workoutName?: unknown;
+    sections?: Array<{
+      exercises?: Array<{ name?: unknown; timestamp?: unknown }>;
+    }>;
+  };
+  if (Array.isArray(structured.sections)) {
+    const stamps = structured.sections.flatMap((section) =>
+      (section.exercises ?? []).map((exercise) => String(exercise.timestamp ?? "?")),
+    );
+    return [
+      `name=${typeof structured.workoutName === "string" ? structured.workoutName : "?"}`,
+      `sections=${structured.sections.length}`,
+      `starts=[${stamps.join(", ")}]`,
+    ].join("  ");
   }
   const record = input as {
     workoutName?: unknown;

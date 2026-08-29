@@ -13,6 +13,7 @@ import {
 import { generateYoutubeImportPrompt } from "@/features/workouts/import-prompt";
 import {
   importSharedWorkout,
+  parseImportWorkoutBody,
   WorkoutImportConflictError,
   WorkoutImportRejectedError,
 } from "@/features/workouts/import-workout";
@@ -36,6 +37,7 @@ import { canViewUserWorkouts } from "@/features/social/privacy";
 import {
   exerciseMetaDataSchema,
   importFullWorkoutSchema,
+  importWorkoutStructureSchema,
   muscleGroupEnum,
   updateWorkoutSchema,
 } from "@/features/workouts/schemas";
@@ -106,7 +108,7 @@ export function registerWorkoutMcpTools(server: McpServer) {
       return mcpTextResult({
         youtubeUrl: watchUrl,
         instructions:
-          "Apply this prompt to the YouTube video itself. Watch the video and extract real exercise names, start times, and metrics from what you see and hear. The prompt is instructions only — do not treat its JSON schema or examples as the workout. Then call import_full_workout with the extracted values.",
+          "Apply this prompt to the YouTube video itself. Watch the video and extract the JSON the prompt specifies (clock timestamps and sections). Do not invent values from the schema. Then call import_full_workout with that JSON plus sourceVideoUrl. Do not convert timestamps to seconds or invent videoEndTime — the server does that the same way as the YouTube import page.",
         prompt: generateYoutubeImportPrompt(watchUrl),
       });
     },
@@ -117,14 +119,26 @@ export function registerWorkoutMcpTools(server: McpServer) {
     {
       title: "Import full workout",
       description:
-        "Create a follow-along video workout and all of its moves in one call. Do not call this if playback is blocked or the video is Zumba/dance without labelled known exercises — refuse instead. Watch the video (timers, beeps, overlays) and lock starts to the interval grid. Do not search the web for chapters or transcripts unless the video has no usable timing cues. Do not call list_exercises or list_workouts first — names are reused automatically. Skip rest, water, intro, and preview. videoEndTime is required and must equal the next videoStartTime (last move ends at video duration). One grid slot per exercise; do not merge two work intervals. Times are seconds. Include metric_profile, muscle_group, key_muscles, suggested_sets (usually 1), and suggested_time (work seconds) or suggested_reps.",
-      inputSchema: importFullWorkoutSchema,
+        "Create a follow-along from get_youtube_import_prompt JSON. Prefer that payload: workoutName, author, channelUrl, overview, sections with MM:SS timestamps. Add sourceVideoUrl. Do not convert clocks to seconds or invent videoEndTime. Do not call this if playback is blocked or the video is unlabeled Zumba/dance. Do not call list_exercises or list_workouts first.",
+      inputSchema: z.union([
+        importWorkoutStructureSchema.extend({
+          sourceVideoUrl: z
+            .string()
+            .url()
+            .describe("Canonical YouTube watch URL."),
+        }),
+        importFullWorkoutSchema,
+      ]),
     },
     async (args) => {
       const { userId } = getMcpAuth();
+      const parsed = parseImportWorkoutBody(args);
+      if (!parsed) {
+        return mcpErrorResult("Invalid import workout data");
+      }
 
       try {
-        const result = await importSharedWorkout(userId, args);
+        const result = await importSharedWorkout(userId, parsed);
         return mcpTextResult(result);
       } catch (error) {
         if (error instanceof WorkoutImportConflictError) {
