@@ -20,7 +20,7 @@ const SKILLS = [
     id: "import",
     title: "Import follow-along",
     description:
-      "Turns a YouTube class into one timed workout. Watch the video, lock moves to the interval grid, call import_full_workout once.",
+      "Turns a YouTube class into one timed workout. Call get_youtube_import_prompt, apply that prompt to the video, then feed the extracted JSON to import_full_workout.",
     markdown: IMPORT_FOLLOW_ALONG_SKILL_MD,
   },
   {

@@ -289,6 +289,11 @@ const clockTimestampSchema = z
     "Timestamp must be MM:SS or HH:MM:SS",
   );
 
+export const importRejectionSchema = z.object({
+  rejected: z.literal(true),
+  reason: z.string().trim().min(1).max(500),
+});
+
 export const importWorkoutStructureSchema = z.object({
   workoutName: z.string().trim().min(1).max(200).optional(),
   author: z.string().trim().min(1).max(200).optional(),
@@ -393,6 +398,7 @@ export type CreateWorkoutExerciseInput = z.infer<
 export type UpdateWorkoutExerciseInput = z.infer<
   typeof updateWorkoutExerciseSchema
 >;
+export type ImportRejection = z.infer<typeof importRejectionSchema>;
 export type ImportFullWorkoutInput = z.infer<typeof importFullWorkoutSchema>;
 export type ImportWorkoutStructureInput = z.infer<
   typeof importWorkoutStructureSchema

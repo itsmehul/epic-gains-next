@@ -10,10 +10,13 @@ import {
   getExerciseById,
   listExercises,
 } from "@/db/repositories/exercise.repository";
+import { generateYoutubeImportPrompt } from "@/features/workouts/import-prompt";
 import {
   importSharedWorkout,
   WorkoutImportConflictError,
+  WorkoutImportRejectedError,
 } from "@/features/workouts/import-workout";
+import { getYouTubeVideoId } from "@/features/workouts/youtube";
 import {
   deleteWorkoutExercise,
   getWorkoutExerciseById,
@@ -80,11 +83,41 @@ export function registerWorkoutMcpTools(server: McpServer) {
   );
 
   server.registerTool(
+    "get_youtube_import_prompt",
+    {
+      title: "Get YouTube import prompt",
+      description:
+        "Return the official prompt for extracting timed exercises from a YouTube follow-along. The prompt is not the workout: you must apply it to the actual video (watch timers, beeps, overlays) to extract real names, timestamps, and metrics. Do not invent values from the schema. After extraction, call import_full_workout.",
+      inputSchema: z.object({
+        youtubeUrl: z
+          .string()
+          .trim()
+          .min(1)
+          .describe("YouTube watch, shorts, live, embed, or youtu.be URL."),
+      }),
+    },
+    async ({ youtubeUrl }) => {
+      getMcpAuth();
+      const videoId = getYouTubeVideoId(youtubeUrl);
+      if (!videoId) {
+        return mcpErrorResult("Paste a valid YouTube video link.");
+      }
+      const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+      return mcpTextResult({
+        youtubeUrl: watchUrl,
+        instructions:
+          "Apply this prompt to the YouTube video itself. Watch the video and extract real exercise names, start times, and metrics from what you see and hear. The prompt is instructions only — do not treat its JSON schema or examples as the workout. Then call import_full_workout with the extracted values.",
+        prompt: generateYoutubeImportPrompt(watchUrl),
+      });
+    },
+  );
+
+  server.registerTool(
     "import_full_workout",
     {
       title: "Import full workout",
       description:
-        "Create a follow-along video workout and all of its moves in one call. Watch the video (timers, beeps, overlays) and lock starts to the interval grid. Do not search the web for chapters or transcripts unless the video has no usable timing cues. Do not call list_exercises or list_workouts first — names are reused automatically. Skip rest, water, intro, and preview. videoEndTime is required and must equal the next videoStartTime (last move ends at video duration). One grid slot per exercise; do not merge two work intervals. Times are seconds. Include metric_profile, muscle_group, key_muscles, suggested_sets (usually 1), and suggested_time (work seconds) or suggested_reps.",
+        "Create a follow-along video workout and all of its moves in one call. Do not call this if playback is blocked or the video is Zumba/dance without labelled known exercises — refuse instead. Watch the video (timers, beeps, overlays) and lock starts to the interval grid. Do not search the web for chapters or transcripts unless the video has no usable timing cues. Do not call list_exercises or list_workouts first — names are reused automatically. Skip rest, water, intro, and preview. videoEndTime is required and must equal the next videoStartTime (last move ends at video duration). One grid slot per exercise; do not merge two work intervals. Times are seconds. Include metric_profile, muscle_group, key_muscles, suggested_sets (usually 1), and suggested_time (work seconds) or suggested_reps.",
       inputSchema: importFullWorkoutSchema,
     },
     async (args) => {
@@ -98,6 +131,9 @@ export function registerWorkoutMcpTools(server: McpServer) {
           return mcpErrorResult(
             `${error.message}: ${error.existingWorkoutId}`,
           );
+        }
+        if (error instanceof WorkoutImportRejectedError) {
+          return mcpErrorResult(error.message);
         }
         return mcpErrorResult(
           error instanceof Error ? error.message : "Failed to import workout",

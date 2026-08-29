@@ -14,6 +14,10 @@ import inquirer from "inquirer";
 
 import { findAbuttingExerciseTimelineError } from "../src/features/workouts/schemas";
 import {
+  IMPORT_VIDEO_ELIGIBILITY_MCP,
+  VIDEO_PLAYBACK_REJECT_REASON,
+} from "../src/features/workouts/import-eligibility";
+import {
   extractYoutubeWatchUrls,
   fetchYoutubeOembed,
   type YoutubeOembed,
@@ -23,10 +27,15 @@ const DEFAULT_MCP_URL = "http://localhost:3000/api/mcp";
 const DEFAULT_MODEL = "gemini-3.7-flash";
 const DEFAULT_YOUTUBE_URL = "https://www.youtube.com/watch?v=38z61KcalV4";
 
-type TaskId = "create_workout" | "check_performance" | "check_friends";
+type TaskId =
+  | "create_workout"
+  | "get_import_prompt"
+  | "check_performance"
+  | "check_friends";
 
 const TASK_IDS: TaskId[] = [
   "create_workout",
+  "get_import_prompt",
   "check_performance",
   "check_friends",
 ];
@@ -38,8 +47,8 @@ Options:
   --url <url>              MCP server URL (env MCP_URL)
   --api-key <key>          MCP API key (env MCP_API_KEY)
   --model <id>             Gemini model (env GEMINI_MODEL)
-  --task <id>              create_workout | check_performance | check_friends
-  --youtube-url <url>      YouTube watch URL for create_workout (env YOUTUBE_URL)
+  --task <id>              create_workout | get_import_prompt | check_performance | check_friends
+  --youtube-url <url>      YouTube watch URL for create_workout / get_import_prompt (env YOUTUBE_URL)
   --username <name>        Friend username for check_friends
   -h, --help               Show this help
 
@@ -49,6 +58,7 @@ Missing values are prompted interactively.
 
 function parseCli() {
   const { values } = parseArgs({
+    args: process.argv.slice(2).filter((arg) => arg !== "--"),
     options: {
       url: { type: "string" },
       "api-key": { type: "string" },
@@ -78,6 +88,7 @@ function parseTaskId(value: string | undefined): TaskId | undefined {
 
 const TASK_TOOL_NAMES: Record<TaskId, string[]> = {
   create_workout: ["import_full_workout"],
+  get_import_prompt: ["get_youtube_import_prompt"],
   check_performance: ["performance_metrics", "list_workouts"],
   check_friends: ["get_social_profile", "performance_metrics"],
 };
@@ -85,7 +96,8 @@ const TASK_TOOL_NAMES: Record<TaskId, string[]> = {
 function createWorkoutSystem(): string {
   return [
     "Epic Gains MCP creates follow-along workouts with import_full_workout.",
-    "Call only that tool. The attached video is the source of truth for moves and times.",
+    "Call only that tool when the video is eligible. The attached video is the source of truth for moves and times.",
+    IMPORT_VIDEO_ELIGIBILITY_MCP,
     "Do not search the web for timestamps, chapters, or transcripts.",
   ].join("\n");
 }
@@ -107,8 +119,13 @@ function createWorkoutPrompt(
 
 ${meta}
 
-Watch the video. Then call import_full_workout once with sourceVideoUrl=${youtubeUrl}.
+Watch the video. If it is eligible, call import_full_workout once with sourceVideoUrl=${youtubeUrl}.
+If it is not eligible, do not call any tool. Explain using the refusal reasons.
+
 Use the title, author, and channelUrl above when provided. Read duration from the video; last move ends there.
+
+Eligibility:
+${IMPORT_VIDEO_ELIGIBILITY_MCP}
 
 Rules:
 - List only real exercises/stretches. Skip rest, water breaks, intro, and preview.
@@ -125,6 +142,13 @@ Rules:
   - suggested_time: work interval in seconds (e.g. 45 or 60), not rest.
   - tags: section labels such as warmup, hiit, cooldown.
 - Do not invent moves you cannot see. After the tool returns, summarize the created workout from tool output only.`;
+}
+
+function getImportPromptPrompt(youtubeUrl: string): string {
+  return `Use Epic Gains MCP to fetch the official YouTube exercise-extraction prompt.
+
+1. Call get_youtube_import_prompt with youtubeUrl="${youtubeUrl}".
+2. From the tool output only, confirm that (a) instructions say you must apply the prompt to the video to extract real values, (b) the prompt includes the watch URL, eligibility/refusal rules, and the JSON schema. Quote the first line of the prompt field. Do not invent a prompt if the tool fails.`;
 }
 
 function performancePrompt(): string {
@@ -479,6 +503,10 @@ async function main() {
           value: "create_workout",
         },
         {
+          name: "Get YouTube import prompt (URL → get_youtube_import_prompt)",
+          value: "get_import_prompt",
+        },
+        {
           name: "Check performance (progress summary)",
           value: "check_performance",
         },
@@ -494,7 +522,10 @@ async function main() {
       message: "YouTube workout URL",
       when: (answers) => {
         const task = fromCli.task ?? answers.task;
-        return task === "create_workout" && !fromCli.youtubeUrl;
+        return (
+          (task === "create_workout" || task === "get_import_prompt") &&
+          !fromCli.youtubeUrl
+        );
       },
       default: DEFAULT_YOUTUBE_URL,
       validate: (value: string) => {
@@ -529,18 +560,22 @@ async function main() {
   };
 
   const youtubeUrl =
-    task === "create_workout" && extras.youtubeUrl
+    (task === "create_workout" || task === "get_import_prompt") &&
+    extras.youtubeUrl
       ? assertYoutubeUrl(extras.youtubeUrl)
       : undefined;
-  const oembed = youtubeUrl
-    ? await fetchYoutubeOembed(youtubeUrl)
-    : undefined;
+  const oembed =
+    task === "create_workout" && youtubeUrl
+      ? await fetchYoutubeOembed(youtubeUrl)
+      : undefined;
   const prompt =
     task === "create_workout" && youtubeUrl
       ? createWorkoutPrompt(youtubeUrl, oembed)
-      : task === "check_friends"
-        ? friendsPrompt(extras.username!.trim())
-        : performancePrompt();
+      : task === "get_import_prompt" && youtubeUrl
+        ? getImportPromptPrompt(youtubeUrl)
+        : task === "check_friends"
+          ? friendsPrompt(extras.username!.trim())
+          : performancePrompt();
   const maxSteps = 8;
 
   let client: MCPClient | undefined;
@@ -563,13 +598,34 @@ async function main() {
       `list_workouts ${probes.callMs}ms  ${probes.listWorkoutsOk ? "ok" : "error"}  ${probes.listWorkoutsPreview}`,
     );
 
-    if (youtubeUrl) {
+    if (task === "create_workout" && youtubeUrl) {
       console.log("Attaching video:", youtubeUrl);
       if (oembed) {
         console.log(
           `oembed  title=${oembed.title}  author=${oembed.authorName}`,
         );
+      } else {
+        console.log("oembed  unavailable (playback likely disabled)");
       }
+    }
+
+    if (task === "get_import_prompt" && youtubeUrl) {
+      const started = performance.now();
+      const promptResult = await client.callTool({
+        name: "get_youtube_import_prompt",
+        arguments: { youtubeUrl },
+      });
+      const ms = Math.round(performance.now() - started);
+      const summary = summarizeCallToolResult(promptResult);
+      console.log(
+        `get_youtube_import_prompt ${ms}ms  ${summary.ok ? "ok" : "error"}  ${summary.preview}`,
+      );
+    }
+
+    if (task === "create_workout" && youtubeUrl && !oembed) {
+      console.log("\n--- response ---\n");
+      console.log(VIDEO_PLAYBACK_REJECT_REASON);
+      return;
     }
 
     const llm = await runLlmTrial({
@@ -578,7 +634,7 @@ async function main() {
       model: model.trim() || DEFAULT_MODEL,
       task,
       prompt,
-      youtubeUrl,
+      youtubeUrl: oembed ? youtubeUrl : undefined,
       maxSteps,
     });
     console.log(

@@ -21,8 +21,10 @@ import {
   importWorkoutStructureSchema,
   type ImportFullWorkoutInput,
 } from "@/features/workouts/schemas";
+import { VIDEO_PLAYBACK_REJECT_REASON } from "@/features/workouts/import-eligibility";
 import { isRestWorkoutItem } from "@/features/workouts/workout-item";
 import { getYouTubeVideoId } from "@/features/workouts/youtube";
+import { fetchYoutubeOembed } from "@/shared/youtube";
 
 export class WorkoutImportConflictError extends Error {
   existingWorkoutId: string;
@@ -31,6 +33,13 @@ export class WorkoutImportConflictError extends Error {
     super("This workout already exists");
     this.name = "WorkoutImportConflictError";
     this.existingWorkoutId = existingWorkoutId;
+  }
+}
+
+export class WorkoutImportRejectedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "WorkoutImportRejectedError";
   }
 }
 
@@ -65,6 +74,12 @@ export async function importSharedWorkout(
     const existing = await getWorkoutByYoutubeVideoId(youtubeVideoId);
     if (existing) {
       throw new WorkoutImportConflictError(existing.id);
+    }
+
+    const watchUrl = `https://www.youtube.com/watch?v=${youtubeVideoId}`;
+    const oembed = await fetchYoutubeOembed(watchUrl);
+    if (!oembed) {
+      throw new WorkoutImportRejectedError(VIDEO_PLAYBACK_REJECT_REASON);
     }
   }
 

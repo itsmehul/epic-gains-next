@@ -4,6 +4,7 @@ import {
   importSharedWorkout,
   parseImportWorkoutBody,
   WorkoutImportConflictError,
+  WorkoutImportRejectedError,
 } from "@/features/workouts/import-workout";
 import {
   apiError,
@@ -35,6 +36,9 @@ export async function POST(req: Request) {
         },
         { status: 409 },
       );
+    }
+    if (error instanceof WorkoutImportRejectedError) {
+      return apiError(error.message, 422);
     }
     const message =
       error instanceof Error ? error.message : "Failed to import workout";
