@@ -17,13 +17,18 @@
     "auth:generate": "better-auth generate --config src/infrastructure/auth/server.ts --output src/db/schema/auth-schema.ts",
     "workflows:worker": "tsx scripts/worker.ts",
     "setup": "tsx scripts/setup.ts",
+    "ai:test-gemini": "tsx scripts/test-gemini.ts",
+    "ai:test-mcp": "tsx scripts/test-mcp.ts",
     "db:reset-non-user": "tsx scripts/reset-non-user-data.ts",
     "db:seed-sets": "tsx scripts/seed-workout-sets.ts",
     "db:delete-sets": "tsx scripts/delete-workout-sets.ts",
+    "db:delete-workout": "tsx scripts/delete-workout.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.57",
+    "@ai-sdk/mcp": "^2.0.40",
     "@base-ui/react": "^1.6.0",
     "@lexical/code": "^0.48.0",
     "@lexical/history": "^0.48.0",

@@ -51,7 +51,7 @@ export function registerSocialMcpTools(server: McpServer) {
     {
       title: "Get social profile",
       description:
-        "Get a user's public profile, follow relationship, and workout visibility.",
+        "Get a user's public profile, follow relationship, and workout visibility. Use this before summarizing a friend. If workouts are visible, follow with performance_metrics using the same username.",
       inputSchema: z.object({
         username: z.string().min(1),
       }),

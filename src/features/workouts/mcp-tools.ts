@@ -51,7 +51,8 @@ export function registerWorkoutMcpTools(server: McpServer) {
     "list_workouts",
     {
       title: "List workouts",
-      description: "List workouts for the authenticated user.",
+      description:
+        "List workouts for the authenticated user. Do not call this to assemble a follow-along import — use import_full_workout.",
       inputSchema: z.object({}),
     },
     async () => {
@@ -83,7 +84,7 @@ export function registerWorkoutMcpTools(server: McpServer) {
     {
       title: "Import full workout",
       description:
-        "Import a full follow-along video workout. Reuses an existing exercise when the name already exists for this user (canonical name or prior workout alias); otherwise creates one. The same exercise may appear more than once in the workout. Chapter timestamps are the START of each move: videoStartTime is that chapter's time, videoEndTime is the next chapter's time (or video duration for the last move). Do not shift starts onto the next chapter.",
+        "Create a follow-along video workout and all of its moves in one call. Watch the video (timers, beeps, overlays) and lock starts to the interval grid. Do not search the web for chapters or transcripts unless the video has no usable timing cues. Do not call list_exercises or list_workouts first — names are reused automatically. Skip rest, water, intro, and preview. videoEndTime is required and must equal the next videoStartTime (last move ends at video duration). One grid slot per exercise; do not merge two work intervals. Times are seconds. Include metric_profile, muscle_group, key_muscles, suggested_sets (usually 1), and suggested_time (work seconds) or suggested_reps.",
       inputSchema: importFullWorkoutSchema,
     },
     async (args) => {
@@ -159,7 +160,8 @@ export function registerWorkoutMcpTools(server: McpServer) {
     "list_exercises",
     {
       title: "List exercises",
-      description: "List the shared exercise catalog.",
+      description:
+        "List the shared exercise catalog. Do not call this when importing a follow-along; import_full_workout reuses matching names.",
       inputSchema: z.object({}),
     },
     async () => {

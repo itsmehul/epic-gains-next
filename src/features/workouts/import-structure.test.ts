@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildImportTargetSets,
   expandImportStructure,
   parseClockTimestamp,
   parseIntervalPattern,
@@ -159,5 +160,61 @@ describe("expandImportStructure", () => {
       videoStartTime: 10,
       videoEndTime: 70,
     });
+  });
+
+  it("expands suggested_sets and suggested_time into targets", () => {
+    const parsed = importWorkoutStructureSchema.parse({
+      overview: {
+        workout_length: "10 minutes",
+        structure: "HIIT",
+        interval_pattern: "45s work / 15s rest",
+      },
+      sections: [
+        {
+          section_name: "Main",
+          exercises: [
+            {
+              name: "Front to Back Shuffle",
+              timestamp: "02:25",
+              metric_profile: "BODYWEIGHT_REPS",
+              muscle_group: "legs",
+              key_muscles: [
+                "Gastrocnemius",
+                "Soleus",
+                "Quadriceps",
+                "Gluteus Medius",
+              ],
+              suggested_sets: 1,
+              suggested_time: 45,
+            },
+          ],
+        },
+      ],
+    });
+
+    const expanded = expandImportStructure(parsed);
+    expect(expanded.exercises[0]).toMatchObject({
+      name: "Front to Back Shuffle",
+      metricProfile: "BODYWEIGHT_REPS",
+      muscleGroup: "legs",
+      sets: [{ reps: null, weight: null, time: 45, distance: null }],
+    });
+  });
+});
+
+describe("buildImportTargetSets", () => {
+  it("uses suggested metrics over clip fallback", () => {
+    expect(
+      buildImportTargetSets(
+        { suggested_sets: 1, suggested_time: 45 },
+        60,
+      ),
+    ).toEqual([{ reps: null, weight: null, time: 45, distance: null }]);
+  });
+
+  it("falls back to clip duration when suggestions are missing", () => {
+    expect(buildImportTargetSets({}, 60)).toEqual([
+      { reps: null, weight: null, time: 60, distance: null },
+    ]);
   });
 });

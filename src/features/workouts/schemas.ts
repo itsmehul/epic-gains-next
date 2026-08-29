@@ -146,19 +146,20 @@ export const importFullWorkoutSchema = z.object({
           .trim()
           .min(1)
           .max(200)
-          .describe("Exact exercise name from the video/chapter list."),
+          .describe(
+            "Canonical move name from the video overlay or coach callout, not a section title.",
+          ),
         videoStartTime: z
           .number()
           .nonnegative()
           .describe(
-            "This move's start in the source video, in seconds. Use this move's chapter timestamp (T[i]), not the next chapter.",
+            "This move's start in seconds. Use the interval-grid start (timer reset, beep, overlay). If chapters exist, use this move's START T[i], never T[i+1].",
           ),
         videoEndTime: z
           .number()
           .nonnegative()
-          .optional()
           .describe(
-            "This move's end in the source video, in seconds. Use the next move's chapter timestamp (T[i+1]), or video duration for the last move. Must equal the next exercise's videoStartTime.",
+            "This move's end in seconds. Must equal the next exercise's videoStartTime, or video duration for the last move.",
           ),
         tags: z
           .array(z.string().trim().min(1).max(64))
@@ -166,13 +167,13 @@ export const importFullWorkoutSchema = z.object({
           .optional()
           .describe("Section/muscle tags such as warmup, upper-body, lower-body, core, hiit."),
         metric_profile: metricProfileEnum.optional().describe(
-          "Tracking profile that determines which set fields to show (weight, reps, time, distance).",
+          "Required for follow-alongs. BODYWEIGHT_REPS for unweighted reps; TIMED_HOLD for isometric/stretch holds; WEIGHT_REPS for external load; WEIGHTED_REPS for loaded bodyweight; CARDIO_DISTANCE for locomotion; LOADED_CARRY; CUSTOM otherwise.",
         ),
         muscle_group: muscleGroupEnum.optional().describe(
-          "Primary muscle group: chest, back, shoulders, arms, legs, or core.",
+          "Required for follow-alongs. Primary muscle group: chest, back, shoulders, arms, legs, or core.",
         ),
         key_muscles: keyMusclesSchema.optional().describe(
-          "Specific anatomical muscles used (e.g. Tibialis Anterior, Peroneus Tertius).",
+          "Required for follow-alongs. 1–6 specific anatomical muscles, primary first (e.g. Gastrocnemius, Quadriceps).",
         ),
         sets: z
           .array(
@@ -184,17 +185,101 @@ export const importFullWorkoutSchema = z.object({
             }),
           )
           .optional()
-          .describe("Preset sets to record for this exercise"),
-        suggested_sets: z.number().int().positive().optional(),
-        suggested_reps: z.number().int().nonnegative().optional(),
-        suggested_weight: z.number().nonnegative().optional(),
-        suggested_time: z.number().nonnegative().optional(),
-        suggested_distance: z.number().nonnegative().optional(),
+          .describe(
+            "Optional explicit preset sets. Prefer suggested_sets + suggested_time/reps instead; those are expanded into targets.",
+          ),
+        suggested_sets: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe(
+            "Number of sets. Use 1 for follow-along circuits, HIIT, and mobility flows.",
+          ),
+        suggested_reps: z
+          .number()
+          .int()
+          .nonnegative()
+          .optional()
+          .describe("Target repetitions if the coach prescribes a rep count."),
+        suggested_weight: z
+          .number()
+          .nonnegative()
+          .optional()
+          .describe("Prescribed load in kg if applicable."),
+        suggested_time: z
+          .number()
+          .nonnegative()
+          .optional()
+          .describe(
+            "Work interval in seconds per set (not rest). Typical follow-along values are 40, 45, or 60. Do not use the full chapter length if the round includes rest.",
+          ),
+        suggested_distance: z
+          .number()
+          .nonnegative()
+          .optional()
+          .describe("Target distance if prescribed."),
       }),
     )
     .min(1)
     .describe("List of moves in the order they appear in the video."),
-});
+})
+  .superRefine((value, ctx) => {
+    const error = findAbuttingExerciseTimelineError(value.exercises);
+    if (error) {
+      ctx.addIssue({ code: "custom", message: error, path: ["exercises"] });
+    }
+    const merged = findMergedWorkIntervalError(value.exercises);
+    if (merged) {
+      ctx.addIssue({ code: "custom", message: merged, path: ["exercises"] });
+    }
+  });
+
+export function findAbuttingExerciseTimelineError(
+  exercises: Array<{ videoStartTime: number; videoEndTime?: number }>,
+): string | undefined {
+  for (let i = 0; i < exercises.length; i++) {
+    const start = exercises[i]!.videoStartTime;
+    const end = exercises[i]!.videoEndTime;
+    if (end === undefined) {
+      return `exercises[${i}].videoEndTime is required`;
+    }
+    if (end <= start) {
+      return `exercises[${i}].videoEndTime must be greater than videoStartTime`;
+    }
+    const next = exercises[i + 1];
+    if (next && end !== next.videoStartTime) {
+      return `exercises[${i}].videoEndTime (${end}) must equal exercises[${i + 1}].videoStartTime (${next.videoStartTime})`;
+    }
+  }
+  return undefined;
+}
+
+/** Catches two work intervals merged into one clip (e.g. 120s on a 60s grid). */
+export function findMergedWorkIntervalError(
+  exercises: Array<{ videoStartTime: number; videoEndTime?: number }>,
+): string | undefined {
+  const durations = exercises
+    .map((exercise, index) => {
+      if (exercise.videoEndTime === undefined) return null;
+      return {
+        index,
+        duration: exercise.videoEndTime - exercise.videoStartTime,
+      };
+    })
+    .filter((row): row is { index: number; duration: number } => row !== null);
+
+  if (durations.length < 3) return undefined;
+
+  const sorted = [...durations].sort((a, b) => a.duration - b.duration);
+  const median = sorted[Math.floor(sorted.length / 2)]!.duration;
+  if (median < 20) return undefined;
+
+  const merged = durations.find((row) => row.duration >= median * 2);
+  if (!merged) return undefined;
+
+  return `exercises[${merged.index}] spans ${merged.duration}s but typical interval is ~${median}s. Do not merge two work intervals. One grid slot per exercise; skip rest without doubling a work slot.`;
+}
 
 const clockTimestampSchema = z
   .string()

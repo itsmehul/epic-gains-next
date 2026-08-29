@@ -12,18 +12,36 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { IMPORT_FOLLOW_ALONG_SKILL_MD } from "@/features/skills/import-follow-along-skill";
 import { PERFORMANCE_REPORT_SKILL_MD } from "@/features/skills/performance-report-skill";
 
+const SKILLS = [
+  {
+    id: "import",
+    title: "Import follow-along",
+    description:
+      "Turns a YouTube class into one timed workout. Watch the video, lock moves to the interval grid, call import_full_workout once.",
+    markdown: IMPORT_FOLLOW_ALONG_SKILL_MD,
+  },
+  {
+    id: "performance",
+    title: "Performance summary",
+    description:
+      "Recaps yesterday’s training with volume, PRs, and session notes, plus how this week compares to last week.",
+    markdown: PERFORMANCE_REPORT_SKILL_MD,
+  },
+] as const;
+
 export function SkillsPageClient() {
-  const [copied, setCopied] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleCopy() {
+  async function handleCopy(id: string, markdown: string) {
     setError(null);
     try {
-      await navigator.clipboard.writeText(PERFORMANCE_REPORT_SKILL_MD);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(markdown);
+      setCopiedId(id);
+      window.setTimeout(() => setCopiedId(null), 2000);
     } catch {
       setError("Could not copy to clipboard");
     }
@@ -33,33 +51,38 @@ export function SkillsPageClient() {
     <>
       <AppShellHeader title="Skills" />
       <AppShellBody className="gap-6 p-4 md:p-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <IconSparkles className="size-5" />
-              Performance summary
-            </CardTitle>
-            <CardDescription>
-              Recaps yesterday’s training with volume, PRs, and session notes,
-              plus how this week compares to last week.
-            </CardDescription>
-          </CardHeader>
-          <CardFooter className="flex-col items-start gap-3">
-            {error ? (
-              <p className="text-destructive text-sm" role="alert">
-                {error}
-              </p>
-            ) : null}
-            <Button onClick={() => void handleCopy()} type="button">
-              {copied ? (
-                <IconCheck className="size-4" />
-              ) : (
-                <IconCopy className="size-4" />
-              )}
-              {copied ? "Copied" : "Copy skill"}
-            </Button>
-          </CardFooter>
-        </Card>
+        {error ? (
+          <p className="text-destructive text-sm" role="alert">
+            {error}
+          </p>
+        ) : null}
+        {SKILLS.map((skill) => {
+          const copied = copiedId === skill.id;
+          return (
+            <Card key={skill.id}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <IconSparkles className="size-5" />
+                  {skill.title}
+                </CardTitle>
+                <CardDescription>{skill.description}</CardDescription>
+              </CardHeader>
+              <CardFooter>
+                <Button
+                  onClick={() => void handleCopy(skill.id, skill.markdown)}
+                  type="button"
+                >
+                  {copied ? (
+                    <IconCheck className="size-4" />
+                  ) : (
+                    <IconCopy className="size-4" />
+                  )}
+                  {copied ? "Copied" : "Copy skill"}
+                </Button>
+              </CardFooter>
+            </Card>
+          );
+        })}
       </AppShellBody>
     </>
   );

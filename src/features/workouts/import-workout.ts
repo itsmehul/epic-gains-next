@@ -9,6 +9,7 @@ import { getWorkoutByYoutubeVideoId } from "@/db/repositories/workout.repository
 import { exercise, workout, workoutExercise } from "@/db/schema";
 import { exerciseNameLookupKeys } from "@/features/workouts/exercise-name";
 import {
+  buildImportTargetSets,
   expandImportStructure,
   resolveImportKeyMuscles,
   resolveImportMetricProfile,
@@ -39,6 +40,17 @@ export function parseImportWorkoutBody(json: unknown) {
   if (structured.success) return expandImportStructure(structured.data);
   if (legacy.success) return legacy.data;
   return null;
+}
+
+function resolveImportTargets(
+  ex: ExpandedImportWorkout["exercises"][number] | ImportFullWorkoutInput["exercises"][number],
+) {
+  if (ex.sets && ex.sets.length > 0) return ex.sets;
+  const clipSeconds =
+    typeof ex.videoEndTime === "number" && ex.videoEndTime > ex.videoStartTime
+      ? ex.videoEndTime - ex.videoStartTime
+      : undefined;
+  return buildImportTargetSets(ex, clipSeconds);
 }
 
 export async function importSharedWorkout(
@@ -184,7 +196,7 @@ export async function importSharedWorkout(
         metaData: {
           videoStartTime: ex.videoStartTime,
           videoEndTime: ex.videoEndTime,
-          targets: ex.sets && ex.sets.length > 0 ? ex.sets : undefined,
+          targets: resolveImportTargets(ex),
         },
         tags: ex.tags ?? [],
       });
