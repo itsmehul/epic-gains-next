@@ -64,7 +64,7 @@ export type ImportSuggestedMetrics = {
 };
 
 export function buildImportTargetSets(
-  current: ImportSuggestedMetrics,
+  current: ImportSuggestedMetrics & Record<string, unknown>,
   fallbackTimeSeconds?: number,
 ): ExpandedImportWorkout["exercises"][number]["sets"] {
   const suggestedSetsCount = current.suggested_sets ?? current.suggestedSets;
