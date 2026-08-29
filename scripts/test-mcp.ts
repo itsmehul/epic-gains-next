@@ -15,9 +15,20 @@ import inquirer from "inquirer";
 const DEFAULT_MCP_URL = "http://localhost:3000/api/mcp";
 const DEFAULT_MODEL = "gemini-3.7-flash";
 
-type TaskId = "check_performance" | "check_friends";
+type TaskId =
+  | "check_performance"
+  | "check_friends"
+  | "compare_1v1"
+  | "compare_1v_all"
+  | "friends_progress";
 
-const TASK_IDS: TaskId[] = ["check_performance", "check_friends"];
+const TASK_IDS: TaskId[] = [
+  "check_performance",
+  "check_friends",
+  "compare_1v1",
+  "compare_1v_all",
+  "friends_progress",
+];
 
 function printHelp() {
   console.log(`Usage: pnpm ai:test-mcp -- [options]
@@ -26,8 +37,8 @@ Options:
   --url <url>              MCP server URL (env MCP_URL)
   --api-key <key>          MCP API key (env MCP_API_KEY)
   --model <id>             Gemini model (env GEMINI_MODEL)
-  --task <id>              check_performance | check_friends
-  --username <name>        Friend username for check_friends
+  --task <id>              check_performance | check_friends | compare_1v1 | compare_1v_all | friends_progress
+  --username <name>        Friend username for compare_1v1 (default nitin)
   -h, --help               Show this help
 
 Missing values are prompted interactively.
@@ -65,7 +76,10 @@ function parseTaskId(value: string | undefined): TaskId | undefined {
 
 const TASK_TOOL_NAMES: Record<TaskId, string[]> = {
   check_performance: ["performance_metrics", "list_workouts"],
-  check_friends: ["get_social_profile", "performance_metrics"],
+  check_friends: ["following_performance_metrics"],
+  compare_1v1: ["performance_metrics"],
+  compare_1v_all: ["performance_metrics", "following_performance_metrics"],
+  friends_progress: ["following_performance_metrics"],
 };
 
 function performancePrompt(): string {
@@ -76,12 +90,59 @@ function performancePrompt(): string {
 3. Write a short progress summary from tool output only: recent volume, week-over-week change, streak, PRs, and notable session notes. Do not invent metrics.`;
 }
 
-function friendsPrompt(username: string): string {
-  return `Use Epic Gains MCP to summarize this user: ${username}
+function friendsPrompt(): string {
+  return `Use Epic Gains MCP to summarize everyone I follow.
 
-1. Call get_social_profile with username="${username}".
-2. If workouts are visible, call performance_metrics with the same username (no extra filters).
-3. Summarize profile, follow relationship, visibility, and (if available) training highlights from tool output only. Do not invent details. If the account is private or not found, say so from the tool error.`;
+1. Call following_performance_metrics once with no extra filters.
+2. Do not call list_following, get_social_profile, or performance_metrics.
+3. Summarize each returned friend from tool output only: visibility, recent volume, week-over-week change, streak, PRs, and notable notes. Do not invent metrics. If the list is empty or a friend is not visible, say so from the tool output.`;
+}
+
+function yesterdayIso(): string {
+  const date = new Date();
+  date.setDate(date.getDate() - 1);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function compare1v1Prompt(username: string): string {
+  const date = yesterdayIso();
+  return `Compare my training to a friend 1v1, use Epic Gains.
+
+Follow the 1v1 skill exactly.
+1. Call performance_metrics twice in the same turn with date="${date}": once with no username (me), once with username="${username}".
+2. Do not call get_social_profile, list_following, following_performance_metrics, or performance_data.
+3. Write the 1v1 Comparison template from tool output only. Do not invent metrics.`;
+}
+
+function compare1vAllPrompt(): string {
+  const date = yesterdayIso();
+  return `Compare me against all my friends, use Epic Gains.
+
+Follow the 1v all skill exactly.
+1. In the same turn, call performance_metrics with date="${date}" and no username, and following_performance_metrics once with the same date.
+2. Do not loop performance_metrics per friend. Do not call list_following or get_social_profile.
+3. Write the 1v All Comparison template from tool output only. Do not invent metrics.`;
+}
+
+function friendsProgressPrompt(): string {
+  const date = yesterdayIso();
+  return `Give me a progress report of all my friends, use Epic Gains.
+
+Follow the friends progress skill exactly.
+1. Call following_performance_metrics once with date="${date}".
+2. Do not call list_following, get_social_profile, or performance_metrics.
+3. Write the Friends Progress Report template from tool output only. Do not invent metrics.`;
+}
+
+function promptForTask(task: TaskId, username: string): string {
+  if (task === "check_friends") return friendsPrompt();
+  if (task === "compare_1v1") return compare1v1Prompt(username);
+  if (task === "compare_1v_all") return compare1vAllPrompt();
+  if (task === "friends_progress") return friendsProgressPrompt();
+  return performancePrompt();
 }
 
 function geminiApiKey(): string {
@@ -345,8 +406,20 @@ async function main() {
           value: "check_performance",
         },
         {
-          name: "Check friends (username → profile summary)",
+          name: "Check friends (following recap)",
           value: "check_friends",
+        },
+        {
+          name: "1v1 comparison (me vs friend)",
+          value: "compare_1v1",
+        },
+        {
+          name: "1v all comparison",
+          value: "compare_1v_all",
+        },
+        {
+          name: "Friends progress report",
+          value: "friends_progress",
         },
       ],
     },
@@ -356,10 +429,9 @@ async function main() {
       message: "Friend username",
       when: (answers) => {
         const task = fromCli.task ?? answers.task;
-        return task === "check_friends" && !fromCli.username;
+        return task === "compare_1v1" && !fromCli.username;
       },
-      validate: (value: string) =>
-        value.trim().length > 0 || "username is required",
+      default: "nitin",
     },
   ]);
 
@@ -367,14 +439,8 @@ async function main() {
   const apiKey = fromCli.apiKey ?? prompted.apiKey!;
   const model = fromCli.model ?? prompted.model ?? DEFAULT_MODEL;
   const task = fromCli.task ?? prompted.task!;
-  const extras = {
-    username: fromCli.username ?? prompted.username,
-  };
-
-  const prompt =
-    task === "check_friends"
-      ? friendsPrompt(extras.username!.trim())
-      : performancePrompt();
+  const username = (fromCli.username ?? prompted.username ?? "nitin").trim();
+  const prompt = promptForTask(task, username);
   const maxSteps = 8;
 
   let client: MCPClient | undefined;

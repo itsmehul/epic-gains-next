@@ -17,9 +17,13 @@ import {
   updateUserSocialProfile,
   countFollowers,
   countFollowing,
+  listFollowing,
 } from "@/db/repositories/social.repository";
+import { getPerformanceMetricsForUser } from "@/db/repositories/set.repository";
+import type { MuscleGroup } from "@/db/schema/workout-schema";
 import { canViewUserWorkouts } from "@/features/social/privacy";
 import { isValidUsername, normalizeUsername } from "@/features/social/username";
+import { localDateString } from "@/features/workouts/set-day";
 
 export type FollowRelationship =
   | "self"
@@ -195,4 +199,58 @@ export async function updateMySocialSettings(
   }
 
   return { ok: true as const, data: updated };
+}
+
+const FOLLOWING_PERFORMANCE_LIMIT = 50;
+
+export async function getFollowingPerformanceMetrics(
+  viewerId: string,
+  options: {
+    date?: Date;
+    muscleGroup?: MuscleGroup;
+    keyMuscle?: string;
+  } = {},
+) {
+  await ensureUserSocialProfile(viewerId);
+  const following = await listFollowing(viewerId);
+  const asOf = options.date ?? new Date();
+  const selected = following.slice(0, FOLLOWING_PERFORMANCE_LIMIT);
+
+  const friends = await Promise.all(
+    selected.map(async (friend) => {
+      const canViewWorkouts = await canViewUserWorkouts(viewerId, friend);
+      if (!canViewWorkouts) {
+        return {
+          username: friend.username,
+          name: friend.name,
+          isPrivate: friend.isPrivate,
+          canViewWorkouts: false as const,
+          reason: "Workouts are not visible for this user",
+        };
+      }
+
+      const metrics = await getPerformanceMetricsForUser(friend.id, {
+        date: asOf,
+        muscleGroup: options.muscleGroup,
+        keyMuscle: options.keyMuscle,
+        viewerId,
+      });
+
+      return {
+        username: friend.username,
+        name: friend.name,
+        isPrivate: friend.isPrivate,
+        canViewWorkouts: true as const,
+        metrics,
+      };
+    }),
+  );
+
+  return {
+    asOf: localDateString(asOf),
+    followingCount: following.length,
+    returnedCount: friends.length,
+    truncated: following.length > FOLLOWING_PERFORMANCE_LIMIT,
+    friends,
+  };
 }

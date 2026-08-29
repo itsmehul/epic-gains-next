@@ -14,11 +14,16 @@ import {
   searchUsers,
 } from "@/db/repositories/social.repository";
 import { updateSocialProfileSchema } from "@/features/social/schemas";
-import { listWorkoutsQuerySchema } from "@/features/workouts/schemas";
+import {
+  listWorkoutsQuerySchema,
+  muscleGroupEnum,
+} from "@/features/workouts/schemas";
+import { parseIsoDate } from "@/features/workouts/set-day";
 import {
   acceptFollowRequest,
   buildProfilePayload,
   followUser,
+  getFollowingPerformanceMetrics,
   rejectFollowRequest,
   unfollowUser,
   updateMySocialSettings,
@@ -51,7 +56,7 @@ export function registerSocialMcpTools(server: McpServer) {
     {
       title: "Get social profile",
       description:
-        "Get a user's public profile, follow relationship, and workout visibility. Use this before summarizing a friend. If workouts are visible, follow with performance_metrics using the same username.",
+        "Get a user's public profile, follow relationship, and workout visibility. For one friend's training recap, prefer performance_metrics with their username. For everyone you follow, use following_performance_metrics once.",
       inputSchema: z.object({
         username: z.string().min(1),
       }),
@@ -211,7 +216,7 @@ export function registerSocialMcpTools(server: McpServer) {
     {
       title: "List following feed",
       description:
-        "List workouts from people you follow. Optionally filter by search text or muscle group.",
+        "Recent workouts from people you follow. Not for training analytics — use following_performance_metrics for a circle recap, or performance_metrics with a username for one friend.",
       inputSchema: z.object({
         query: z.string().trim().max(200).optional(),
         muscleGroup: listWorkoutsQuerySchema.shape.muscleGroup,
@@ -225,6 +230,48 @@ export function registerSocialMcpTools(server: McpServer) {
         muscleGroups: muscleGroup,
       });
       return mcpTextResult({ items });
+    },
+  );
+
+  server.registerTool(
+    "following_performance_metrics",
+    {
+      title: "Following performance metrics",
+      description:
+        "One-call recap for everyone the authenticated user follows. Returns each friend's profile fields plus the same performance_metrics payload when workouts are visible, or a visibility reason when not. Do not list_following or loop performance_metrics / get_social_profile for this job. Optional date, muscleGroup, and keyMuscle apply to every friend. Caps at 50 follows.",
+      inputSchema: z.object({
+        date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional()
+          .describe(
+            "As-of date YYYY-MM-DD. Defaults to today. Same window rules as performance_metrics.",
+          ),
+        muscleGroup: muscleGroupEnum
+          .optional()
+          .describe("Only include exercises in this muscle group."),
+        keyMuscle: z
+          .string()
+          .trim()
+          .min(1)
+          .max(80)
+          .optional()
+          .describe("Only include exercises whose key muscles match this name."),
+      }),
+    },
+    async ({ date, muscleGroup, keyMuscle }) => {
+      const { userId } = getMcpAuth();
+      const on = date ? parseIsoDate(date) : new Date();
+      if (date && !on) {
+        return mcpErrorResult("date must be a valid YYYY-MM-DD calendar date");
+      }
+
+      const result = await getFollowingPerformanceMetrics(userId, {
+        date: on ?? undefined,
+        muscleGroup,
+        keyMuscle,
+      });
+      return mcpTextResult(result);
     },
   );
 }

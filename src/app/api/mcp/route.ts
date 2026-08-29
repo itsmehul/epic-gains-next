@@ -4,8 +4,8 @@ import {
   findActiveMcpApiKeyByRawKey,
   touchMcpApiKeyLastUsed,
 } from "@/db/repositories/mcp.repository";
-import { registerWorkoutMcpTools } from "@/features/workouts/mcp-tools";
 import { registerSocialMcpTools } from "@/features/social/mcp-tools";
+import { registerWorkoutMcpTools } from "@/features/workouts/mcp-tools";
 import { auth } from "@/infrastructure/auth/server";
 import {
   extractBearerToken,
@@ -41,7 +41,8 @@ const mcpHandler = createMcpHandler(
     instructions: [
       "Epic Gains MCP manages user workouts, a shared exercise catalog, logged sets, and Instagram-style follows.",
       "For training recaps, progress, volume, week-over-week trends, streaks, PRs, or session notes, call performance_metrics once (optional date YYYY-MM-DD, default today; optional username for a visible friend). It returns focal day, current ISO week, prior week, trailing 30 days, deltas, streak, PRs, all visible comments with exercise/workout context, and a daily rollup — do not issue multiple performance_data calls for those windows. Use performance_data only when you need set-level detail for a single day/week/month/year. Filter either tool with muscleGroup and/or keyMuscle. Omit username for the authenticated user. Private accounts require an accepted follow.",
-      "Social tools: search_users, get_social_profile, follow_user/unfollow_user, list/accept/reject follow requests, list_following_feed, update_social_settings. To summarize a friend, call get_social_profile with their username, then performance_metrics with the same username if workouts are visible.",
+      "To recap everyone you follow, call following_performance_metrics once. Do not list_following, list_following_feed, or loop get_social_profile / performance_metrics per friend. For one named friend, call performance_metrics with that username.",
+      "Social tools: search_users, get_social_profile, follow_user/unfollow_user, list/accept/reject follow requests, list_following_feed, update_social_settings, following_performance_metrics.",
       "Private accounts require an accepted follow before workouts are visible.",
     ].join("\n"),
   },
@@ -172,4 +173,4 @@ async function handle(request: Request): Promise<Response> {
   }
 }
 
-export { handle as GET, handle as POST, handle as DELETE, handle as HEAD };
+export { handle as DELETE, handle as GET, handle as HEAD, handle as POST };

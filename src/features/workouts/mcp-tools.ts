@@ -311,7 +311,7 @@ export function registerWorkoutMcpTools(server: McpServer) {
     {
       title: "Performance metrics",
       description:
-        "One-call training analytics. Use this instead of multiple performance_data calls. Returns focal-day, current ISO week (Mon–Sun), prior week, and trailing 30-day stats (volume, sessions, set counts, muscle-group mix), week-over-week deltas, streak, personal records in the 30-day window vs all-time, every visible comment on this athlete’s exercises with exercise and workout context, and a compact daily rollup (comments nested on the matching exercise). Defaults to the authenticated user; pass username for a visible friend. For a recap of yesterday, pass yesterday’s date.",
+        "One-call training analytics for you or one visible friend. Use this instead of multiple performance_data calls. For everyone you follow, use following_performance_metrics once. Returns focal-day, current ISO week (Mon–Sun), prior week, and trailing 30-day stats (volume, sessions, set counts, muscle-group mix), week-over-week deltas, streak, personal records in the 30-day window vs all-time, every visible comment on this athlete’s exercises with exercise and workout context, and a compact daily rollup (comments nested on the matching exercise). Defaults to the authenticated user; pass username for a visible friend. For a recap of yesterday, pass yesterday’s date.",
       inputSchema: z.object({
         date: z
           .string()

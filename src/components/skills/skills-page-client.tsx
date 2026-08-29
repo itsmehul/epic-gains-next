@@ -12,17 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { PERFORMANCE_REPORT_SKILL_MD } from "@/features/skills/performance-report-skill";
-
-const SKILLS = [
-  {
-    id: "performance",
-    title: "Performance summary",
-    description:
-      "Recaps yesterday’s training with volume, PRs, and session notes, plus how this week compares to last week.",
-    markdown: PERFORMANCE_REPORT_SKILL_MD,
-  },
-] as const;
+import { INSTALLABLE_SKILLS } from "@/features/skills/catalog";
 
 export function SkillsPageClient() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -48,7 +38,7 @@ export function SkillsPageClient() {
             {error}
           </p>
         ) : null}
-        {SKILLS.map((skill) => {
+        {INSTALLABLE_SKILLS.map((skill) => {
           const copied = copiedId === skill.id;
           return (
             <Card key={skill.id}>
