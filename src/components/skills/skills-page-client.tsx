@@ -12,17 +12,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { IMPORT_FOLLOW_ALONG_SKILL_MD } from "@/features/skills/import-follow-along-skill";
 import { PERFORMANCE_REPORT_SKILL_MD } from "@/features/skills/performance-report-skill";
 
 const SKILLS = [
-  {
-    id: "import",
-    title: "Import follow-along",
-    description:
-      "Same as Import from YouTube: get_youtube_import_prompt, apply it to the video, pass that JSON to import_full_workout (do not convert timestamps).",
-    markdown: IMPORT_FOLLOW_ALONG_SKILL_MD,
-  },
   {
     id: "performance",
     title: "Performance summary",

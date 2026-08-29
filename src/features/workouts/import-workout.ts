@@ -11,6 +11,7 @@ import { exerciseNameLookupKeys } from "@/features/workouts/exercise-name";
 import {
   buildImportTargetSets,
   expandImportStructure,
+  ImportStructureValidationError,
   resolveImportKeyMuscles,
   resolveImportMetricProfile,
   resolveImportMuscleGroup,
@@ -46,7 +47,16 @@ export class WorkoutImportRejectedError extends Error {
 export function parseImportWorkoutBody(json: unknown) {
   const structured = importWorkoutStructureSchema.safeParse(json);
   const legacy = importFullWorkoutSchema.safeParse(json);
-  if (structured.success) return expandImportStructure(structured.data);
+  if (structured.success) {
+    try {
+      return expandImportStructure(structured.data);
+    } catch (error) {
+      if (error instanceof ImportStructureValidationError) {
+        throw new WorkoutImportRejectedError(error.message);
+      }
+      throw error;
+    }
+  }
   if (legacy.success) return legacy.data;
   return null;
 }

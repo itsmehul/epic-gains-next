@@ -1,5 +1,7 @@
 import { IMPORT_VIDEO_ELIGIBILITY_RULES } from "@/features/workouts/import-eligibility";
 
+export const YOUTUBE_IMPORT_URL_PLACEHOLDER = "{{YOUTUBE_URL}}";
+
 export function generateYoutubeImportPrompt(url: string) {
   const cleanUrl = url.trim();
   return `You are an expert fitness analyst, exercise physiologist, and workout video parser.
@@ -37,8 +39,12 @@ Record the **exact video clock** when each move starts. Write the second you see
 
 1. **Interval pattern is metadata, not a timestamp source**:
    - Detect cadence (e.g. 30s work / 30s rest) for \`overview.interval_pattern\` and \`suggested_time\` only.
-   - Do **not** invent a synthetic grid such as \`01:00\`, \`01:30\`, \`02:00\`. A 30/30 class often starts work at \`:28\`, \`:50\`, or \`:57\`.
+   - Do **not** invent a synthetic grid — including a constant offset of a grid (\`06:53\`, \`07:53\`, \`08:53\` is the same failure as \`07:00\`, \`08:00\`, \`09:00\`).
+   - In a 30s work / 30s rest block, consecutive **work** starts are usually 58–62s apart and the seconds-of-minute **change** (\`07:00\`, \`07:57\`, \`08:58\`). If every start shares the same \`:SS\`, you guessed.
    - Skip rest / water / "catch your breath" entirely. The next row is the next **work** start. The server fills clip ends from the next start.
+
+   Wrong: \`07:00, 08:00, 09:00, 10:00\` or \`06:53, 07:53, 08:53, 09:53\`
+   Right: \`07:00, 07:57, 08:58, 09:58\`
 
 2. **Visual & Audio Start Triggers (Prioritize Over Speech)**:
    - **On-Screen Timer / Progress Bar**: The exact second the round countdown appears or resets.

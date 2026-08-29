@@ -173,9 +173,61 @@ function parseWorkoutLengthSeconds(value: string): number | null {
   return null;
 }
 
+const ROUND_CLOCK_SECONDS = new Set([0, 30]);
+const SYNTHETIC_GAPS = new Set([30, 45, 60, 90]);
+
+export class ImportStructureValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ImportStructureValidationError";
+  }
+}
+
+/** Gemini often invents a fixed cadence (08:00, 09:00 or 07:53, 08:53) instead of each beep. */
+export function findSnappedCadenceTimestampsError(
+  sections: ImportWorkoutStructureInput["sections"],
+): string | undefined {
+  for (const section of sections) {
+    const moves = section.exercises
+      .filter((exercise) => !isRestWorkoutItem({ name: exercise.name }))
+      .map((exercise) => ({
+        timestamp: exercise.timestamp,
+        start: parseClockTimestamp(exercise.timestamp),
+      }));
+    if (moves.length < 5) continue;
+
+    const gaps: number[] = [];
+    for (let i = 1; i < moves.length; i += 1) {
+      gaps.push(moves[i]!.start - moves[i - 1]!.start);
+    }
+    const gap = gaps[0];
+    if (gap == null || !SYNTHETIC_GAPS.has(gap)) continue;
+    if (!gaps.every((value) => value === gap)) continue;
+
+    const clockSeconds = moves.map((move) => move.start % 60);
+    const uniqueSeconds = new Set(clockSeconds);
+    const allRound = clockSeconds.every((value) =>
+      ROUND_CLOCK_SECONDS.has(value),
+    );
+    if (uniqueSeconds.size > 1 && !allRound) continue;
+
+    const sample = moves
+      .slice(0, 4)
+      .map((move) => move.timestamp)
+      .join(", ");
+    return `${section.section_name} timestamps are a synthetic ${gap}s grid (${sample}, …). Do not shift a cadence by a constant offset (07:53, 08:53 is as wrong as 08:00, 09:00). Re-watch the beep/timer for each move — seconds-of-minute should change (e.g. 07:00, 07:57, 08:58).`;
+  }
+  return undefined;
+}
+
 export function expandImportStructure(
   input: ImportWorkoutStructureInput,
 ): ExpandedImportWorkout {
+  const snapped = findSnappedCadenceTimestampsError(input.sections);
+  if (snapped) {
+    throw new ImportStructureValidationError(snapped);
+  }
+
   const interval = parseIntervalPattern(input.overview.interval_pattern);
   const workoutLengthSeconds = parseWorkoutLengthSeconds(
     input.overview.workout_length,

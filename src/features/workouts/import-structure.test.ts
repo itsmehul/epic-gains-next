@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildImportTargetSets,
   expandImportStructure,
+  findSnappedCadenceTimestampsError,
+  ImportStructureValidationError,
   parseClockTimestamp,
   parseIntervalPattern,
 } from "@/features/workouts/import-structure";
@@ -199,6 +201,90 @@ describe("expandImportStructure", () => {
       muscleGroup: "legs",
       sets: [{ reps: null, weight: null, time: 45, distance: null }],
     });
+  });
+});
+
+describe("findSnappedCadenceTimestampsError", () => {
+  it("rejects a later section snapped to a 60s :00 grid", () => {
+    const error = findSnappedCadenceTimestampsError([
+      {
+        section_name: "Warm Up",
+        exercises: [
+          { name: "Neck Circles", timestamp: "00:50" },
+          { name: "Shoulder Circles", timestamp: "01:25" },
+          { name: "Arm Circles", timestamp: "01:58" },
+        ],
+      },
+      {
+        section_name: "Upper Body",
+        exercises: [
+          { name: "Walkout", timestamp: "07:00" },
+          { name: "Push-up", timestamp: "08:00" },
+          { name: "Burpee", timestamp: "09:00" },
+          { name: "Pike Push-up", timestamp: "10:00" },
+          { name: "Diamond Push-up", timestamp: "11:00" },
+        ],
+      },
+    ]);
+    expect(error).toMatch(/Upper Body/);
+    expect(error).toMatch(/07:00, 07:57, 08:58/);
+  });
+
+  it("rejects a constant-offset 60s grid", () => {
+    const error = findSnappedCadenceTimestampsError([
+      {
+        section_name: "Upper Body",
+        exercises: [
+          { name: "Walkout", timestamp: "06:53" },
+          { name: "Push-up", timestamp: "07:53" },
+          { name: "Burpee", timestamp: "08:53" },
+          { name: "Pike Push-up", timestamp: "09:53" },
+          { name: "Diamond Push-up", timestamp: "10:53" },
+        ],
+      },
+    ]);
+    expect(error).toMatch(/Upper Body/);
+    expect(error).toMatch(/07:53/);
+  });
+
+  it("allows watched clocks that only look close to a minute", () => {
+    expect(
+      findSnappedCadenceTimestampsError([
+        {
+          section_name: "Upper Body",
+          exercises: [
+            { name: "Walkout", timestamp: "07:00" },
+            { name: "Push-up", timestamp: "07:57" },
+            { name: "Burpee", timestamp: "08:58" },
+            { name: "Pike Push-up", timestamp: "09:58" },
+            { name: "Diamond Push-up", timestamp: "10:58" },
+          ],
+        },
+      ]),
+    ).toBeUndefined();
+  });
+
+  it("rejects expand when a section is a synthetic grid", () => {
+    expect(() =>
+      expandImportStructure({
+        overview: {
+          workout_length: "45 minutes",
+          interval_pattern: "30s work / 30s rest",
+        },
+        sections: [
+          {
+            section_name: "Upper Body",
+            exercises: [
+              { name: "Walkout", timestamp: "07:00" },
+              { name: "Push-up", timestamp: "08:00" },
+              { name: "Burpee", timestamp: "09:00" },
+              { name: "Pike", timestamp: "10:00" },
+              { name: "Diamond", timestamp: "11:00" },
+            ],
+          },
+        ],
+      }),
+    ).toThrow(ImportStructureValidationError);
   });
 });
 

@@ -12,34 +12,12 @@ import {
 import { generateText, stepCountIs } from "ai";
 import inquirer from "inquirer";
 
-import { findAbuttingExerciseTimelineError } from "../src/features/workouts/schemas";
-import {
-  IMPORT_VIDEO_ELIGIBILITY_MCP,
-  VIDEO_PLAYBACK_REJECT_REASON,
-} from "../src/features/workouts/import-eligibility";
-import { generateYoutubeImportPrompt } from "../src/features/workouts/import-prompt";
-import {
-  extractYoutubeWatchUrls,
-  fetchYoutubeOembed,
-  type YoutubeOembed,
-} from "../src/shared/youtube";
-
 const DEFAULT_MCP_URL = "http://localhost:3000/api/mcp";
 const DEFAULT_MODEL = "gemini-3.7-flash";
-const DEFAULT_YOUTUBE_URL = "https://www.youtube.com/watch?v=38z61KcalV4";
 
-type TaskId =
-  | "create_workout"
-  | "get_import_prompt"
-  | "check_performance"
-  | "check_friends";
+type TaskId = "check_performance" | "check_friends";
 
-const TASK_IDS: TaskId[] = [
-  "create_workout",
-  "get_import_prompt",
-  "check_performance",
-  "check_friends",
-];
+const TASK_IDS: TaskId[] = ["check_performance", "check_friends"];
 
 function printHelp() {
   console.log(`Usage: pnpm ai:test-mcp -- [options]
@@ -48,8 +26,7 @@ Options:
   --url <url>              MCP server URL (env MCP_URL)
   --api-key <key>          MCP API key (env MCP_API_KEY)
   --model <id>             Gemini model (env GEMINI_MODEL)
-  --task <id>              create_workout | get_import_prompt | check_performance | check_friends
-  --youtube-url <url>      YouTube watch URL for create_workout / get_import_prompt (env YOUTUBE_URL)
+  --task <id>              check_performance | check_friends
   --username <name>        Friend username for check_friends
   -h, --help               Show this help
 
@@ -65,7 +42,6 @@ function parseCli() {
       "api-key": { type: "string" },
       model: { type: "string" },
       task: { type: "string" },
-      "youtube-url": { type: "string" },
       username: { type: "string" },
       help: { type: "boolean", short: "h" },
     },
@@ -88,51 +64,9 @@ function parseTaskId(value: string | undefined): TaskId | undefined {
 }
 
 const TASK_TOOL_NAMES: Record<TaskId, string[]> = {
-  create_workout: ["import_full_workout"],
-  get_import_prompt: ["get_youtube_import_prompt"],
   check_performance: ["performance_metrics", "list_workouts"],
   check_friends: ["get_social_profile", "performance_metrics"],
 };
-
-function createWorkoutSystem(): string {
-  return [
-    "Follow the user prompt exactly — it is the same extraction prompt as /workouts/import.",
-    "The attached video is the source of truth. After you extract the JSON, call import_full_workout once with that JSON plus sourceVideoUrl. Do not convert MM:SS timestamps to seconds or invent videoEndTime.",
-    IMPORT_VIDEO_ELIGIBILITY_MCP,
-    "Do not search the web for timestamps, chapters, or transcripts.",
-  ].join("\n");
-}
-
-function createWorkoutPrompt(
-  youtubeUrl: string,
-  oembed?: YoutubeOembed,
-): string {
-  const meta = [
-    `Canonical URL: ${youtubeUrl}`,
-    oembed?.title ? `Title: ${oembed.title}` : null,
-    oembed?.authorName ? `Author: ${oembed.authorName}` : null,
-    oembed?.channelUrl ? `Channel: ${oembed.channelUrl}` : null,
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  return `${generateYoutubeImportPrompt(youtubeUrl)}
-
-If the video is eligible, call import_full_workout once with the extracted JSON plus sourceVideoUrl=${youtubeUrl}.
-Do not convert timestamps to seconds. Do not invent videoEndTime.
-If it is not eligible, do not call any tool.
-
-${meta}
-
-After the tool returns, summarize the created workout from tool output only.`;
-}
-
-function getImportPromptPrompt(youtubeUrl: string): string {
-  return `Use Epic Gains MCP to fetch the official YouTube exercise-extraction prompt.
-
-1. Call get_youtube_import_prompt with youtubeUrl="${youtubeUrl}".
-2. From the tool output only, confirm that (a) instructions say you must apply the prompt to the video to extract real values, (b) the prompt includes the watch URL, eligibility/refusal rules, and the JSON schema. Quote the first line of the prompt field. Do not invent a prompt if the tool fails.`;
-}
 
 function performancePrompt(): string {
   return `Use Epic Gains MCP to summarize my training progress.
@@ -196,14 +130,6 @@ function assertMcpUrl(url: string): string {
     );
   }
   return trimmed;
-}
-
-function assertYoutubeUrl(value: string): string {
-  const urls = extractYoutubeWatchUrls(value);
-  if (urls.length === 0) {
-    throw new Error("Enter a YouTube watch URL (youtube.com/watch or youtu.be).");
-  }
-  return urls[0]!;
 }
 
 async function connectClient(input: {
@@ -291,65 +217,6 @@ function toolCallInput(call: { input?: unknown }): unknown {
   return call.input;
 }
 
-function formatImportTimeline(input: unknown): string {
-  if (typeof input !== "object" || input === null) {
-    return "(no input)";
-  }
-  const structured = input as {
-    workoutName?: unknown;
-    sections?: Array<{
-      exercises?: Array<{ name?: unknown; timestamp?: unknown }>;
-    }>;
-  };
-  if (Array.isArray(structured.sections)) {
-    const stamps = structured.sections.flatMap((section) =>
-      (section.exercises ?? []).map((exercise) => String(exercise.timestamp ?? "?")),
-    );
-    return [
-      `name=${typeof structured.workoutName === "string" ? structured.workoutName : "?"}`,
-      `sections=${structured.sections.length}`,
-      `starts=[${stamps.join(", ")}]`,
-    ].join("  ");
-  }
-  const record = input as {
-    workoutName?: unknown;
-    exercises?: Array<{
-      name?: unknown;
-      videoStartTime?: unknown;
-      videoEndTime?: unknown;
-    }>;
-  };
-  const exercises = Array.isArray(record.exercises) ? record.exercises : [];
-  const times = exercises.map((exercise) => ({
-    videoStartTime: Number(exercise.videoStartTime),
-    videoEndTime:
-      typeof exercise.videoEndTime === "number"
-        ? exercise.videoEndTime
-        : undefined,
-  }));
-  const gaps = times
-    .map((time, index) => {
-      const next = times[index + 1];
-      if (!next || time.videoEndTime === undefined) return undefined;
-      const delta = next.videoStartTime - time.videoEndTime;
-      return delta === 0 ? undefined : `#${index}→${index + 1} gap=${delta}s`;
-    })
-    .filter((part): part is string => Boolean(part));
-  const abut = findAbuttingExerciseTimelineError(times);
-  const starts = times
-    .map((time) => time.videoStartTime)
-    .filter((value) => Number.isFinite(value));
-  return [
-    `name=${typeof record.workoutName === "string" ? record.workoutName : "?"}`,
-    `moves=${exercises.length}`,
-    `starts=[${starts.join(", ")}]`,
-    abut ? `timeline=${abut}` : "timeline=abut",
-    gaps.length > 0 ? gaps.join("; ") : null,
-  ]
-    .filter(Boolean)
-    .join("  ");
-}
-
 function logToolCalls(
   steps: Array<{
     toolCalls: Array<{ toolName: string; input?: unknown }>;
@@ -359,12 +226,6 @@ function logToolCalls(
   for (const [stepIndex, step] of steps.entries()) {
     for (const call of step.toolCalls) {
       const input = toolCallInput(call);
-      if (call.toolName === "import_full_workout") {
-        console.log(
-          `  step ${stepIndex + 1}  ${call.toolName}  ${formatImportTimeline(input)}`,
-        );
-        continue;
-      }
       const preview = JSON.stringify(input ?? {}).slice(0, 160);
       console.log(`  step ${stepIndex + 1}  ${call.toolName}  ${preview}`);
     }
@@ -377,34 +238,19 @@ async function runLlmTrial(input: {
   model: string;
   task: TaskId;
   prompt: string;
-  youtubeUrl?: string;
   maxSteps: number;
 }) {
   const google = createGoogle({ apiKey: geminiApiKey() });
   const started = performance.now();
   const result = await generateText({
     model: google(input.model),
-    system:
-      input.task === "create_workout"
-        ? createWorkoutSystem()
-        : input.client.instructions,
+    system: input.client.instructions,
     tools: pickTools(input.tools, TASK_TOOL_NAMES[input.task]),
     stopWhen: stepCountIs(input.maxSteps),
     messages: [
       {
         role: "user",
-        content: [
-          { type: "text", text: input.prompt },
-          ...(input.youtubeUrl
-            ? [
-                {
-                  type: "file" as const,
-                  data: input.youtubeUrl,
-                  mediaType: "video/mp4",
-                },
-              ]
-            : []),
-        ],
+        content: [{ type: "text", text: input.prompt }],
       },
     ],
   });
@@ -446,8 +292,6 @@ async function main() {
     apiKey: cli["api-key"]?.trim() || process.env.MCP_API_KEY?.trim(),
     model: cli.model?.trim() || process.env.GEMINI_MODEL?.trim(),
     task: parseTaskId(cli.task?.trim()),
-    youtubeUrl:
-      cli["youtube-url"]?.trim() || process.env.YOUTUBE_URL?.trim(),
     username: cli.username?.trim(),
   };
 
@@ -456,7 +300,6 @@ async function main() {
     apiKey?: string;
     model?: string;
     task?: TaskId;
-    youtubeUrl?: string;
     username?: string;
   }>([
     {
@@ -495,16 +338,8 @@ async function main() {
       name: "task",
       message: "What should Gemini do?",
       when: () => !fromCli.task,
-      default: "create_workout",
+      default: "check_performance",
       choices: [
-        {
-          name: "Create a workout (YouTube URL → import_full_workout)",
-          value: "create_workout",
-        },
-        {
-          name: "Get YouTube import prompt (URL → get_youtube_import_prompt)",
-          value: "get_import_prompt",
-        },
         {
           name: "Check performance (progress summary)",
           value: "check_performance",
@@ -514,27 +349,6 @@ async function main() {
           value: "check_friends",
         },
       ],
-    },
-    {
-      type: "input",
-      name: "youtubeUrl",
-      message: "YouTube workout URL",
-      when: (answers) => {
-        const task = fromCli.task ?? answers.task;
-        return (
-          (task === "create_workout" || task === "get_import_prompt") &&
-          !fromCli.youtubeUrl
-        );
-      },
-      default: DEFAULT_YOUTUBE_URL,
-      validate: (value: string) => {
-        try {
-          assertYoutubeUrl(value);
-          return true;
-        } catch (error) {
-          return formatError(error);
-        }
-      },
     },
     {
       type: "input",
@@ -554,27 +368,13 @@ async function main() {
   const model = fromCli.model ?? prompted.model ?? DEFAULT_MODEL;
   const task = fromCli.task ?? prompted.task!;
   const extras = {
-    youtubeUrl: fromCli.youtubeUrl ?? prompted.youtubeUrl,
     username: fromCli.username ?? prompted.username,
   };
 
-  const youtubeUrl =
-    (task === "create_workout" || task === "get_import_prompt") &&
-    extras.youtubeUrl
-      ? assertYoutubeUrl(extras.youtubeUrl)
-      : undefined;
-  const oembed =
-    task === "create_workout" && youtubeUrl
-      ? await fetchYoutubeOembed(youtubeUrl)
-      : undefined;
   const prompt =
-    task === "create_workout" && youtubeUrl
-      ? createWorkoutPrompt(youtubeUrl, oembed)
-      : task === "get_import_prompt" && youtubeUrl
-        ? getImportPromptPrompt(youtubeUrl)
-        : task === "check_friends"
-          ? friendsPrompt(extras.username!.trim())
-          : performancePrompt();
+    task === "check_friends"
+      ? friendsPrompt(extras.username!.trim())
+      : performancePrompt();
   const maxSteps = 8;
 
   let client: MCPClient | undefined;
@@ -597,43 +397,12 @@ async function main() {
       `list_workouts ${probes.callMs}ms  ${probes.listWorkoutsOk ? "ok" : "error"}  ${probes.listWorkoutsPreview}`,
     );
 
-    if (task === "create_workout" && youtubeUrl) {
-      console.log("Attaching video:", youtubeUrl);
-      if (oembed) {
-        console.log(
-          `oembed  title=${oembed.title}  author=${oembed.authorName}`,
-        );
-      } else {
-        console.log("oembed  unavailable (playback likely disabled)");
-      }
-    }
-
-    if (task === "get_import_prompt" && youtubeUrl) {
-      const started = performance.now();
-      const promptResult = await client.callTool({
-        name: "get_youtube_import_prompt",
-        arguments: { youtubeUrl },
-      });
-      const ms = Math.round(performance.now() - started);
-      const summary = summarizeCallToolResult(promptResult);
-      console.log(
-        `get_youtube_import_prompt ${ms}ms  ${summary.ok ? "ok" : "error"}  ${summary.preview}`,
-      );
-    }
-
-    if (task === "create_workout" && youtubeUrl && !oembed) {
-      console.log("\n--- response ---\n");
-      console.log(VIDEO_PLAYBACK_REJECT_REASON);
-      return;
-    }
-
     const llm = await runLlmTrial({
       client,
       tools: probes.tools,
       model: model.trim() || DEFAULT_MODEL,
       task,
       prompt,
-      youtubeUrl: oembed ? youtubeUrl : undefined,
       maxSteps,
     });
     console.log(

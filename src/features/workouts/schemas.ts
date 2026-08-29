@@ -328,7 +328,7 @@ export const importWorkoutStructureSchema = z.object({
                   "Canonical labelled move. One row per distinct move — do not repeat the same name for each 30s slot of a continuous block.",
                 ),
               timestamp: clockTimestampSchema.describe(
-                "Exact MM:SS when this move starts on the video clock (timer, beep, overlay). Write the second you see (00:50, 01:25). Never round to :00/:30 or invent a 30s grid.",
+                "Exact MM:SS when this move starts on the video clock (timer, beep, overlay). Write the second you see (07:57, 08:58). Never invent 08:00, 09:00 or a shifted grid like 07:53, 08:53.",
               ),
               metric_profile: metricProfileEnum.optional(),
               metricProfile: metricProfileEnum.optional(),

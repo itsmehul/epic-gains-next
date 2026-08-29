@@ -10,14 +10,6 @@ import {
   getExerciseById,
   listExercises,
 } from "@/db/repositories/exercise.repository";
-import { generateYoutubeImportPrompt } from "@/features/workouts/import-prompt";
-import {
-  importSharedWorkout,
-  parseImportWorkoutBody,
-  WorkoutImportConflictError,
-  WorkoutImportRejectedError,
-} from "@/features/workouts/import-workout";
-import { getYouTubeVideoId } from "@/features/workouts/youtube";
 import {
   deleteWorkoutExercise,
   getWorkoutExerciseById,
@@ -36,8 +28,6 @@ import {
 import { canViewUserWorkouts } from "@/features/social/privacy";
 import {
   exerciseMetaDataSchema,
-  importFullWorkoutSchema,
-  importWorkoutStructureSchema,
   muscleGroupEnum,
   updateWorkoutSchema,
 } from "@/features/workouts/schemas";
@@ -57,7 +47,7 @@ export function registerWorkoutMcpTools(server: McpServer) {
     {
       title: "List workouts",
       description:
-        "List workouts for the authenticated user. Do not call this to assemble a follow-along import — use import_full_workout.",
+        "List workouts for the authenticated user.",
       inputSchema: z.object({}),
     },
     async () => {
@@ -81,78 +71,6 @@ export function registerWorkoutMcpTools(server: McpServer) {
       const item = await getWorkoutById(workoutId);
       if (!item) return mcpErrorResult("Workout not found");
       return mcpTextResult(item);
-    },
-  );
-
-  server.registerTool(
-    "get_youtube_import_prompt",
-    {
-      title: "Get YouTube import prompt",
-      description:
-        "Return the official prompt for extracting timed exercises from a YouTube follow-along. The prompt is not the workout: you must apply it to the actual video (watch timers, beeps, overlays) to extract real names, timestamps, and metrics. Do not invent values from the schema. After extraction, call import_full_workout.",
-      inputSchema: z.object({
-        youtubeUrl: z
-          .string()
-          .trim()
-          .min(1)
-          .describe("YouTube watch, shorts, live, embed, or youtu.be URL."),
-      }),
-    },
-    async ({ youtubeUrl }) => {
-      getMcpAuth();
-      const videoId = getYouTubeVideoId(youtubeUrl);
-      if (!videoId) {
-        return mcpErrorResult("Paste a valid YouTube video link.");
-      }
-      const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
-      return mcpTextResult({
-        youtubeUrl: watchUrl,
-        instructions:
-          "Apply this prompt to the YouTube video itself. Watch the video and extract the JSON the prompt specifies (clock timestamps and sections). Do not invent values from the schema. Then call import_full_workout with that JSON plus sourceVideoUrl. Do not convert timestamps to seconds or invent videoEndTime — the server does that the same way as the YouTube import page.",
-        prompt: generateYoutubeImportPrompt(watchUrl),
-      });
-    },
-  );
-
-  server.registerTool(
-    "import_full_workout",
-    {
-      title: "Import full workout",
-      description:
-        "Create a follow-along from get_youtube_import_prompt JSON. Required: call that tool first, watch the video, then send workoutName, author, channelUrl, overview, sections with exact MM:SS starts (00:50 not 01:00) plus sourceVideoUrl. Do not snap times to a 30s grid, duplicate a move per interval slot, convert clocks to seconds, or invent videoEndTime. Do not call this if playback is blocked or the video is unlabeled Zumba/dance. Do not call list_exercises or list_workouts first.",
-      inputSchema: z.union([
-        importWorkoutStructureSchema.extend({
-          sourceVideoUrl: z
-            .string()
-            .url()
-            .describe("Canonical YouTube watch URL."),
-        }),
-        importFullWorkoutSchema,
-      ]),
-    },
-    async (args) => {
-      const { userId } = getMcpAuth();
-      const parsed = parseImportWorkoutBody(args);
-      if (!parsed) {
-        return mcpErrorResult("Invalid import workout data");
-      }
-
-      try {
-        const result = await importSharedWorkout(userId, parsed);
-        return mcpTextResult(result);
-      } catch (error) {
-        if (error instanceof WorkoutImportConflictError) {
-          return mcpErrorResult(
-            `${error.message}: ${error.existingWorkoutId}`,
-          );
-        }
-        if (error instanceof WorkoutImportRejectedError) {
-          return mcpErrorResult(error.message);
-        }
-        return mcpErrorResult(
-          error instanceof Error ? error.message : "Failed to import workout",
-        );
-      }
     },
   );
 
@@ -211,7 +129,7 @@ export function registerWorkoutMcpTools(server: McpServer) {
     {
       title: "List exercises",
       description:
-        "List the shared exercise catalog. Do not call this when importing a follow-along; import_full_workout reuses matching names.",
+        "List the shared exercise catalog.",
       inputSchema: z.object({}),
     },
     async () => {

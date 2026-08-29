@@ -32,5 +32,6 @@ describe("generateYoutubeImportPrompt", () => {
     expect(prompt).toContain('"rejected": true');
     expect(prompt).toContain("Never round to the nearest");
     expect(prompt).not.toContain("lock to this underlying interval grid");
+    expect(prompt).toContain("06:53, 07:53, 08:53");
   });
 });
