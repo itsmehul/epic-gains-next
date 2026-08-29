@@ -30,5 +30,7 @@ describe("generateYoutubeImportPrompt", () => {
     );
     expect(prompt).toContain("Unstructured dance");
     expect(prompt).toContain('"rejected": true');
+    expect(prompt).toContain("Never round to the nearest");
+    expect(prompt).not.toContain("lock to this underlying interval grid");
   });
 });

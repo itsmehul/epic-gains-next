@@ -22,7 +22,7 @@ Match the manual YouTube import page: official prompt → watch the video → pa
 ## Workflow
 
 1. Call \`get_youtube_import_prompt\` with the YouTube URL. Use the returned \`prompt\` field. The tool result is instructions only — not the workout.
-2. Apply that prompt to the video (timers, beeps, overlays). Return the JSON the prompt specifies (\`overview\`, \`sections\`, \`timestamp\` as \`MM:SS\`). Do not invent names or times from the schema.
+2. Apply that prompt to the video (timers, beeps, overlays). Return the JSON the prompt specifies (\`overview\`, \`sections\`, \`timestamp\` as the exact \`MM:SS\` on screen — not a rounded :00/:30 grid). One row per labelled move. Do not invent names or times from the schema.
 3. If the JSON is a refusal (\`rejected: true\`), stop. Tell the user why. Do not call \`import_full_workout\`.
 4. Do not call \`list_exercises\`, \`list_workouts\`, or piecemeal create/update tools.
 5. Call \`import_full_workout\` once with that JSON plus \`sourceVideoUrl\` (canonical watch URL). Do not convert timestamps to seconds. Do not invent \`videoEndTime\` or flatten sections — the server derives clip ends from the next start, same as \`/workouts/import\`.

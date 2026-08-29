@@ -33,26 +33,29 @@ ${IMPORT_VIDEO_ELIGIBILITY_RULES}
 
 ### Timestamp Accuracy & Synchronization Rules (CRITICAL)
 
-To achieve second-level accuracy on follow-along workouts, follow these synchronization heuristics:
+Record the **exact video clock** when each move starts. Write the second you see (\`00:50\`, \`01:25\`, \`01:58\`). Never round to the nearest \`:00\` or \`:30\`.
 
-1. **Detect the Workout Cadence / Interval Grid**:
-   - Most follow-along workouts run on a strict mathematical interval grid (e.g., exactly 60s per block, 45s work / 15s rest, 40s work / 20s rest, or 30s intervals).
-   - Identify the repeating time grid (e.g., starting at \`:15\` or \`:00\` of every minute). All exercise starts should lock to this underlying interval grid.
+1. **Interval pattern is metadata, not a timestamp source**:
+   - Detect cadence (e.g. 30s work / 30s rest) for \`overview.interval_pattern\` and \`suggested_time\` only.
+   - Do **not** invent a synthetic grid such as \`01:00\`, \`01:30\`, \`02:00\`. A 30/30 class often starts work at \`:28\`, \`:50\`, or \`:57\`.
+   - Skip rest / water / "catch your breath" entirely. The next row is the next **work** start. The server fills clip ends from the next start.
 
 2. **Visual & Audio Start Triggers (Prioritize Over Speech)**:
-   - **On-Screen Timer / Progress Bar**: The timestamp is the exact second the round countdown timer appears or resets (e.g., when a 60s or 45s clock begins).
-   - **Audio Chimes / Beeps**: The timestamp is the exact moment the transition sound effect plays (e.g., 3-2-1 beep, whistle, or bell ding).
-   - **Title Overlay**: The moment the on-screen banner/text announcing the current exercise appears.
-   - **First Rep / Movement**: If no timer/beeps exist, use the exact second the instructor enters position and initiates the first repetition or static hold.
+   - **On-Screen Timer / Progress Bar**: The exact second the round countdown appears or resets.
+   - **Audio Chimes / Beeps**: The exact moment the transition sound plays (3-2-1 beep, whistle, ding).
+   - **Title Overlay**: The moment the on-screen banner announcing the current exercise appears.
+   - **First Rep / Movement**: If no timer/beeps exist, the second the instructor initiates the first rep or hold.
 
-3. **Beware the "Mid-Set Verbal Cue" Trap**:
-   - In coached workouts, instructors often talk through form during the first 10–15 seconds of an interval before saying *"let's begin"*, *"start"*, or *"here we go"*.
-   - **DO NOT** timestamp when the coach says *"let's begin"* mid-round. Timestamp the start of the round/timer itself.
+3. **One labelled move = one row**:
+   - If the same move runs across two consecutive work slots (e.g. hamstring sweeps for 60s on a 30s grid), emit **one** exercise at the first start with \`suggested_time\` equal to total work seconds. Do not duplicate the name.
 
-4. **Timestamp Format & Bounds**:
-   - Use \`MM:SS\` format (e.g., \`05:15\`). Use \`HH:MM:SS\` ONLY if total duration is 1 hour or longer.
-   - Do NOT prepend \`00:\` or \`01:\` to standard minute timestamps (e.g., write \`11:18\`, not \`00:11:18\` or \`01:11:18\`).
-   - Timestamps must be strictly ascending and never exceed the total video length.
+4. **Beware the "Mid-Set Verbal Cue" Trap**:
+   - Instructors often talk through form for 10–15 seconds before saying *"let's begin"*. Timestamp the timer/beep/overlay, not the spoken "start".
+
+5. **Timestamp Format & Bounds**:
+   - Use \`MM:SS\` (e.g., \`05:15\`). Use \`HH:MM:SS\` only if the video is 1 hour or longer.
+   - Do NOT prepend \`00:\` or \`01:\` (write \`11:18\`, not \`00:11:18\`).
+   - Timestamps must be strictly ascending and never exceed the video length.
 
 ---
 
@@ -102,7 +105,7 @@ If the video is eligible, return ONLY the JSON object inside a single markdown c
       "exercises": [
         {
           "name": "string (Canonical name without angles, degrees, or parenthetical form cues)",
-          "timestamp": "string (MM:SS start aligned to timer/beep/movement)",
+          "timestamp": "string (exact MM:SS on the video clock — not rounded)",
           "metric_profile": "string",
           "muscle_group": "string",
           "key_muscles": ["string"],

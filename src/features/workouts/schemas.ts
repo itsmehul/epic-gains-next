@@ -302,7 +302,14 @@ export const importWorkoutStructureSchema = z.object({
   overview: z.object({
     workout_length: z.string().trim().min(1).max(64),
     structure: z.string().trim().min(1).max(200).optional(),
-    interval_pattern: z.string().trim().min(1).max(128),
+    interval_pattern: z
+      .string()
+      .trim()
+      .min(1)
+      .max(128)
+      .describe(
+        "Cadence as spoken/shown (e.g. 30s work / 30s rest). Metadata only — do not derive timestamps from this pattern.",
+      ),
     equipment_needed: z.array(z.string().trim().min(1).max(64)).max(20).optional(),
   }),
   sections: z
@@ -312,8 +319,17 @@ export const importWorkoutStructureSchema = z.object({
         exercises: z
           .array(
             z.object({
-              name: z.string().trim().min(1).max(200),
-              timestamp: clockTimestampSchema,
+              name: z
+                .string()
+                .trim()
+                .min(1)
+                .max(200)
+                .describe(
+                  "Canonical labelled move. One row per distinct move — do not repeat the same name for each 30s slot of a continuous block.",
+                ),
+              timestamp: clockTimestampSchema.describe(
+                "Exact MM:SS when this move starts on the video clock (timer, beep, overlay). Write the second you see (00:50, 01:25). Never round to :00/:30 or invent a 30s grid.",
+              ),
               metric_profile: metricProfileEnum.optional(),
               metricProfile: metricProfileEnum.optional(),
               muscle_group: muscleGroupEnum.optional(),

@@ -119,7 +119,7 @@ export function registerWorkoutMcpTools(server: McpServer) {
     {
       title: "Import full workout",
       description:
-        "Create a follow-along from get_youtube_import_prompt JSON. Prefer that payload: workoutName, author, channelUrl, overview, sections with MM:SS timestamps. Add sourceVideoUrl. Do not convert clocks to seconds or invent videoEndTime. Do not call this if playback is blocked or the video is unlabeled Zumba/dance. Do not call list_exercises or list_workouts first.",
+        "Create a follow-along from get_youtube_import_prompt JSON. Required: call that tool first, watch the video, then send workoutName, author, channelUrl, overview, sections with exact MM:SS starts (00:50 not 01:00) plus sourceVideoUrl. Do not snap times to a 30s grid, duplicate a move per interval slot, convert clocks to seconds, or invent videoEndTime. Do not call this if playback is blocked or the video is unlabeled Zumba/dance. Do not call list_exercises or list_workouts first.",
       inputSchema: z.union([
         importWorkoutStructureSchema.extend({
           sourceVideoUrl: z
