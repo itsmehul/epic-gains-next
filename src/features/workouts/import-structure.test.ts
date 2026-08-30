@@ -243,6 +243,73 @@ describe("findSnappedCadenceTimestampsError", () => {
     expect(error).toMatch(/07:53/);
   });
 
+  it("allows a 30s Tabata grid when work intervals are 20s", () => {
+    expect(
+      findSnappedCadenceTimestampsError([
+        {
+          name: "Beast Kick Through",
+          timestamp: "27:00",
+          chapter: "Tabata Finisher",
+          suggested_time: 20,
+        },
+        {
+          name: "Vertical Leg Toe Touch Crunch",
+          timestamp: "27:30",
+          chapter: "Tabata Finisher",
+          suggested_time: 20,
+        },
+        {
+          name: "Bear Crawl",
+          timestamp: "28:00",
+          chapter: "Tabata Finisher",
+          suggested_time: 20,
+        },
+        {
+          name: "Jump Squat",
+          timestamp: "28:30",
+          chapter: "Tabata Finisher",
+          suggested_time: 20,
+        },
+        {
+          name: "Beast Kick Through",
+          timestamp: "29:00",
+          chapter: "Tabata Finisher",
+          suggested_time: 20,
+        },
+        {
+          name: "Vertical Leg Toe Touch Crunch",
+          timestamp: "29:30",
+          chapter: "Tabata Finisher",
+          suggested_time: 20,
+        },
+        {
+          name: "Bear Crawl",
+          timestamp: "30:00",
+          chapter: "Tabata Finisher",
+          suggested_time: 20,
+        },
+        {
+          name: "Jump Squat",
+          timestamp: "30:30",
+          chapter: "Tabata Finisher",
+          suggested_time: 20,
+        },
+      ]),
+    ).toBeUndefined();
+  });
+
+  it("still rejects a 30s grid when work is not a 20s Tabata", () => {
+    const error = findSnappedCadenceTimestampsError([
+      { name: "Walkout", timestamp: "07:00", chapter: "Circuit", suggested_time: 30 },
+      { name: "Push-up", timestamp: "07:30", chapter: "Circuit", suggested_time: 30 },
+      { name: "Burpee", timestamp: "08:00", chapter: "Circuit", suggested_time: 30 },
+      { name: "Pike", timestamp: "08:30", chapter: "Circuit", suggested_time: 30 },
+      { name: "Diamond", timestamp: "09:00", chapter: "Circuit", suggested_time: 30 },
+    ]);
+    expect(error).toMatch(/Circuit/);
+    expect(error).toMatch(/synthetic 30s grid/);
+  });
+
   it("allows watched clocks that only look close to a minute", () => {
     expect(
       findSnappedCadenceTimestampsError([

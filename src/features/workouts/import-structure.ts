@@ -184,11 +184,27 @@ export class ImportStructureValidationError extends Error {
   }
 }
 
+type CadenceExercise = {
+  name: string;
+  timestamp: string;
+  chapter?: string;
+  suggested_time?: number;
+};
+
+function chapterWorkSeconds(group: CadenceExercise[]): number | undefined {
+  const times = group
+    .map((exercise) => exercise.suggested_time)
+    .filter((value): value is number => value != null && value > 0);
+  if (times.length === 0) return undefined;
+  const first = times[0];
+  return times.every((value) => value === first) ? first : undefined;
+}
+
 /** Gemini often invents a fixed cadence (08:00, 09:00 or 07:53, 08:53) instead of each beep. */
 export function findSnappedCadenceTimestampsError(
-  exercises: Array<{ name: string; timestamp: string; chapter?: string }>,
+  exercises: CadenceExercise[],
 ): string | undefined {
-  const groups = new Map<string, typeof exercises>();
+  const groups = new Map<string, CadenceExercise[]>();
   for (const exercise of exercises) {
     if (isRestWorkoutItem({ name: exercise.name })) continue;
     const key = exercise.chapter ?? "";
@@ -211,6 +227,10 @@ export function findSnappedCadenceTimestampsError(
     const gap = gaps[0];
     if (gap == null || !SYNTHETIC_GAPS.has(gap)) continue;
     if (!gaps.every((value) => value === gap)) continue;
+
+    const workSeconds = chapterWorkSeconds(group);
+    // 20s work / 10s rest (Tabata): work starts really are 30s apart.
+    if (workSeconds === 20 && gap === 30) continue;
 
     const clockSeconds = moves.map((move) => move.start % 60);
     const uniqueSeconds = new Set(clockSeconds);
