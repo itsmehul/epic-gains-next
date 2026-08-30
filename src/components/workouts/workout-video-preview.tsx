@@ -2,8 +2,8 @@
 
 import {
   IconArrowsMaximize,
-  IconArrowsMinimize,
   IconBadgeCc,
+  IconHeadphones,
   IconLoader2,
   IconMaximize,
   IconMinimize,
@@ -199,6 +199,7 @@ export function WorkoutVideoPreview({
   const [minimized, setMinimized] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [captionsOn, setCaptionsOn] = useState(false);
+  const [scrubbing, setScrubbing] = useState(false);
 
   const videoId = getYouTubeVideoId(videoUrl);
 
@@ -455,8 +456,9 @@ export function WorkoutVideoPreview({
     if (!player || !ready) return;
 
     try {
-      const state = player.getPlayerState();
-      if (state === YT_PLAYING || state === YT_BUFFERING) {
+      // After seekTo, YouTube often still reports PAUSED/CUED even once
+      // playVideo() has been sent. Toggle from our intended state.
+      if (playing) {
         setPlaying(false);
         setBuffering(false);
         setShowPlayPrompt(true);
@@ -485,7 +487,12 @@ export function WorkoutVideoPreview({
 
   function handlePlayClick(event: { stopPropagation: () => void }) {
     event.stopPropagation();
+    // Swallow a same-tick click-through onto the surface after the overlay
+    // unmounts. Clear on the next macrotask so a later pause click is not eaten.
     ignoreSurfaceClickRef.current = true;
+    window.setTimeout(() => {
+      ignoreSurfaceClickRef.current = false;
+    }, 0);
     togglePlayback();
   }
 
@@ -530,6 +537,7 @@ export function WorkoutVideoPreview({
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     scrubbingRef.current = true;
+    setScrubbing(true);
     setControlsVisible(true);
     clearHideControlsTimer();
     seekFromClientX(event.clientX);
@@ -543,6 +551,7 @@ export function WorkoutVideoPreview({
   function handleProgressPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
     if (!scrubbingRef.current) return;
     scrubbingRef.current = false;
+    setScrubbing(false);
     try {
       event.currentTarget.releasePointerCapture(event.pointerId);
     } catch {
@@ -618,10 +627,8 @@ export function WorkoutVideoPreview({
     setMinimized(true);
   }
 
-  const timeLabel =
-    duration > 0
-      ? `${formatVideoTimestamp(currentTime)} / ${formatVideoTimestamp(duration)}`
-      : formatVideoTimestamp(currentTime);
+  const remaining = duration > 0 ? Math.max(0, duration - currentTime) : 0;
+  const timeLabel = formatVideoTimestamp(remaining);
 
   return (
     <div className="relative flex flex-col">
@@ -684,7 +691,13 @@ export function WorkoutVideoPreview({
             <div
               className="border-background bg-foreground absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 shadow-sm"
               style={{ left: `${progress * 100}%` }}
-            />
+            >
+              {scrubbing ? (
+                <span className="bg-popover text-popover-foreground pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 rounded-md px-1.5 py-0.5 font-mono text-[11px] tabular-nums shadow-sm">
+                  {formatVideoTimestamp(currentTime)}
+                </span>
+              ) : null}
+            </div>
           </div>
 
           <span className="text-muted-foreground shrink-0 px-1 font-mono text-[11px] tabular-nums">
@@ -696,7 +709,7 @@ export function WorkoutVideoPreview({
             variant="ghost"
             size="icon-xs"
             className="rounded-full"
-            aria-label="Expand video"
+            aria-label="Show video"
             onClick={() => setMinimized(false)}
           >
             <IconArrowsMaximize />
@@ -775,27 +788,6 @@ export function WorkoutVideoPreview({
               </div>
             ) : null}
 
-            <button
-              type="button"
-              className={cn(
-                "absolute top-2 right-2 z-30 flex size-8 items-center justify-center rounded-full text-white shadow-sm transition-opacity duration-200 hover:bg-black/40",
-                controlsVisible || showPlayPrompt
-                  ? "opacity-100"
-                  : "pointer-events-none opacity-0",
-              )}
-              aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
-              onClick={(event) => {
-                event.stopPropagation();
-                void toggleFullscreen();
-              }}
-            >
-              {fullscreen ? (
-                <IconMinimize className="size-4" />
-              ) : (
-                <IconMaximize className="size-4" />
-              )}
-            </button>
-
             <div
               className={cn(
                 "pointer-events-none absolute inset-x-0 bottom-0 z-30 bg-linear-to-t from-black/75 via-black/35 to-transparent px-3 pt-10 pb-3 transition-opacity duration-200",
@@ -811,106 +803,129 @@ export function WorkoutVideoPreview({
                     : "pointer-events-none",
                 )}
               >
-              {author || channelUrl ? (
-                <div
-                  className="mb-1.5 min-w-0"
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  <WorkoutChannelLink
-                    author={author}
-                    channelUrl={channelUrl}
-                    className="max-w-full text-xs text-white/90 hover:text-white"
-                  />
-                </div>
-              ) : null}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="flex size-8 shrink-0 touch-manipulation items-center justify-center rounded-full text-white transition-colors hover:bg-white/15"
-                  aria-label={playing ? "Pause" : "Play"}
-                  onClick={handlePlayClick}
-                >
-                  {playing ? (
-                    <IconPlayerPauseFilled className="size-4" />
-                  ) : (
-                    <IconPlayerPlayFilled className="size-4 translate-x-px" />
-                  )}
-                </button>
-
-                <div
-                  ref={minimized ? undefined : progressTrackRef}
-                  className="relative h-7 flex-1 cursor-pointer touch-none"
-                  onPointerDown={handleProgressPointerDown}
-                  onPointerMove={handleProgressPointerMove}
-                  onPointerUp={handleProgressPointerUp}
-                  onPointerCancel={handleProgressPointerUp}
-                  role="slider"
-                  aria-label="Seek"
-                  aria-valuemin={0}
-                  aria-valuemax={Math.floor(duration)}
-                  aria-valuenow={Math.floor(currentTime)}
-                  tabIndex={0}
-                  onKeyDown={(event) => {
-                    const player = playerRef.current;
-                    if (!player || duration <= 0) return;
-                    if (event.key === "ArrowLeft") {
-                      event.preventDefault();
-                      applySeek(Math.max(0, currentTime - 5), {
-                        pause: !playing,
-                      });
-                    }
-                    if (event.key === "ArrowRight") {
-                      event.preventDefault();
-                      applySeek(Math.min(duration, currentTime + 5), {
-                        pause: !playing,
-                      });
-                    }
-                  }}
-                >
-                  <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/25">
-                    <div
-                      className="bg-primary h-full rounded-full"
-                      style={{ width: `${progress * 100}%` }}
+                {author || channelUrl ? (
+                  <div
+                    className="mb-1.5 min-w-0"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <WorkoutChannelLink
+                      author={author}
+                      channelUrl={channelUrl}
+                      className="max-w-full text-xs text-white/90 hover:text-white"
                     />
                   </div>
+                ) : null}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="flex size-8 shrink-0 touch-manipulation items-center justify-center rounded-full text-white transition-colors hover:bg-white/15"
+                    aria-label={playing ? "Pause" : "Play"}
+                    onClick={handlePlayClick}
+                  >
+                    {playing ? (
+                      <IconPlayerPauseFilled className="size-4" />
+                    ) : (
+                      <IconPlayerPlayFilled className="size-4 translate-x-px" />
+                    )}
+                  </button>
+
                   <div
-                    className="border-background absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white shadow"
-                    style={{ left: `${progress * 100}%` }}
-                  />
+                    ref={minimized ? undefined : progressTrackRef}
+                    className="relative h-7 flex-1 cursor-pointer touch-none"
+                    onPointerDown={handleProgressPointerDown}
+                    onPointerMove={handleProgressPointerMove}
+                    onPointerUp={handleProgressPointerUp}
+                    onPointerCancel={handleProgressPointerUp}
+                    role="slider"
+                    aria-label="Seek"
+                    aria-valuemin={0}
+                    aria-valuemax={Math.floor(duration)}
+                    aria-valuenow={Math.floor(currentTime)}
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      const player = playerRef.current;
+                      if (!player || duration <= 0) return;
+                      if (event.key === "ArrowLeft") {
+                        event.preventDefault();
+                        applySeek(Math.max(0, currentTime - 5), {
+                          pause: !playing,
+                        });
+                      }
+                      if (event.key === "ArrowRight") {
+                        event.preventDefault();
+                        applySeek(Math.min(duration, currentTime + 5), {
+                          pause: !playing,
+                        });
+                      }
+                    }}
+                  >
+                    <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/25">
+                      <div
+                        className="bg-primary h-full rounded-full"
+                        style={{ width: `${progress * 100}%` }}
+                      />
+                    </div>
+                    <div
+                      className="border-background absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white shadow"
+                      style={{ left: `${progress * 100}%` }}
+                    >
+                      {scrubbing ? (
+                        <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 rounded-md bg-black/80 px-1.5 py-0.5 font-mono text-[11px] tabular-nums whitespace-nowrap text-white shadow">
+                          {formatVideoTimestamp(currentTime)}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <span className="min-w-10 text-right font-mono text-[11px] tabular-nums text-white/90">
+                    {timeLabel}
+                  </span>
+
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex size-8 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15",
+                      captionsOn && "bg-white/20",
+                    )}
+                    aria-label={captionsOn ? "Hide captions" : "Show captions"}
+                    aria-pressed={captionsOn}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleCaptions();
+                    }}
+                  >
+                    <IconBadgeCc className="size-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15"
+                    aria-label="Audio player"
+                    title="Audio player"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      minimizePlayer();
+                    }}
+                  >
+                    <IconHeadphones className="size-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15"
+                    aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void toggleFullscreen();
+                    }}
+                  >
+                    {fullscreen ? (
+                      <IconMinimize className="size-4" />
+                    ) : (
+                      <IconMaximize className="size-4" />
+                    )}
+                  </button>
                 </div>
-
-                <span className="min-w-18 text-right font-mono text-[11px] tabular-nums text-white/90">
-                  {timeLabel}
-                </span>
-
-                <button
-                  type="button"
-                  className={cn(
-                    "flex size-8 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15",
-                    captionsOn && "bg-white/20",
-                  )}
-                  aria-label={captionsOn ? "Hide captions" : "Show captions"}
-                  aria-pressed={captionsOn}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    toggleCaptions();
-                  }}
-                >
-                  <IconBadgeCc className="size-4" />
-                </button>
-
-                <button
-                  type="button"
-                  className="flex size-8 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15"
-                  aria-label="Minimize video"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    minimizePlayer();
-                  }}
-                >
-                  <IconArrowsMinimize className="size-4" />
-                </button>
-              </div>
               </div>
             </div>
           </>
