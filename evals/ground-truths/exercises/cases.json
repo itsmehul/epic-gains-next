@@ -1,0 +1,14 @@
+[
+  {
+    "id": "disabled-playback",
+    "url": "https://www.youtube.com/watch?v=3EKcdVsYdk4",
+    "notes": "disabled playback",
+    "groundTruth": "3EKcdVsYdk4.json"
+  },
+  {
+    "id": "unstructured-dance",
+    "url": "https://www.youtube.com/watch?v=38z61KcalV4",
+    "notes": "dance without proper exercise name",
+    "groundTruth": "38z61KcalV4.json"
+  }
+]
