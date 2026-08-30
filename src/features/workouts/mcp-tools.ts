@@ -311,7 +311,7 @@ export function registerWorkoutMcpTools(server: McpServer) {
     {
       title: "Performance metrics",
       description:
-        "One-call training analytics for you or one named friend. After this returns, write the recap from the payload — do not call social tools next. For 1v1, call this twice in one turn (me + friend, same date) then stop. For everyone you follow, use following_performance_metrics once instead. If the athlete is missing or workouts are not visible, this tool errors — quote the error and stop. Do not call list_follow_requests, follow_user, get_social_profile, or list_following.",
+        "One-call training analytics for you or one named friend. After this returns, write the recap — do not call social tools next. For me vs a friend, use compare_performance_metrics once instead of calling this twice. For everyone you follow, use following_performance_metrics once. If the athlete is missing or workouts are not visible, this tool errors — quote the error and stop. Do not call list_follow_requests, follow_user, get_social_profile, or list_following.",
       inputSchema: z.object({
         date: z
           .string()

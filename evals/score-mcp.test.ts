@@ -15,18 +15,29 @@ describe("scoreMcpTrial", () => {
     expect(score.pass).toBe(true);
   });
 
-  it("fails when 1v1 skips the second performance_metrics call", () => {
+  it("passes a correct 1v1 compare trajectory", () => {
     const score = scoreMcpTrial({
       spec: TASK_EVAL_SPEC.compare_1v1,
-      toolCalls: ["performance_metrics"],
-      toolCallsByStep: [["performance_metrics"]],
+      toolCalls: ["compare_performance_metrics"],
+      toolCallsByStep: [["compare_performance_metrics"]],
+      toolErrorCount: 0,
+      text: "You vs Nitin.",
+    });
+    expect(score.pass).toBe(true);
+  });
+
+  it("fails when 1v1 uses performance_metrics instead of compare", () => {
+    const score = scoreMcpTrial({
+      spec: TASK_EVAL_SPEC.compare_1v1,
+      toolCalls: ["performance_metrics", "performance_metrics"],
+      toolCallsByStep: [["performance_metrics", "performance_metrics"]],
       toolErrorCount: 0,
       text: "You lifted more.",
     });
     expect(score.pass).toBe(false);
     expect(
       score.checks.some(
-        (check) => check.id === "same-turn-count:performance_metrics" && !check.pass,
+        (check) => check.id === "required:compare_performance_metrics" && !check.pass,
       ),
     ).toBe(true);
   });
@@ -34,13 +45,9 @@ describe("scoreMcpTrial", () => {
   it("fails when 1v1 probes follow requests", () => {
     const score = scoreMcpTrial({
       spec: TASK_EVAL_SPEC.compare_1v1,
-      toolCalls: [
-        "performance_metrics",
-        "performance_metrics",
-        "list_follow_requests",
-      ],
+      toolCalls: ["compare_performance_metrics", "list_follow_requests"],
       toolCallsByStep: [
-        ["performance_metrics", "performance_metrics"],
+        ["compare_performance_metrics"],
         ["list_follow_requests"],
       ],
       toolErrorCount: 0,

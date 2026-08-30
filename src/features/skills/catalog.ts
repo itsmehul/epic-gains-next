@@ -15,7 +15,7 @@ export const INSTALLABLE_SKILLS = [
     id: "compare-1v1",
     title: "1v1 comparison",
     description:
-      "Head-to-head recap of two athletes on the same day: you vs a friend, or two named friends.",
+      "Head-to-head recap of two athletes from one compare_performance_metrics call.",
     markdown: COMPARE_1V1_SKILL_MD,
   },
   {

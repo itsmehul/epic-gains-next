@@ -322,3 +322,85 @@ export async function getFollowingPerformanceMetrics(
     friends,
   };
 }
+
+export async function getComparePerformanceMetrics(
+  viewerId: string,
+  options: {
+    username: string;
+    leftUsername?: string;
+    date?: Date;
+    muscleGroup?: MuscleGroup;
+    keyMuscle?: string;
+  },
+) {
+  const asOf = options.date ?? new Date();
+  const left = await resolveCompareAthlete(viewerId, options.leftUsername);
+  const right = await resolveCompareAthlete(viewerId, options.username);
+
+  if (
+    left.ok &&
+    right.ok &&
+    left.ownerId === right.ownerId
+  ) {
+    return {
+      asOf: localDateString(asOf),
+      left: { username: left.username, error: "Cannot compare an athlete to themselves" },
+      right: { username: right.username, error: "Cannot compare an athlete to themselves" },
+    };
+  }
+
+  const [leftSide, rightSide] = await Promise.all([
+    loadCompareSide(viewerId, left, asOf, options),
+    loadCompareSide(viewerId, right, asOf, options),
+  ]);
+
+  return {
+    asOf: localDateString(asOf),
+    left: leftSide,
+    right: rightSide,
+  };
+}
+
+async function resolveCompareAthlete(
+  viewerId: string,
+  username?: string,
+): Promise<
+  | { ok: true; ownerId: string; username: string | null }
+  | { ok: false; username: string | null; error: string }
+> {
+  if (!username) {
+    return { ok: true, ownerId: viewerId, username: null };
+  }
+  const owner = await getUserByUsername(username);
+  if (!owner) {
+    return { ok: false, username, error: "User not found" };
+  }
+  if (!(await canViewUserWorkouts(viewerId, owner))) {
+    return {
+      ok: false,
+      username: owner.username,
+      error: "Workouts are not visible for this user",
+    };
+  }
+  return { ok: true, ownerId: owner.id, username: owner.username };
+}
+
+async function loadCompareSide(
+  viewerId: string,
+  athlete:
+    | { ok: true; ownerId: string; username: string | null }
+    | { ok: false; username: string | null; error: string },
+  asOf: Date,
+  options: { muscleGroup?: MuscleGroup; keyMuscle?: string },
+) {
+  if (!athlete.ok) {
+    return { username: athlete.username, error: athlete.error };
+  }
+  const metrics = await getPerformanceMetricsForUser(athlete.ownerId, {
+    date: asOf,
+    muscleGroup: options.muscleGroup,
+    keyMuscle: options.keyMuscle,
+    viewerId,
+  });
+  return { username: athlete.username, metrics };
+}

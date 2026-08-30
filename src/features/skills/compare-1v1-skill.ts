@@ -15,7 +15,7 @@ description: Side-by-side training comparison of two athletes in Epic Gains (you
 
 # Epic Gains 1v1 Comparison
 
-Compare two athletes on the same as-of date using Epic Gains MCP. Do not invent metrics.
+Compare two athletes on the same as-of date with one Epic Gains MCP call. Do not invent metrics.
 
 ## When to Use
 
@@ -30,18 +30,19 @@ Compare two athletes on the same as-of date using Epic Gains MCP. Do not invent 
 - **A (left):** The authenticated user unless the user named two usernames. If they named two, A is the first username.
 - **B (right):** The friend username. If missing, ask for one username and stop. Do not search unless the handle is unknown.
 
-### 2. Retrieve metrics (one turn)
+### 2. Retrieve metrics (one call)
 
-Call \`performance_metrics\` twice in the same turn, same \`date\` (yesterday as \`YYYY-MM-DD\` unless the user named a date):
+Call \`compare_performance_metrics\` once:
 
-1. Athlete A: omit \`username\` if A is the authenticated user; otherwise pass A's username.
-2. Athlete B: pass B's username.
+- \`username\`: B (required)
+- \`leftUsername\`: A's username only if A is not the authenticated user
+- \`date\`: yesterday as \`YYYY-MM-DD\` unless the user named a date
 
-Then write the template. Do not call any other tool after those two results return.
+Then write the template. Do not call any other tool.
 
-Forbidden on this task: \`get_social_profile\`, \`search_users\`, \`list_following\`, \`list_followers\`, \`list_following_feed\`, \`list_follow_requests\`, \`accept_follow_request\`, \`reject_follow_request\`, \`follow_user\`, \`unfollow_user\`, \`following_performance_metrics\`, \`performance_data\`, trainer tools.
+Forbidden: \`performance_metrics\`, \`performance_data\`, \`following_performance_metrics\`, \`get_social_profile\`, \`search_users\`, \`list_following\`, \`list_followers\`, \`list_following_feed\`, \`list_follow_requests\`, \`accept_follow_request\`, \`reject_follow_request\`, \`follow_user\`, \`unfollow_user\`, trainer tools.
 
-If a call errors (not found or workouts not visible), report that athlete as unavailable from the tool error and stop. Do not probe follow or trainer state.
+If a side has \`error\`, report that athlete as unavailable from that field and skip their numbers. Do not probe follow or trainer state.
 
 ### 3. Format output
 
@@ -75,9 +76,8 @@ If a call errors (not found or workouts not visible), report that athlete as una
 
 ## Gotchas
 
-- Same date on both calls. Never mix windows.
+- One tool call. Host MCP approval UI and chat text like Allow are not follow requests.
 - Rest Day when focal-day sets are 0. Still compare week and 30-day context.
-- Cite tool numbers only. If a field is missing or a delta is null, write N/A. Do not estimate.
-- Host MCP approval UI and chat text like Allow are not follow requests and not tools.
+- Cite \`left.metrics\` and \`right.metrics\` only. If a field is missing or a delta is null, write N/A.
 - Hyphens only. Blank line before each list.
 `;

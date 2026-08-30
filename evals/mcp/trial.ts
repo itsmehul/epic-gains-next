@@ -63,29 +63,38 @@ export const TASK_EVAL_SPEC: Record<TaskId, McpEvalSpec> = {
     forbiddenTools: [
       ...ANALYTICS_FORBIDDEN_SOCIAL,
       "following_performance_metrics",
+      "compare_performance_metrics",
     ],
   },
   check_friends: {
     requiredTools: ["following_performance_metrics"],
-    forbiddenTools: [...ANALYTICS_FORBIDDEN_SOCIAL, "performance_metrics"],
-  },
-  compare_1v1: {
-    requiredTools: ["performance_metrics"],
     forbiddenTools: [
       ...ANALYTICS_FORBIDDEN_SOCIAL,
+      "performance_metrics",
+      "compare_performance_metrics",
+    ],
+  },
+  compare_1v1: {
+    requiredTools: ["compare_performance_metrics"],
+    forbiddenTools: [
+      ...ANALYTICS_FORBIDDEN_SOCIAL,
+      "performance_metrics",
       "following_performance_metrics",
       "performance_data",
     ],
-    minCallsInOneStep: { performance_metrics: 2 },
   },
   compare_1v_all: {
     requiredTools: ["performance_metrics", "following_performance_metrics"],
-    forbiddenTools: [...ANALYTICS_FORBIDDEN_SOCIAL],
+    forbiddenTools: [...ANALYTICS_FORBIDDEN_SOCIAL, "compare_performance_metrics"],
     requireSameTurn: ["performance_metrics", "following_performance_metrics"],
   },
   friends_progress: {
     requiredTools: ["following_performance_metrics"],
-    forbiddenTools: [...ANALYTICS_FORBIDDEN_SOCIAL, "performance_metrics"],
+    forbiddenTools: [
+      ...ANALYTICS_FORBIDDEN_SOCIAL,
+      "performance_metrics",
+      "compare_performance_metrics",
+    ],
   },
 };
 
@@ -129,9 +138,9 @@ export function compare1v1Prompt(username: string): string {
   return `Compare my training to a friend 1v1, use Epic Gains.
 
 Follow the 1v1 skill exactly.
-1. Call performance_metrics twice in the same turn with date="${date}": once with no username (me), once with username="${username}".
-2. Do not call any other tool. After both results return, write the answer immediately.
-3. Write the 1v1 Comparison template from those two payloads only. Do not invent metrics or follow state.`;
+1. Call compare_performance_metrics once with date="${date}" and username="${username}". Do not pass leftUsername (me vs friend).
+2. Do not call performance_metrics, list_follow_requests, or any other tool.
+3. Write the 1v1 Comparison template from left.metrics and right.metrics only. Do not invent metrics or follow state.`;
 }
 
 export function compare1vAllPrompt(): string {

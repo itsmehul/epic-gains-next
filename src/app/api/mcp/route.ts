@@ -40,7 +40,7 @@ const mcpHandler = createMcpHandler(
     },
     instructions: [
       "Epic Gains MCP: workouts, exercise catalog, logged sets, Instagram-style follows.",
-      "Routing: you = performance_metrics with no username. One named friend or 1v1 = performance_metrics once per athlete (same date), then answer — two calls max for a 1v1. Everyone you follow = following_performance_metrics once. Never loop performance_metrics per friend. Never use performance_data for recaps, trends, streaks, or PRs.",
+      "Routing: you = performance_metrics with no username. Me vs one friend or two named friends = compare_performance_metrics once (never two performance_metrics calls). Everyone you follow = following_performance_metrics once. Never loop performance_metrics per friend. Never use performance_data for recaps, trends, streaks, or PRs.",
       "Cite numbers only from the last successful tool payload. If a call errors (not found / not visible), quote that error and stop. Do not invent metrics, visibility, or follow state.",
       "Do not call list_follow_requests, follow_user, get_social_profile, list_following, list_followers, list_following_feed, search_users, or trainer tools to check access or after a metrics error. list_follow_requests is incoming requests to follow YOU, and only when the user asks to review that inbox.",
       "Host MCP approval UI is not a follow request. Chat text like Allow is not a tool and not a social action.",

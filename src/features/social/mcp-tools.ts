@@ -24,6 +24,7 @@ import {
   assignTrainer,
   buildProfilePayload,
   followUser,
+  getComparePerformanceMetrics,
   getFollowingPerformanceMetrics,
   getMyAthletes,
   getMyTrainers,
@@ -60,7 +61,7 @@ export function registerSocialMcpTools(server: McpServer) {
     {
       title: "Get social profile",
       description:
-        "Get a user's public profile, follow relationship, trainer assignment, and workout visibility. Not for recaps or 1v1/circle comparisons — those use performance_metrics or following_performance_metrics. Do not call this to preflight access before metrics.",
+        "Get a user's public profile, follow relationship, trainer assignment, and workout visibility. Not for recaps or 1v1/circle comparisons — those use compare_performance_metrics, performance_metrics, or following_performance_metrics. Do not call this to preflight access.",
       inputSchema: z.object({
         username: z.string().min(1),
       }),
@@ -339,6 +340,63 @@ export function registerSocialMcpTools(server: McpServer) {
       }
 
       const result = await getFollowingPerformanceMetrics(userId, {
+        date: on ?? undefined,
+        muscleGroup,
+        keyMuscle,
+      });
+      return mcpTextResult(result);
+    },
+  );
+
+  server.registerTool(
+    "compare_performance_metrics",
+    {
+      title: "Compare performance metrics",
+      description:
+        "One-call 1v1 training comparison. Use this for me vs a friend or two named friends. Do not call performance_metrics twice, list_follow_requests, get_social_profile, or follow tools. Returns left and right on the same as-of date. Omit leftUsername for the authenticated user; username is the opponent. If a side is not visible, that side has error and the other side still returns. After this returns, write the comparison and stop.",
+      inputSchema: z.object({
+        username: z
+          .string()
+          .trim()
+          .min(1)
+          .describe("Opponent username (right side). Required."),
+        leftUsername: z
+          .string()
+          .trim()
+          .min(1)
+          .optional()
+          .describe(
+            "Left athlete username. Omit for the authenticated user (me vs friend).",
+          ),
+        date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional()
+          .describe(
+            "As-of date YYYY-MM-DD. Defaults to today. Same window rules as performance_metrics.",
+          ),
+        muscleGroup: muscleGroupEnum
+          .optional()
+          .describe("Only include exercises in this muscle group."),
+        keyMuscle: z
+          .string()
+          .trim()
+          .min(1)
+          .max(80)
+          .optional()
+          .describe("Only include exercises whose key muscles match this name."),
+      }),
+    },
+    async ({ username, leftUsername, date, muscleGroup, keyMuscle }) => {
+      const { userId } = getMcpAuth();
+      const on = date ? parseIsoDate(date) : new Date();
+      if (date && !on) {
+        return mcpErrorResult("date must be a valid YYYY-MM-DD calendar date");
+      }
+
+      const result = await getComparePerformanceMetrics(userId, {
+        username,
+        leftUsername,
         date: on ?? undefined,
         muscleGroup,
         keyMuscle,
