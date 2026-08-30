@@ -70,6 +70,7 @@ export const IconCopy = createIcon("content_copy");
 export const IconDiamondShine = createIcon("diamond_shine");
 export const IconDotsVertical = createIcon("more_vert");
 export const IconExternalLink = createIcon("open_in_new");
+export const IconFeedback = createIcon("feedback");
 export const IconFlame = createIcon("local_fire_department");
 export const IconHeadphones = createIcon("headphones");
 export const IconFocus2 = createIcon("center_focus_strong");

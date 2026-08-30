@@ -120,6 +120,20 @@
       "when": 1786809057125,
       "tag": "0016_conscious_maverick",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788072800802,
+      "tag": "0017_marvelous_solo",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788073447289,
+      "tag": "0018_zippy_tyger_tiger",
+      "breakpoints": true
     }
   ]
 }

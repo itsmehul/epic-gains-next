@@ -28,6 +28,12 @@ export type ExerciseMetaData = {
   targets?: TargetSet[];
 };
 
+export type ImportPromptAnnotation = {
+  instructionId: string;
+  verdict: "accurate" | "inaccurate" | "unclear";
+  note?: string;
+};
+
 export const METRIC_PROFILE_VALUES = [
   "WEIGHT_REPS",
   "BODYWEIGHT_REPS",
@@ -202,6 +208,36 @@ export const set = pgTable(
   ],
 );
 
+export const importPromptFeedback = pgTable(
+  "import_prompt_feedback",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    workoutId: text("workout_id").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    promptVersion: text("prompt_version").notNull(),
+    annotations: jsonb("annotations")
+      .$type<ImportPromptAnnotation[]>()
+      .notNull(),
+    comment: text("comment"),
+    videoTimestamp: doublePrecision("video_timestamp").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.workoutId],
+      foreignColumns: [workout.id],
+      name: "import_prompt_feedback_workout_id_fk",
+    }).onDelete("cascade"),
+    index("import_prompt_feedback_workoutId_idx").on(table.workoutId),
+    index("import_prompt_feedback_userId_idx").on(table.userId),
+    index("import_prompt_feedback_createdAt_idx").on(table.createdAt),
+  ],
+);
+
 export const comments = pgTable(
   "comments",
   {
@@ -247,6 +283,7 @@ export const workoutRelations = relations(workout, ({ one, many }) => ({
   workoutExercises: many(workoutExercise),
   sets: many(set),
   comments: many(comments),
+  importPromptFeedback: many(importPromptFeedback),
 }));
 
 export const workoutMembershipRelations = relations(
@@ -297,6 +334,20 @@ export const setRelations = relations(set, ({ one }) => ({
     references: [exercise.id],
   }),
 }));
+
+export const importPromptFeedbackRelations = relations(
+  importPromptFeedback,
+  ({ one }) => ({
+    workout: one(workout, {
+      fields: [importPromptFeedback.workoutId],
+      references: [workout.id],
+    }),
+    user: one(user, {
+      fields: [importPromptFeedback.userId],
+      references: [user.id],
+    }),
+  }),
+);
 
 export const commentsRelations = relations(comments, ({ one }) => ({
   exercise: one(exercise, {

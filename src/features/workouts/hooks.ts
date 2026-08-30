@@ -19,6 +19,7 @@ import type {
   CreateWorkoutInput,
   ImportFullWorkoutInput,
   ImportWorkoutStructureInput,
+  CreateImportPromptFeedbackInput,
   MergeExerciseInput,
   UpdateSetInput,
   UpdateWorkoutExerciseInput,
@@ -85,6 +86,22 @@ export const setKeys = {
   lists: (params?: { workoutId?: string; exerciseId?: string }) =>
     [...setKeys.all, "list", params ?? {}] as const,
   detail: (id: string) => [...setKeys.all, "detail", id] as const,
+};
+
+export const importPromptFeedbackKeys = {
+  all: ["import-prompt-feedback"] as const,
+  latest: (workoutId: string) =>
+    [...importPromptFeedbackKeys.all, "latest", workoutId] as const,
+};
+
+export type ImportPromptFeedback = {
+  id: string;
+  workoutId: string;
+  promptVersion: string;
+  annotations: CreateImportPromptFeedbackInput["annotations"];
+  comment: string | null;
+  videoTimestamp: number;
+  createdAt: string;
 };
 
 export function useWorkouts(options?: {
@@ -475,6 +492,25 @@ export function useDeleteSet() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: setKeys.all });
       void queryClient.invalidateQueries({ queryKey: workoutKeys.lists() });
+    },
+  });
+}
+
+export function useCreateImportPromptFeedback(workoutId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateImportPromptFeedbackInput) =>
+      apiFetch<ImportPromptFeedback>(
+        `/api/workouts/${workoutId}/prompt-feedback`,
+        {
+          method: "POST",
+          body: JSON.stringify(input),
+        },
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: importPromptFeedbackKeys.latest(workoutId),
+      });
     },
   });
 }

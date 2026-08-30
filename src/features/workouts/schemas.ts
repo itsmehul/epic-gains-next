@@ -4,6 +4,10 @@ import {
   METRIC_PROFILE_VALUES,
   MUSCLE_GROUP_VALUES,
 } from "@/db/schema/workout-schema";
+import {
+  IMPORT_PROMPT_INSTRUCTION_IDS,
+  IMPORT_PROMPT_VERDICTS,
+} from "@/features/workouts/import-prompt-instructions";
 
 export const targetSetSchema = z.object({
   reps: z.number().int().nonnegative().nullable().optional(),
@@ -422,3 +426,32 @@ export type ImportWorkoutStructureInput = z.infer<
 export type ListSetsQuery = z.infer<typeof listSetsQuerySchema>;
 export type CreateSetInput = z.infer<typeof createSetSchema>;
 export type UpdateSetInput = z.infer<typeof updateSetSchema>;
+
+export const importPromptAnnotationSchema = z.object({
+  instructionId: z
+    .string()
+    .refine((id) =>
+      (IMPORT_PROMPT_INSTRUCTION_IDS as readonly string[]).includes(id),
+    ),
+  verdict: z.enum(IMPORT_PROMPT_VERDICTS),
+  note: z.string().trim().max(1000).optional(),
+});
+
+export const createImportPromptFeedbackSchema = z
+  .object({
+    annotations: z.array(importPromptAnnotationSchema).max(32),
+    comment: z.string().trim().max(2000).optional(),
+    videoTimestamp: z.number().nonnegative(),
+  })
+  .refine(
+    (value) =>
+      value.annotations.length > 0 || Boolean(value.comment?.trim()),
+    { message: "Add at least one annotation or a comment" },
+  );
+
+export type ImportPromptAnnotationInput = z.infer<
+  typeof importPromptAnnotationSchema
+>;
+export type CreateImportPromptFeedbackInput = z.infer<
+  typeof createImportPromptFeedbackSchema
+>;

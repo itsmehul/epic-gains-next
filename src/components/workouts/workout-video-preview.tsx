@@ -3,6 +3,7 @@
 import {
   IconArrowsMaximize,
   IconBadgeCc,
+  IconFeedback,
   IconHeadphones,
   IconLoader2,
   IconMaximize,
@@ -22,6 +23,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { WorkoutChannelLink } from "@/components/workouts/workout-channel-link";
+import { WorkoutImportFeedbackDialog } from "@/components/workouts/workout-import-feedback-dialog";
 import {
   formatVideoTimestamp,
   getYouTubeVideoId,
@@ -163,6 +165,7 @@ export type WorkoutVideoPreviewHandle = {
 type WorkoutVideoPreviewProps = {
   videoUrl: string;
   className?: string;
+  workoutId?: string | null;
   author?: string | null;
   channelUrl?: string | null;
   onTimeUpdate?: (seconds: number) => void;
@@ -172,6 +175,7 @@ type WorkoutVideoPreviewProps = {
 export function WorkoutVideoPreview({
   videoUrl,
   className,
+  workoutId,
   author,
   channelUrl,
   onTimeUpdate,
@@ -200,6 +204,8 @@ export function WorkoutVideoPreview({
   const [fullscreen, setFullscreen] = useState(false);
   const [captionsOn, setCaptionsOn] = useState(false);
   const [scrubbing, setScrubbing] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackVideoTime, setFeedbackVideoTime] = useState(0);
 
   const videoId = getYouTubeVideoId(videoUrl);
 
@@ -632,6 +638,14 @@ export function WorkoutVideoPreview({
 
   return (
     <div className="relative flex flex-col">
+      {workoutId ? (
+        <WorkoutImportFeedbackDialog
+          workoutId={workoutId}
+          videoTimestamp={feedbackVideoTime}
+          open={feedbackOpen}
+          onOpenChange={setFeedbackOpen}
+        />
+      ) : null}
       {minimized ? (
         <div className="bg-muted/70 flex items-center gap-1.5 rounded-xl py-1 pr-1 pl-1.5">
           <Button
@@ -742,6 +756,26 @@ export function WorkoutVideoPreview({
         }}
       >
         <div ref={hostRef} className="absolute inset-0 size-full" />
+
+        {workoutId ? (
+          <button
+            type="button"
+            className="absolute top-2.5 right-2.5 z-40 flex size-8 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-colors hover:bg-black/60"
+            aria-label="Report a problem with this workout"
+            onClick={(event) => {
+              event.stopPropagation();
+              try {
+                playerRef.current?.pauseVideo();
+              } catch {
+                // Player may be mid-destroy.
+              }
+              setFeedbackVideoTime(currentTime);
+              setFeedbackOpen(true);
+            }}
+          >
+            <IconFeedback className="size-4" />
+          </button>
+        ) : null}
 
         {!error ? (
           <>

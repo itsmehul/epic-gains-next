@@ -286,6 +286,7 @@ export function WorkoutDetailPageClient() {
               <WorkoutVideoPreview
                 ref={videoRef}
                 videoUrl={videoUrl!}
+                workoutId={workoutQuery.data?.id}
                 author={workoutQuery.data?.author}
                 channelUrl={workoutQuery.data?.channelUrl}
                 onTimeUpdate={handleVideoTimeUpdate}
