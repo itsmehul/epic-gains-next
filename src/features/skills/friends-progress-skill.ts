@@ -38,7 +38,7 @@ If \`friends\` is empty, say you follow nobody yet and stop.
 
 Use \`pulse\` for the circle rollup. Do not recompute trained counts or the volume leader.
 
-For each friend with \`canViewWorkouts: true\`, write a short pulse from \`metrics.windows\`, \`weekOverWeek\`, \`analytics\`, and \`comments\`. For \`canViewWorkouts: false\`, list them under Hidden with the tool \`reason\`.
+For each friend with \`canViewWorkouts: true\`, write a short pulse from \`metrics.windows\`, \`weekOverWeek\`, \`analytics\`, \`focalDay\`, and \`comments\`. For \`canViewWorkouts: false\`, list them under Hidden with the tool \`reason\`.
 
 ### 3. Format output
 

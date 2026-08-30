@@ -40,7 +40,7 @@ Call the \`performance_metrics\` tool on the Epic Gains MCP server.
 Use server fields. Do not recompute volume, deltas, or streaks.
 
 - **Verdict:** Infer momentum from \`weekOverWeek\`, \`analytics.muscleMixShift\`, and streak.
-- **Yesterday:** Use \`windows.focalDay\` plus \`recentSets\` for that date. Rest Day if setCount is 0.
+- **Yesterday:** Use \`windows.focalDay\` plus \`focalDay\`. Rest Day if setCount is 0.
 - **Vs Last Week:** Use \`weekOverWeek\` and \`analytics.muscleMixShift\`. Cite \`windows.currentWeek\` vs \`windows.priorWeek\`.
 - **Signals:** \`streak\`, \`analytics.personalRecordCount\` / \`personalRecords\`, and the text of \`comments\` plus exercise \`notes\`.
 - **Next:** One or two suggestions from gaps in the mix shift and comments. No medical advice.

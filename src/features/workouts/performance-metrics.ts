@@ -511,8 +511,8 @@ export type PeriodPerformance = {
   stats: WindowStats;
   topExercisesByVolume: PerformanceAnalytics["topExercisesByVolume"];
   comments: AgentComment[];
-  recentSets: PerformanceMetrics["recentSets"];
-  olderHistory: OlderHistory;
+  olderHistory: Omit<OlderHistory, "daily">;
+  focalDay: RecentSetDay | null;
 };
 
 export function recentSetRangeForPeriod(
@@ -543,22 +543,25 @@ export function buildPeriodPerformance(input: {
     input.range,
     input.asOf,
   );
+  const recentDays = buildRecentSetDays(input.days, comments, setRange);
+  const older = buildOlderHistory(input.days, input.range, setRange.startDay);
   return {
     period: input.period,
     asOf: input.asOf,
     range: { start: input.range.startDay, end: input.range.endDay },
     stats: statsForRange(input.days, input.range),
     topExercisesByVolume: topExercises(input.days, input.range),
-    comments: slimComments(comments),
-    recentSets: {
-      range: { start: setRange.startDay, end: setRange.endDay },
-      days: buildRecentSetDays(input.days, comments, setRange),
+    comments: slimComments(comments).slice(0, 16),
+    olderHistory: {
+      range: older.range,
+      trainingDays: older.trainingDays,
+      sessions: older.sessions,
+      setCount: older.setCount,
+      volume: older.volume,
+      muscleGroups: older.muscleGroups,
     },
-    olderHistory: buildOlderHistory(
-      input.days,
-      input.range,
-      setRange.startDay,
-    ),
+    focalDay:
+      recentDays.find((day) => day.day === input.asOf) ?? recentDays[0] ?? null,
   };
 }
 
@@ -617,19 +620,44 @@ function median(values: number[]): number | null {
   return (values[mid - 1]! + values[mid]!) / 2;
 }
 
-export function toCirclePerformanceMetrics(
+export type ToolPerformanceMetrics = {
+  asOf: string;
+  windows: PerformanceMetrics["windows"];
+  weekOverWeek: PerformanceMetrics["weekOverWeek"];
+  streak: PerformanceMetrics["streak"];
+  analytics: PerformanceAnalytics;
+  personalRecords: PersonalRecord[];
+  comments: AgentComment[];
+  olderHistory: Omit<OlderHistory, "daily">;
+  focalDay: RecentSetDay | null;
+};
+
+export function toToolPerformanceMetrics(
   metrics: PerformanceMetrics,
-): Omit<PerformanceMetrics, "recentSets"> {
-  const { recentSets: _recentSets, ...rest } = metrics;
+): ToolPerformanceMetrics {
   return {
-    ...rest,
+    asOf: metrics.asOf,
+    windows: metrics.windows,
+    weekOverWeek: metrics.weekOverWeek,
+    streak: metrics.streak,
+    analytics: metrics.analytics,
+    personalRecords: metrics.personalRecords,
+    comments: metrics.comments.slice(0, 16),
     olderHistory: {
-      ...rest.olderHistory,
-      daily: [],
+      range: metrics.olderHistory.range,
+      trainingDays: metrics.olderHistory.trainingDays,
+      sessions: metrics.olderHistory.sessions,
+      setCount: metrics.olderHistory.setCount,
+      volume: metrics.olderHistory.volume,
+      muscleGroups: metrics.olderHistory.muscleGroups,
     },
-    comments: rest.comments.slice(0, 12),
+    focalDay:
+      metrics.recentSets.days.find((day) => day.day === metrics.asOf) ?? null,
   };
 }
+
+export const toComparePerformanceMetrics = toToolPerformanceMetrics;
+export const toCirclePerformanceMetrics = toToolPerformanceMetrics;
 
 function buildAnalytics(input: {
   days: MetricsDay[];

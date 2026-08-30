@@ -26,10 +26,7 @@ import {
   type PublicUser,
 } from "@/db/repositories/social.repository";
 import { getPerformanceMetricsForUser } from "@/db/repositories/set.repository";
-import {
-  buildCirclePulse,
-  toCirclePerformanceMetrics,
-} from "@/features/workouts/performance-metrics";
+import { buildCirclePulse } from "@/features/workouts/performance-metrics";
 import type { MuscleGroup } from "@/db/schema/workout-schema";
 import { canViewUserWorkouts } from "@/features/social/privacy";
 import { isValidUsername, normalizeUsername } from "@/features/social/username";
@@ -311,7 +308,7 @@ async function loadCircleMemberMetrics(
     name: member.name,
     isPrivate: member.isPrivate,
     canViewWorkouts: true as const,
-    metrics: toCirclePerformanceMetrics(metrics),
+    metrics,
   };
 }
 
@@ -374,7 +371,13 @@ export async function getComparePerformanceMetrics(
   },
 ) {
   const asOf = options.date ?? new Date();
-  const left = await resolveCompareAthlete(viewerId, options.leftUsername);
+  const leftUsername =
+    options.leftUsername &&
+    normalizeUsername(options.leftUsername) ===
+      normalizeUsername(options.username)
+      ? undefined
+      : options.leftUsername;
+  const left = await resolveCompareAthlete(viewerId, leftUsername);
   const right = await resolveCompareAthlete(viewerId, options.username);
 
   if (
@@ -384,6 +387,10 @@ export async function getComparePerformanceMetrics(
   ) {
     return {
       asOf: localDateString(asOf),
+      comparison: {
+        left: left.username ?? "you",
+        right: right.username ?? options.username,
+      },
       left: { username: left.username, error: "Cannot compare an athlete to themselves" },
       right: { username: right.username, error: "Cannot compare an athlete to themselves" },
     };
@@ -396,6 +403,10 @@ export async function getComparePerformanceMetrics(
 
   return {
     asOf: localDateString(asOf),
+    comparison: {
+      left: leftSide.username ?? "you",
+      right: rightSide.username ?? options.username,
+    },
     left: leftSide,
     right: rightSide,
   };
@@ -442,5 +453,8 @@ async function loadCompareSide(
     keyMuscle: options.keyMuscle,
     viewerId,
   });
-  return { username: athlete.username, metrics };
+  return {
+    username: athlete.username,
+    metrics,
+  };
 }

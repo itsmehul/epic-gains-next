@@ -11,6 +11,7 @@ import {
   buildPeriodPerformance,
   compactSets,
   recentSetRangeForPeriod,
+  toComparePerformanceMetrics,
 } from "@/features/workouts/performance-metrics";
 
 describe("metricWindows", () => {
@@ -201,6 +202,12 @@ describe("buildPerformanceMetrics", () => {
     expect(metrics.analytics.muscleLeaders.currentWeek).toBe("chest");
     expect(metrics.analytics.topExercisesByVolume[0]?.name).toBe("Bench");
     expect(metrics.personalRecords.length).toBeLessThanOrEqual(10);
+
+    const compare = toComparePerformanceMetrics(metrics);
+    expect(compare).not.toHaveProperty("recentSets");
+    expect(compare.focalDay?.setCount).toBe(2);
+    expect(compare.olderHistory).not.toHaveProperty("daily");
+    expect(compare.comments[0]?.text).toBe("Felt strong on the last set");
   });
 });
 
@@ -267,7 +274,8 @@ describe("buildPeriodPerformance", () => {
       ],
     });
     expect(result.stats.setCount).toBe(2);
-    expect(result.recentSets.days[0]?.workouts[0]?.exercises[0]?.sets).toEqual([
+    expect(result).not.toHaveProperty("recentSets");
+    expect(result.focalDay?.workouts[0]?.exercises[0]?.sets).toEqual([
       { reps: 5, weight: 100, time: null, distance: null, count: 2 },
     ]);
     expect(result.topExercisesByVolume[0]?.name).toBe("Bench");

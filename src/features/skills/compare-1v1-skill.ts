@@ -32,15 +32,15 @@ Compare two athletes on the same as-of date with one Epic Gains MCP call. Do not
 
 ### 2. Retrieve metrics (one call)
 
-Call \`compare_performance_metrics\` once:
+Call \`compare_performance_metrics\` once, then stop.
 
-- \`username\`: B (required)
-- \`leftUsername\`: A's username only if A is not the authenticated user
+- \`username\`: B (required). For "me vs @nitin" this is \`nitin\`.
+- Do not pass \`leftUsername\` unless the user named two other people.
 - \`date\`: yesterday as \`YYYY-MM-DD\` unless the user named a date
 
-Then write the template from \`left.metrics\` and \`right.metrics\`. Do not call any other tool.
+A compact payload is complete: \`comparison\`, \`windows\`, \`weekOverWeek\`, \`analytics\`, \`comments\`, \`focalDay\`. It is not truncated. Do not call this tool again with \`leftUsername\`. Do not call \`performance_metrics\`.
 
-Use server \`windows\`, \`weekOverWeek\`, and \`analytics\`. Read \`comments\` and \`recentSets\` notes to infer patterns. Two weeks of sets are in \`recentSets\`; older days are totals in \`olderHistory\`. Never call \`performance_metrics\` as a fallback.
+Write the template from \`left.metrics\` and \`right.metrics\`. Read comments to infer patterns.
 
 Forbidden: \`performance_metrics\`, \`performance_data\`, \`following_performance_metrics\`, \`athletes_performance_metrics\`, \`get_social_profile\`, \`search_users\`, \`list_following\`, \`list_followers\`, \`list_following_feed\`, \`list_follow_requests\`, \`accept_follow_request\`, \`reject_follow_request\`, \`follow_user\`, \`unfollow_user\`, trainer assignment tools.
 

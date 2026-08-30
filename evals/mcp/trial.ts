@@ -159,7 +159,7 @@ export function compare1v1Prompt(username: string): string {
   return `Compare my training to a friend 1v1, use Epic Gains.
 
 Follow the 1v1 skill exactly.
-1. Call compare_performance_metrics once with date="${date}" and username="${username}". Do not pass leftUsername (me vs friend).
+1. Call compare_performance_metrics once with date="${date}" and username="${username}". Do not pass leftUsername. Do not call it again.
 2. Do not call performance_metrics, list_follow_requests, or any other tool.
 3. Write the 1v1 Comparison template from left.metrics and right.metrics only. The compare payload is compact on purpose — do not treat it as truncated and do not invent metrics.`;
 }

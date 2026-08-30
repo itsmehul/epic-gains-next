@@ -249,7 +249,7 @@ export function registerWorkoutMcpTools(server: McpServer) {
     {
       title: "Performance data",
       description:
-        "Precomputed sets for one calendar window (day, ISO week, month, or year). Server returns period stats, top exercises, comments to read, two weeks of grouped sets (or the whole day/week), and compact olderHistory for the rest of a month/year. Prefer performance_metrics for recaps. Do not recompute totals.",
+        "Precomputed period analytics. Returns stats, top exercises, comments, focal-day grouped sets, and compact olderHistory totals. No multi-week set dump. Prefer performance_metrics for recaps. Do not recompute totals.",
       inputSchema: z.object({
         period: z.enum(SET_PERIOD_VALUES).describe(
           "Time window to summarize: day, week (ISO Monday–Sunday), month, or year containing `date`. Use week for “this week” questions.",
@@ -311,7 +311,7 @@ export function registerWorkoutMcpTools(server: McpServer) {
     {
       title: "Performance metrics",
       description:
-        "Precomputed training analytics for you or one named friend. Server already computed windows, week-over-week deltas, muscle-mix shift, streak, PR sample, and compact older history. recentSets is two ISO weeks of grouped sets with notes. comments are for you to read and interpret. Do not recompute totals. For me vs a friend use compare_performance_metrics once. For a circle use following_performance_metrics or athletes_performance_metrics. Do not call list_follow_requests or get_social_profile.",
+        "Precomputed training analytics for you or one named friend. Returns windows, week-over-week, analytics, PR sample, comments, focal-day sets, and compact olderHistory totals. No multi-week set dump. For me vs a friend use compare_performance_metrics once. For a circle use following_performance_metrics or athletes_performance_metrics.",
       inputSchema: z.object({
         date: z
           .string()

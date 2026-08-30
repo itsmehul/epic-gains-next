@@ -3,7 +3,11 @@
 import { IconCheck, IconCopy, IconSparkles } from "@/components/ui/icons";
 import { useState } from "react";
 
-import { AppShellBody, AppShellHeader } from "@/components/layout/app-shell";
+import {
+  AppShellBody,
+  AppShellHeader,
+  AppShellScroll,
+} from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -30,7 +34,7 @@ export function SkillsPageClient() {
   }
 
   return (
-    <>
+    <AppShellScroll>
       <AppShellHeader title="Skills" />
       <AppShellBody className="gap-6 p-4 md:p-6">
         {error ? (
@@ -66,6 +70,6 @@ export function SkillsPageClient() {
           );
         })}
       </AppShellBody>
-    </>
+    </AppShellScroll>
   );
 }

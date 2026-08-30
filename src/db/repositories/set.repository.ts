@@ -16,6 +16,7 @@ import {
   buildPeriodPerformance,
   coveringRange,
   metricWindows,
+  toToolPerformanceMetrics,
   type AllTimeBest,
   type MetricsDay,
 } from "@/features/workouts/performance-metrics";
@@ -327,13 +328,15 @@ export async function getPerformanceMetricsForUser(
   const exerciseIds = [...new Set(rows.map((row) => row.exercise.id))];
   const allTimeBests = await listAllTimeBestsForExercises(userId, exerciseIds);
 
-  return buildPerformanceMetrics({
-    asOf: localDateString(asOf),
-    windows,
-    days,
-    allTimeBests,
-    comments,
-  });
+  return toToolPerformanceMetrics(
+    buildPerformanceMetrics({
+      asOf: localDateString(asOf),
+      windows,
+      days,
+      allTimeBests,
+      comments,
+    }),
+  );
 }
 
 async function listAllTimeBestsForExercises(

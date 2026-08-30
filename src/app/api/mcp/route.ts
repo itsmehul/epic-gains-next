@@ -40,8 +40,8 @@ const mcpHandler = createMcpHandler(
     },
     instructions: [
       "Epic Gains MCP: workouts, exercise catalog, logged sets, Instagram-style follows.",
-      "Routing: you = performance_metrics with no username. Me vs one friend or two named friends = compare_performance_metrics once. That tool returns a compact left/right summary on purpose — do not treat it as truncated and do not follow with performance_metrics. Everyone you follow = following_performance_metrics once. Athletes who assigned you as trainer = athletes_performance_metrics once. Never loop performance_metrics per friend or athlete. Never use performance_data for recaps, trends, streaks, or PRs.",
-      "Cite numbers from the payload (windows, weekOverWeek, analytics, pulse, period stats). Read comments and recentSets notes to infer patterns. Do not recompute volume, deltas, medians, or trained counts. If a call errors, quote that error and stop.",
+      "Routing: you = performance_metrics with no username. Me vs one friend = compare_performance_metrics once with only username (the friend). Never pass leftUsername for that case and never call compare twice. Two named friends = compare once with leftUsername + username. Everyone you follow = following_performance_metrics once. Athletes who assigned you as trainer = athletes_performance_metrics once. Never loop performance_metrics. Never use performance_data for recaps.",
+      "Cite numbers from the payload (windows, weekOverWeek, analytics, pulse, period stats, focalDay). Read comments and focal-day notes to infer patterns. Do not recompute volume, deltas, medians, or trained counts. If a call errors, quote that error and stop.",
       "Do not call list_follow_requests, follow_user, get_social_profile, list_following, list_followers, list_following_feed, search_users, or trainer tools to check access or after a metrics error. list_follow_requests is incoming requests to follow YOU, and only when the user asks to review that inbox.",
       "Host MCP approval UI is not a follow request. Chat text like Allow is not a tool and not a social action.",
     ].join("\n"),

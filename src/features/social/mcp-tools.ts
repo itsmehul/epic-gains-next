@@ -312,7 +312,7 @@ export function registerSocialMcpTools(server: McpServer) {
     {
       title: "Following performance metrics",
       description:
-        "One-call recap for everyone the authenticated user follows. Includes pulse (trained focal day, trained this week, volume leader, median week volume). Each visible friend has precomputed analytics, windows, and comments — not two weeks of sets. Do not list_following or loop performance_metrics. Caps at 50 follows.",
+        "One-call recap for everyone the authenticated user follows. Includes pulse plus each visible friend's compact analytics (windows, week-over-week, comments, focal-day sets). No multi-week set dump. Do not list_following or loop performance_metrics. Caps at 50 follows.",
       inputSchema: z.object({
         date: z
           .string()
@@ -354,7 +354,7 @@ export function registerSocialMcpTools(server: McpServer) {
     {
       title: "Athletes performance metrics",
       description:
-        "One-call recap for athletes who assigned you as trainer. Includes pulse (trained focal day, trained this week, volume leader, median week volume). Each visible athlete has precomputed analytics, windows, and comments — not two weeks of sets. Do not list_athletes or loop performance_metrics. Caps at 50 athletes.",
+        "One-call recap for athletes who assigned you as trainer. Includes pulse plus each visible athlete's compact analytics (windows, week-over-week, comments, focal-day sets). No multi-week set dump. Do not list_athletes or loop performance_metrics. Caps at 50 athletes.",
       inputSchema: z.object({
         date: z
           .string()
@@ -396,20 +396,22 @@ export function registerSocialMcpTools(server: McpServer) {
     {
       title: "Compare performance metrics",
       description:
-        "One-call 1v1 comparison. Each side is precomputed analytics plus two ISO weeks of grouped sets and comments. Older history is compact totals. Do not follow with performance_metrics. Omit leftUsername for me vs friend; username is the opponent.",
+        "One-call me-vs-friend comparison. Call exactly once. For 'me vs @nitin' pass only username=nitin — never leftUsername, never a second call. Each side is the same compact analytics as performance_metrics (no multi-week sets). Write the comparison from this payload.",
       inputSchema: z.object({
         username: z
           .string()
           .trim()
           .min(1)
-          .describe("Opponent username (right side). Required."),
+          .describe(
+            "Opponent (right). For me vs a friend this is the only username to pass.",
+          ),
         leftUsername: z
           .string()
           .trim()
           .min(1)
           .optional()
           .describe(
-            "Left athlete username. Omit for the authenticated user (me vs friend).",
+            "Do not set for me vs a friend. Only when comparing two other people (left vs right).",
           ),
         date: z
           .string()

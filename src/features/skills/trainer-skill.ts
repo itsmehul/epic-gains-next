@@ -38,7 +38,7 @@ If \`athletes\` is empty, say nobody has assigned you as trainer yet and stop.
 
 Use \`pulse\` for the roster rollup. Do not recompute trained counts or the volume leader.
 
-For each athlete with \`canViewWorkouts: true\`, write a short pulse from \`metrics.windows\`, \`weekOverWeek\`, \`analytics\`, and \`comments\`. For \`canViewWorkouts: false\`, list them under Hidden with the tool \`reason\`.
+For each athlete with \`canViewWorkouts: true\`, write a short pulse from \`metrics.windows\`, \`weekOverWeek\`, \`analytics\`, \`focalDay\`, and \`comments\`. For \`canViewWorkouts: false\`, list them under Hidden with the tool \`reason\`.
 
 ### 3. Format output
 
