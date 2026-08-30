@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCreateImportPromptFeedback } from "@/features/workouts/hooks";
 import {
   IMPORT_PROMPT_INSTRUCTIONS,
+  type ImportPromptInstruction,
   type ImportPromptVerdict,
 } from "@/features/workouts/import-prompt-instructions";
 import { formatVideoTimestamp } from "@/features/workouts/youtube";
@@ -48,7 +49,7 @@ export function WorkoutImportFeedbackDialog({
   const [comment, setComment] = useState("");
 
   const groups = useMemo(() => {
-    const map = new Map<string, typeof IMPORT_PROMPT_INSTRUCTIONS>();
+    const map = new Map<string, ImportPromptInstruction[]>();
     for (const instruction of IMPORT_PROMPT_INSTRUCTIONS) {
       const existing = map.get(instruction.group) ?? [];
       map.set(instruction.group, [...existing, instruction]);
