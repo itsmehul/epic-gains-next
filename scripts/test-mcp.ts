@@ -15,8 +15,10 @@ import {
   promptForTask,
   runDirectProbes,
   runLlmTrial,
+  TASK_EVAL_SPEC,
   type TaskId,
 } from "../evals/mcp/trial";
+import { scoreMcpTrial } from "../evals/score-mcp";
 
 function printHelp() {
   console.log(`Usage: pnpm ai:test-mcp -- [options]
@@ -181,15 +183,26 @@ async function main() {
       maxSteps,
     });
     logToolCalls(llm.rawSteps);
+    const score = scoreMcpTrial({
+      spec: TASK_EVAL_SPEC[task],
+      toolCalls: llm.toolCalls,
+      toolCallsByStep: llm.toolCallsByStep,
+      toolErrorCount: llm.toolErrorCount,
+      text: llm.text,
+    });
     console.log(
-      `generateText ${llm.ms}ms  steps=${llm.steps}  tools=[${llm.toolCalls.join(", ")}]  toolErrors=${llm.toolErrorCount}`,
+      `${score.pass ? "PASS" : "FAIL"}  generateText ${llm.ms}ms  steps=${llm.steps}  tools=[${llm.toolCalls.join(", ")}]  toolErrors=${llm.toolErrorCount}`,
     );
+    for (const check of score.checks.filter((row) => !row.pass)) {
+      console.log(`  - ${check.id}: ${check.detail}`);
+    }
     console.log("\n--- response ---\n");
     console.log(llm.text);
     if (llm.usage) {
       console.log("\n--- usage ---");
       console.log(llm.usage);
     }
+    if (!score.pass) process.exitCode = 1;
   } finally {
     await client?.close();
   }

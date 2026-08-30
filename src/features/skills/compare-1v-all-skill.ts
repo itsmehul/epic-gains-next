@@ -35,7 +35,9 @@ Call both tools in the same turn with the same \`date\` (yesterday as \`YYYY-MM-
 1. \`performance_metrics\` for the focal athlete (omit \`username\` if it is the authenticated user).
 2. \`following_performance_metrics\` once (same date). Do not loop \`performance_metrics\` per friend.
 
-Do not call \`list_following\`, \`list_following_feed\`, or \`get_social_profile\`.
+Then write the template. Do not call any other tool.
+
+Forbidden: \`list_following\`, \`list_following_feed\`, \`list_follow_requests\`, \`follow_user\`, \`search_users\`, \`get_social_profile\`, looping \`performance_metrics\` per friend.
 
 If the follow list is empty, say so from the payload and only recap the focal athlete.
 
@@ -81,5 +83,6 @@ Use current-week volume as the primary rank, then sessions, then streak. Skip fr
 - Same date on both tools.
 - Do not include hidden or non-visible friends in rank or median.
 - If \`truncated\` is true, say the list was capped at 50.
+- Cite payload numbers only. Host MCP approval UI is not a follow request.
 - Hyphens only. Blank line before each list.
 `;

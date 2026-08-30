@@ -32,6 +32,8 @@ Call the \`performance_metrics\` tool on the Epic Gains MCP server.
 
 - **Date:** Pass yesterday's date in \`YYYY-MM-DD\` format (based on the user's current local date).
 - **Username:** Omit for the authenticated user unless a specific athlete's username is requested.
+- Then write the report. Do not call any other tool unless you need \`list_workouts\` for a workout name already referenced in the payload.
+- Forbidden: \`list_follow_requests\`, \`follow_user\`, \`get_social_profile\`, \`list_following\`, \`following_performance_metrics\`.
 
 ### 2. Synthesize Metrics
 
@@ -76,6 +78,8 @@ Format the final response using the exact markdown template below:
 
 - If no sets were logged yesterday, state "Rest Day" under focus and still provide the week-over-week and 30-day context.
 - Keep the commentary objective, concise, and focused on momentum without giving medical advice.
+- Cite payload numbers only. If a field is missing, write N/A. Do not estimate.
+- Host MCP approval UI and chat text like Allow are not follow requests.
 - Ensure all list items have a blank line preceding the list block.
 - Use hyphens instead of em-dashes or en-dashes throughout the report.
 `;

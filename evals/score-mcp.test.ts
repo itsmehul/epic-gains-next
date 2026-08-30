@@ -31,6 +31,29 @@ describe("scoreMcpTrial", () => {
     ).toBe(true);
   });
 
+  it("fails when 1v1 probes follow requests", () => {
+    const score = scoreMcpTrial({
+      spec: TASK_EVAL_SPEC.compare_1v1,
+      toolCalls: [
+        "performance_metrics",
+        "performance_metrics",
+        "list_follow_requests",
+      ],
+      toolCallsByStep: [
+        ["performance_metrics", "performance_metrics"],
+        ["list_follow_requests"],
+      ],
+      toolErrorCount: 0,
+      text: "You vs Nitin.",
+    });
+    expect(score.pass).toBe(false);
+    expect(
+      score.checks.some(
+        (check) => check.id === "forbidden" && !check.pass,
+      ),
+    ).toBe(true);
+  });
+
   it("fails forbidden tools on the friends recap", () => {
     const score = scoreMcpTrial({
       spec: TASK_EVAL_SPEC.check_friends,

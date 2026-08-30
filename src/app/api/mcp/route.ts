@@ -39,11 +39,11 @@ const mcpHandler = createMcpHandler(
       version: "1.0.0",
     },
     instructions: [
-      "Epic Gains MCP manages user workouts, a shared exercise catalog, logged sets, and Instagram-style follows.",
-      "For training recaps, progress, volume, week-over-week trends, streaks, PRs, or session notes, call performance_metrics once (optional date YYYY-MM-DD, default today; optional username for a visible friend). It returns focal day, current ISO week, prior week, trailing 30 days, deltas, streak, PRs, all visible comments with exercise/workout context, and a daily rollup — do not issue multiple performance_data calls for those windows. Use performance_data only when you need set-level detail for a single day/week/month/year. Filter either tool with muscleGroup and/or keyMuscle. Omit username for the authenticated user. Private accounts require an accepted follow, or that you are assigned as their trainer.",
-      "To recap everyone you follow, call following_performance_metrics once. Do not list_following, list_following_feed, or loop get_social_profile / performance_metrics per friend. For one named friend, call performance_metrics with that username.",
-      "Private accounts require an accepted follow before workouts are visible, unless you are assigned as that user's trainer.",
-      "Social tools: search_users, get_social_profile, follow_user/unfollow_user, assign_trainer/unassign_trainer, list_trainers, list_athletes, list/accept/reject follow requests, list_following_feed, update_social_settings, following_performance_metrics.",
+      "Epic Gains MCP: workouts, exercise catalog, logged sets, Instagram-style follows.",
+      "Routing: you = performance_metrics with no username. One named friend or 1v1 = performance_metrics once per athlete (same date), then answer — two calls max for a 1v1. Everyone you follow = following_performance_metrics once. Never loop performance_metrics per friend. Never use performance_data for recaps, trends, streaks, or PRs.",
+      "Cite numbers only from the last successful tool payload. If a call errors (not found / not visible), quote that error and stop. Do not invent metrics, visibility, or follow state.",
+      "Do not call list_follow_requests, follow_user, get_social_profile, list_following, list_followers, list_following_feed, search_users, or trainer tools to check access or after a metrics error. list_follow_requests is incoming requests to follow YOU, and only when the user asks to review that inbox.",
+      "Host MCP approval UI is not a follow request. Chat text like Allow is not a tool and not a social action.",
     ].join("\n"),
   },
 );

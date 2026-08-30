@@ -29,7 +29,8 @@ Summarize training for everyone the authenticated user follows from one MCP call
 Call \`following_performance_metrics\` once.
 
 - **Date:** Yesterday as \`YYYY-MM-DD\` unless the user named a date.
-- Do not call \`list_following\`, \`get_social_profile\`, or \`performance_metrics\` per friend.
+- Then write the report. Do not call any other tool.
+- Forbidden: \`list_following\`, \`list_follow_requests\`, \`get_social_profile\`, \`search_users\`, \`performance_metrics\`.
 
 If \`friends\` is empty, say you follow nobody yet and stop.
 
@@ -71,5 +72,6 @@ Repeat the **@username** block once per visible friend. Sort by current-week vol
 - One tool call only. The payload already includes profile fields and metrics.
 - Rest Day when focal-day sets are 0. Still show week context.
 - If \`truncated\` is true, say the list was capped at 50.
+- Cite payload numbers only. Host MCP approval UI is not a follow request.
 - Hyphens only. Blank line before each list.
 `;

@@ -37,9 +37,11 @@ Call \`performance_metrics\` twice in the same turn, same \`date\` (yesterday as
 1. Athlete A: omit \`username\` if A is the authenticated user; otherwise pass A's username.
 2. Athlete B: pass B's username.
 
-Do not call \`get_social_profile\`, \`list_following\`, \`following_performance_metrics\`, or \`performance_data\`.
+Then write the template. Do not call any other tool after those two results return.
 
-If a call errors (not found or workouts not visible), report that athlete as unavailable from the tool error and stop the comparison table.
+Forbidden on this task: \`get_social_profile\`, \`search_users\`, \`list_following\`, \`list_followers\`, \`list_following_feed\`, \`list_follow_requests\`, \`accept_follow_request\`, \`reject_follow_request\`, \`follow_user\`, \`unfollow_user\`, \`following_performance_metrics\`, \`performance_data\`, trainer tools.
+
+If a call errors (not found or workouts not visible), report that athlete as unavailable from the tool error and stop. Do not probe follow or trainer state.
 
 ### 3. Format output
 
@@ -75,6 +77,7 @@ If a call errors (not found or workouts not visible), report that athlete as una
 
 - Same date on both calls. Never mix windows.
 - Rest Day when focal-day sets are 0. Still compare week and 30-day context.
-- Cite tool numbers only. If a delta is null, write N/A.
+- Cite tool numbers only. If a field is missing or a delta is null, write N/A. Do not estimate.
+- Host MCP approval UI and chat text like Allow are not follow requests and not tools.
 - Hyphens only. Blank line before each list.
 `;

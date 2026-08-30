@@ -60,7 +60,7 @@ export function registerSocialMcpTools(server: McpServer) {
     {
       title: "Get social profile",
       description:
-        "Get a user's public profile, follow relationship, trainer assignment, and workout visibility. For one friend's training recap, prefer performance_metrics with their username. For everyone you follow, use following_performance_metrics once.",
+        "Get a user's public profile, follow relationship, trainer assignment, and workout visibility. Not for recaps or 1v1/circle comparisons — those use performance_metrics or following_performance_metrics. Do not call this to preflight access before metrics.",
       inputSchema: z.object({
         username: z.string().min(1),
       }),
@@ -95,7 +95,8 @@ export function registerSocialMcpTools(server: McpServer) {
     "list_following",
     {
       title: "List following",
-      description: "List accounts a username is following.",
+      description:
+        "List accounts a username is following. Not for recaps or comparisons — use following_performance_metrics or performance_metrics.",
       inputSchema: z.object({
         username: z.string().min(1),
       }),
@@ -114,7 +115,7 @@ export function registerSocialMcpTools(server: McpServer) {
     {
       title: "Follow user",
       description:
-        "Follow a user. Private accounts create a follow request instead.",
+        "Follow a user. Private accounts create a follow request instead. Only when the user asks to follow someone. Never use to unlock recaps or after a metrics visibility error.",
       inputSchema: z.object({
         username: z.string().min(1),
       }),
@@ -212,7 +213,8 @@ export function registerSocialMcpTools(server: McpServer) {
     "list_follow_requests",
     {
       title: "List follow requests",
-      description: "List incoming follow requests for the authenticated user.",
+      description:
+        "List people asking to follow YOU. Use only when the user wants to review, accept, or reject incoming requests. Never use for recaps, 1v1/circle comparisons, or to check whether you can see another user's workouts.",
       inputSchema: z.object({}),
     },
     async () => {
@@ -234,7 +236,8 @@ export function registerSocialMcpTools(server: McpServer) {
     "accept_follow_request",
     {
       title: "Accept follow request",
-      description: "Accept an incoming follow request by id.",
+      description:
+        "Accept an incoming follow request by id. Only after the user names a request from list_follow_requests. Never after a metrics call.",
       inputSchema: z.object({
         requestId: z.string().min(1),
       }),
@@ -251,7 +254,8 @@ export function registerSocialMcpTools(server: McpServer) {
     "reject_follow_request",
     {
       title: "Reject follow request",
-      description: "Reject an incoming follow request by id.",
+      description:
+        "Reject an incoming follow request by id. Only after the user names a request from list_follow_requests.",
       inputSchema: z.object({
         requestId: z.string().min(1),
       }),
@@ -306,7 +310,7 @@ export function registerSocialMcpTools(server: McpServer) {
     {
       title: "Following performance metrics",
       description:
-        "One-call recap for everyone the authenticated user follows. Returns each friend's profile fields plus the same performance_metrics payload when workouts are visible, or a visibility reason when not. Do not list_following or loop performance_metrics / get_social_profile for this job. Optional date, muscleGroup, and keyMuscle apply to every friend. Caps at 50 follows.",
+        "One-call recap for everyone the authenticated user follows. Returns each friend's profile fields plus the same performance_metrics payload when workouts are visible, or a visibility reason when not. Do not list_following, list_follow_requests, get_social_profile, or loop performance_metrics. Optional date, muscleGroup, and keyMuscle apply to every friend. Caps at 50 follows.",
       inputSchema: z.object({
         date: z
           .string()

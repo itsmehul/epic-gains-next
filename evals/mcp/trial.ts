@@ -7,6 +7,10 @@ import {
 } from "@ai-sdk/mcp";
 import { generateText, stepCountIs } from "ai";
 
+import { COMPARE_1V_ALL_SKILL_MD } from "../../src/features/skills/compare-1v-all-skill";
+import { COMPARE_1V1_SKILL_MD } from "../../src/features/skills/compare-1v1-skill";
+import { FRIENDS_PROGRESS_SKILL_MD } from "../../src/features/skills/friends-progress-skill";
+import { PERFORMANCE_REPORT_SKILL_MD } from "../../src/features/skills/performance-report-skill";
 import type { McpEvalSpec } from "../score-mcp";
 
 export const DEFAULT_MCP_URL = "http://localhost:3000/api/mcp";
@@ -27,32 +31,48 @@ export const TASK_IDS: TaskId[] = [
   "friends_progress",
 ];
 
-export const TASK_TOOL_NAMES: Record<TaskId, string[]> = {
-  check_performance: ["performance_metrics", "list_workouts"],
-  check_friends: ["following_performance_metrics"],
-  compare_1v1: ["performance_metrics"],
-  compare_1v_all: ["performance_metrics", "following_performance_metrics"],
-  friends_progress: ["following_performance_metrics"],
+/** Social/inbox tools that must not be used to “check access” during recaps. */
+export const ANALYTICS_FORBIDDEN_SOCIAL = [
+  "list_follow_requests",
+  "accept_follow_request",
+  "reject_follow_request",
+  "follow_user",
+  "unfollow_user",
+  "list_followers",
+  "list_following",
+  "list_following_feed",
+  "search_users",
+  "get_social_profile",
+  "assign_trainer",
+  "unassign_trainer",
+  "list_trainers",
+  "list_athletes",
+] as const;
+
+export const TASK_SKILL_MD: Record<TaskId, string> = {
+  check_performance: PERFORMANCE_REPORT_SKILL_MD,
+  check_friends: FRIENDS_PROGRESS_SKILL_MD,
+  compare_1v1: COMPARE_1V1_SKILL_MD,
+  compare_1v_all: COMPARE_1V_ALL_SKILL_MD,
+  friends_progress: FRIENDS_PROGRESS_SKILL_MD,
 };
 
 export const TASK_EVAL_SPEC: Record<TaskId, McpEvalSpec> = {
   check_performance: {
     requiredTools: ["performance_metrics"],
-    forbiddenTools: ["following_performance_metrics"],
+    forbiddenTools: [
+      ...ANALYTICS_FORBIDDEN_SOCIAL,
+      "following_performance_metrics",
+    ],
   },
   check_friends: {
     requiredTools: ["following_performance_metrics"],
-    forbiddenTools: [
-      "list_following",
-      "get_social_profile",
-      "performance_metrics",
-    ],
+    forbiddenTools: [...ANALYTICS_FORBIDDEN_SOCIAL, "performance_metrics"],
   },
   compare_1v1: {
     requiredTools: ["performance_metrics"],
     forbiddenTools: [
-      "get_social_profile",
-      "list_following",
+      ...ANALYTICS_FORBIDDEN_SOCIAL,
       "following_performance_metrics",
       "performance_data",
     ],
@@ -60,16 +80,12 @@ export const TASK_EVAL_SPEC: Record<TaskId, McpEvalSpec> = {
   },
   compare_1v_all: {
     requiredTools: ["performance_metrics", "following_performance_metrics"],
-    forbiddenTools: ["list_following", "get_social_profile"],
+    forbiddenTools: [...ANALYTICS_FORBIDDEN_SOCIAL],
     requireSameTurn: ["performance_metrics", "following_performance_metrics"],
   },
   friends_progress: {
     requiredTools: ["following_performance_metrics"],
-    forbiddenTools: [
-      "list_following",
-      "get_social_profile",
-      "performance_metrics",
-    ],
+    forbiddenTools: [...ANALYTICS_FORBIDDEN_SOCIAL, "performance_metrics"],
   },
 };
 
@@ -95,7 +111,7 @@ export function friendsPrompt(): string {
   return `Use Epic Gains MCP to summarize everyone I follow.
 
 1. Call following_performance_metrics once with no extra filters.
-2. Do not call list_following, get_social_profile, or performance_metrics.
+2. Do not call list_following, list_follow_requests, get_social_profile, or performance_metrics.
 3. Summarize each returned friend from tool output only: visibility, recent volume, week-over-week change, streak, PRs, and notable notes. Do not invent metrics. If the list is empty or a friend is not visible, say so from the tool output.`;
 }
 
@@ -114,8 +130,8 @@ export function compare1v1Prompt(username: string): string {
 
 Follow the 1v1 skill exactly.
 1. Call performance_metrics twice in the same turn with date="${date}": once with no username (me), once with username="${username}".
-2. Do not call get_social_profile, list_following, following_performance_metrics, or performance_data.
-3. Write the 1v1 Comparison template from tool output only. Do not invent metrics.`;
+2. Do not call any other tool. After both results return, write the answer immediately.
+3. Write the 1v1 Comparison template from those two payloads only. Do not invent metrics or follow state.`;
 }
 
 export function compare1vAllPrompt(): string {
@@ -124,7 +140,7 @@ export function compare1vAllPrompt(): string {
 
 Follow the 1v all skill exactly.
 1. In the same turn, call performance_metrics with date="${date}" and no username, and following_performance_metrics once with the same date.
-2. Do not loop performance_metrics per friend. Do not call list_following or get_social_profile.
+2. Do not loop performance_metrics per friend. Do not call list_following, list_follow_requests, or get_social_profile.
 3. Write the 1v All Comparison template from tool output only. Do not invent metrics.`;
 }
 
@@ -134,7 +150,7 @@ export function friendsProgressPrompt(): string {
 
 Follow the friends progress skill exactly.
 1. Call following_performance_metrics once with date="${date}".
-2. Do not call list_following, get_social_profile, or performance_metrics.
+2. Do not call list_following, list_follow_requests, get_social_profile, or performance_metrics.
 3. Write the Friends Progress Report template from tool output only. Do not invent metrics.`;
 }
 
@@ -298,8 +314,10 @@ export async function runLlmTrial(input: {
   const started = performance.now();
   const result = await generateText({
     model: google(input.model),
-    system: input.client.instructions,
-    tools: pickTools(input.tools, TASK_TOOL_NAMES[input.task]),
+    system: [input.client.instructions, TASK_SKILL_MD[input.task]]
+      .filter(Boolean)
+      .join("\n\n"),
+    tools: input.tools,
     stopWhen: stepCountIs(input.maxSteps),
     messages: [
       {
