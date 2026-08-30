@@ -4,16 +4,21 @@ import {
   acceptAllPendingRequestsForUser,
   createFollow,
   createFollowRequest,
+  createTrainerAssignment,
   deleteFollow,
   deleteFollowRequest,
   deleteFollowRequestBetween,
+  deleteTrainerAssignment,
   ensureUserSocialProfile,
   getFollowRequest,
   getFollowRequestById,
   getUserById,
   getUserByUsername,
   isFollowing,
+  isTrainerOf,
   isUsernameTaken,
+  listAthletes,
+  listTrainers,
   updateUserSocialProfile,
   countFollowers,
   countFollowing,
@@ -64,13 +69,23 @@ export async function buildProfilePayload(
   const profile = await getUserByUsername(username);
   if (!profile) return null;
 
-  const [followersCount, followingCount, relationship, canViewWorkouts] =
-    await Promise.all([
-      countFollowers(profile.id),
-      countFollowing(profile.id),
-      getFollowRelationship(viewerId, profile.id),
-      canViewUserWorkouts(viewerId, profile),
-    ]);
+  const [
+    followersCount,
+    followingCount,
+    relationship,
+    canViewWorkouts,
+    isMyTrainer,
+    isMyAthlete,
+    trainers,
+  ] = await Promise.all([
+    countFollowers(profile.id),
+    countFollowing(profile.id),
+    getFollowRelationship(viewerId, profile.id),
+    canViewUserWorkouts(viewerId, profile),
+    isTrainerOf(profile.id, viewerId),
+    isTrainerOf(viewerId, profile.id),
+    listTrainers(profile.id),
+  ]);
 
   return {
     ...profile,
@@ -78,6 +93,9 @@ export async function buildProfilePayload(
     followingCount,
     relationship,
     canViewWorkouts,
+    isMyTrainer,
+    isMyAthlete,
+    trainers,
   };
 }
 
@@ -119,7 +137,57 @@ export async function unfollowUser(
 
   await deleteFollow(viewerId, target.id);
   await deleteFollowRequestBetween(viewerId, target.id);
+  await deleteTrainerAssignment(viewerId, target.id);
   return { ok: true, data: { relationship: "none" } };
+}
+
+export async function assignTrainer(
+  viewerId: string,
+  username: string,
+): Promise<SocialActionResult<{ isMyTrainer: true }>> {
+  await ensureUserSocialProfile(viewerId);
+  const target = await getUserByUsername(username);
+  if (!target) {
+    return { ok: false, error: "User not found", status: 404 };
+  }
+  if (target.id === viewerId) {
+    return { ok: false, error: "Cannot assign yourself as trainer", status: 400 };
+  }
+  if (!(await isFollowing(viewerId, target.id))) {
+    return {
+      ok: false,
+      error: "Follow this friend before assigning them as trainer",
+      status: 400,
+    };
+  }
+
+  await createTrainerAssignment(viewerId, target.id);
+  return { ok: true, data: { isMyTrainer: true } };
+}
+
+export async function unassignTrainer(
+  viewerId: string,
+  username: string,
+): Promise<SocialActionResult<{ isMyTrainer: false }>> {
+  const target = await getUserByUsername(username);
+  if (!target) {
+    return { ok: false, error: "User not found", status: 404 };
+  }
+
+  await deleteTrainerAssignment(viewerId, target.id);
+  return { ok: true, data: { isMyTrainer: false } };
+}
+
+export async function getMyTrainers(userId: string) {
+  await ensureUserSocialProfile(userId);
+  const items = await listTrainers(userId);
+  return { items };
+}
+
+export async function getMyAthletes(userId: string) {
+  await ensureUserSocialProfile(userId);
+  const items = await listAthletes(userId);
+  return { items };
 }
 
 export async function acceptFollowRequest(

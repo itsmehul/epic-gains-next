@@ -15,6 +15,9 @@ export type SocialProfile = SocialUser & {
   followingCount: number;
   relationship: FollowRelationship;
   canViewWorkouts: boolean;
+  isMyTrainer: boolean;
+  isMyAthlete: boolean;
+  trainers: SocialUser[];
 };
 
 export type FollowRequestItem = {

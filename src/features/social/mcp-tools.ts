@@ -21,10 +21,14 @@ import {
 import { parseIsoDate } from "@/features/workouts/set-day";
 import {
   acceptFollowRequest,
+  assignTrainer,
   buildProfilePayload,
   followUser,
   getFollowingPerformanceMetrics,
+  getMyAthletes,
+  getMyTrainers,
   rejectFollowRequest,
+  unassignTrainer,
   unfollowUser,
   updateMySocialSettings,
 } from "@/features/social/service";
@@ -56,7 +60,7 @@ export function registerSocialMcpTools(server: McpServer) {
     {
       title: "Get social profile",
       description:
-        "Get a user's public profile, follow relationship, and workout visibility. For one friend's training recap, prefer performance_metrics with their username. For everyone you follow, use following_performance_metrics once.",
+        "Get a user's public profile, follow relationship, trainer assignment, and workout visibility. For one friend's training recap, prefer performance_metrics with their username. For everyone you follow, use following_performance_metrics once.",
       inputSchema: z.object({
         username: z.string().min(1),
       }),
@@ -137,6 +141,70 @@ export function registerSocialMcpTools(server: McpServer) {
       const result = await unfollowUser(userId, username);
       if (!result.ok) return mcpErrorResult(result.error);
       return mcpTextResult(result.data);
+    },
+  );
+
+  server.registerTool(
+    "assign_trainer",
+    {
+      title: "Assign trainer",
+      description:
+        "Assign a friend you follow as your trainer. They can see your workouts even if your account is private.",
+      inputSchema: z.object({
+        username: z.string().min(1),
+      }),
+    },
+    async ({ username }) => {
+      const { userId } = getMcpAuth();
+      const result = await assignTrainer(userId, username);
+      if (!result.ok) return mcpErrorResult(result.error);
+      return mcpTextResult(result.data);
+    },
+  );
+
+  server.registerTool(
+    "unassign_trainer",
+    {
+      title: "Unassign trainer",
+      description: "Remove a user as your trainer.",
+      inputSchema: z.object({
+        username: z.string().min(1),
+      }),
+    },
+    async ({ username }) => {
+      const { userId } = getMcpAuth();
+      const result = await unassignTrainer(userId, username);
+      if (!result.ok) return mcpErrorResult(result.error);
+      return mcpTextResult(result.data);
+    },
+  );
+
+  server.registerTool(
+    "list_trainers",
+    {
+      title: "List trainers",
+      description: "List people the authenticated user has assigned as trainers.",
+      inputSchema: z.object({}),
+    },
+    async () => {
+      const { userId } = getMcpAuth();
+      const result = await getMyTrainers(userId);
+      return mcpTextResult(result);
+    },
+  );
+
+  server.registerTool(
+    "list_athletes",
+    {
+      title: "List athletes",
+      description:
+        "List people who assigned the authenticated user as their trainer. For an athlete recap, call performance_metrics with their username.",
+      inputSchema: z.object({}),
+    },
+    async () => {
+      const { userId } = getMcpAuth();
+      const result = await getMyAthletes(userId);
+      return mcpTextResult(result);
     },
   );
 

@@ -3,7 +3,7 @@ import "server-only";
 import { and, asc, count, eq, ilike, ne, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { follow, followRequest, user } from "@/db/schema";
+import { follow, followRequest, trainerAssignment, user } from "@/db/schema";
 import {
   normalizeUsername,
   usernameBaseFromIdentity,
@@ -199,6 +199,74 @@ export async function countIncomingFollowRequests(userId: string) {
     .from(followRequest)
     .where(eq(followRequest.targetId, userId));
   return row?.value ?? 0;
+}
+
+export async function isTrainerOf(trainerId: string, athleteId: string) {
+  const [row] = await db
+    .select({ athleteId: trainerAssignment.athleteId })
+    .from(trainerAssignment)
+    .where(
+      and(
+        eq(trainerAssignment.trainerId, trainerId),
+        eq(trainerAssignment.athleteId, athleteId),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
+}
+
+export async function listTrainers(athleteId: string) {
+  const rows = await db
+    .select(publicUserColumns)
+    .from(trainerAssignment)
+    .innerJoin(user, eq(user.id, trainerAssignment.trainerId))
+    .where(eq(trainerAssignment.athleteId, athleteId))
+    .orderBy(asc(trainerAssignment.createdAt));
+  return rows.flatMap((row) => {
+    const publicUser = toPublicUser(row);
+    return publicUser ? [publicUser] : [];
+  });
+}
+
+export async function listAthletes(trainerId: string) {
+  const rows = await db
+    .select(publicUserColumns)
+    .from(trainerAssignment)
+    .innerJoin(user, eq(user.id, trainerAssignment.athleteId))
+    .where(eq(trainerAssignment.trainerId, trainerId))
+    .orderBy(asc(trainerAssignment.createdAt));
+  return rows.flatMap((row) => {
+    const publicUser = toPublicUser(row);
+    return publicUser ? [publicUser] : [];
+  });
+}
+
+export async function createTrainerAssignment(
+  athleteId: string,
+  trainerId: string,
+) {
+  const [row] = await db
+    .insert(trainerAssignment)
+    .values({ athleteId, trainerId })
+    .onConflictDoNothing()
+    .returning();
+  return row ?? null;
+}
+
+export async function deleteTrainerAssignment(
+  athleteId: string,
+  trainerId: string,
+) {
+  const [row] = await db
+    .delete(trainerAssignment)
+    .where(
+      and(
+        eq(trainerAssignment.athleteId, athleteId),
+        eq(trainerAssignment.trainerId, trainerId),
+      ),
+    )
+    .returning();
+  return row ?? null;
 }
 
 export async function isFollowing(followerId: string, followingId: string) {

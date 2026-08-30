@@ -24,6 +24,8 @@ export const socialKeys = {
     [...socialKeys.all, "followers", username] as const,
   following: (username: string) =>
     [...socialKeys.all, "following", username] as const,
+  trainers: () => [...socialKeys.all, "trainers"] as const,
+  athletes: () => [...socialKeys.all, "athletes"] as const,
   profileWorkouts: (username: string) =>
     [...socialKeys.all, "profile-workouts", username] as const,
   profileInsights: (username: string) =>
@@ -139,6 +141,46 @@ export function useFollowingFeed(options?: {
       return apiFetch<ListFeedResult>(`/api/feed${query ? `?${query}` : ""}`);
     },
     placeholderData: (previousData) => previousData,
+  });
+}
+
+export function useMyTrainers() {
+  return useQuery({
+    queryKey: socialKeys.trainers(),
+    queryFn: () => apiFetch<ListUsersResult>("/api/trainers"),
+  });
+}
+
+export function useMyAthletes() {
+  return useQuery({
+    queryKey: socialKeys.athletes(),
+    queryFn: () => apiFetch<ListUsersResult>("/api/athletes"),
+  });
+}
+
+export function useAssignTrainer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (username: string) =>
+      apiFetch<{ isMyTrainer: boolean }>(`/api/users/${username}/trainer`, {
+        method: "POST",
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: socialKeys.all });
+    },
+  });
+}
+
+export function useUnassignTrainer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (username: string) =>
+      apiFetch<{ isMyTrainer: boolean }>(`/api/users/${username}/trainer`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: socialKeys.all });
+    },
   });
 }
 

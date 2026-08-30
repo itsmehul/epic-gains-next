@@ -19,6 +19,8 @@ import {
   useFollowers,
   useFollowing,
   useMeSocial,
+  useMyAthletes,
+  useMyTrainers,
   useRespondFollowRequest,
   useSearchUsers,
 } from "@/features/social/hooks";
@@ -31,6 +33,8 @@ export function FriendsPageClient() {
   const searchQuery = useSearchUsers(query);
   const followersQuery = useFollowers(me?.username ?? "");
   const followingQuery = useFollowing(me?.username ?? "");
+  const trainersQuery = useMyTrainers();
+  const athletesQuery = useMyAthletes();
   const requestsQuery = useFollowRequests();
   const respond = useRespondFollowRequest();
 
@@ -51,6 +55,12 @@ export function FriendsPageClient() {
               </TabsTrigger>
               <TabsTrigger className="flex-none" value="following">
                 Following
+              </TabsTrigger>
+              <TabsTrigger className="flex-none" value="trainers">
+                Trainers
+              </TabsTrigger>
+              <TabsTrigger className="flex-none" value="athletes">
+                Athletes
               </TabsTrigger>
               <TabsTrigger className="flex-none" value="requests">
                 Requests
@@ -125,6 +135,47 @@ export function FriendsPageClient() {
               ) : (
                 <ul className="flex flex-col">
                   {followingQuery.data?.items.map((user) => (
+                    <li key={user.id}>
+                      <UserListRow user={user} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </TabsContent>
+
+            <TabsContent className="mt-4" value="trainers">
+              {trainersQuery.isLoading ? (
+                <LoadingRow />
+              ) : trainersQuery.isError ? (
+                <ErrorText error={trainersQuery.error} />
+              ) : (trainersQuery.data?.items.length ?? 0) === 0 ? (
+                <p className="text-muted-foreground text-sm">
+                  Follow a friend, open their profile, and assign them as your
+                  trainer.
+                </p>
+              ) : (
+                <ul className="flex flex-col">
+                  {trainersQuery.data?.items.map((user) => (
+                    <li key={user.id}>
+                      <UserListRow user={user} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </TabsContent>
+
+            <TabsContent className="mt-4" value="athletes">
+              {athletesQuery.isLoading ? (
+                <LoadingRow />
+              ) : athletesQuery.isError ? (
+                <ErrorText error={athletesQuery.error} />
+              ) : (athletesQuery.data?.items.length ?? 0) === 0 ? (
+                <p className="text-muted-foreground text-sm">
+                  People who assign you as their trainer will show up here.
+                </p>
+              ) : (
+                <ul className="flex flex-col">
+                  {athletesQuery.data?.items.map((user) => (
                     <li key={user.id}>
                       <UserListRow user={user} />
                     </li>

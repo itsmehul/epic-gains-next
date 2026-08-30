@@ -134,6 +134,13 @@
       "when": 1788073447289,
       "tag": "0018_zippy_tyger_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1788087135267,
+      "tag": "0019_silly_puppet_master",
+      "breakpoints": true
     }
   ]
 }

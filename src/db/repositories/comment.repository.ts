@@ -3,7 +3,7 @@ import "server-only";
 import { and, asc, eq, exists, isNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { comments, exercise, follow, user, workout } from "@/db/schema";
+import { comments, exercise, follow, trainerAssignment, user, workout } from "@/db/schema";
 import type { MuscleGroup } from "@/db/schema/workout-schema";
 import { toPublicUser } from "@/db/repositories/social.repository";
 
@@ -28,6 +28,17 @@ export function commentVisibleToViewer(viewerId: string) {
           and(
             eq(follow.followerId, viewerId),
             eq(follow.followingId, comments.authorId),
+          ),
+        ),
+    ),
+    exists(
+      db
+        .select({ one: sql`1` })
+        .from(trainerAssignment)
+        .where(
+          and(
+            eq(trainerAssignment.trainerId, viewerId),
+            eq(trainerAssignment.athleteId, comments.authorId),
           ),
         ),
     ),

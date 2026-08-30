@@ -1,6 +1,6 @@
 "use client";
 
-import { IconLock } from "@/components/ui/icons";
+import { IconLock, IconMilitaryTech } from "@/components/ui/icons";
 import { useState } from "react";
 import { useParams } from "next/navigation";
 
@@ -19,6 +19,7 @@ import {
 } from "@/components/layout/app-shell";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   WorkoutFeedCard,
@@ -27,12 +28,14 @@ import {
 } from "@/components/workouts/workout-feed-card";
 import { useProfileAchievements } from "@/features/achievements/hooks";
 import {
+  useAssignTrainer,
   useFollowUser,
   useFollowers,
   useFollowing,
   useProfileInsights,
   useProfileWorkouts,
   useSocialProfile,
+  useUnassignTrainer,
   useUnfollowUser,
 } from "@/features/social/hooks";
 
@@ -44,6 +47,8 @@ export function ProfilePageClient() {
   const profile = profileQuery.data;
   const follow = useFollowUser();
   const unfollow = useUnfollowUser();
+  const assignTrainer = useAssignTrainer();
+  const unassignTrainer = useUnassignTrainer();
   const canViewWorkouts = Boolean(profile?.canViewWorkouts);
   const workoutsQuery = useProfileWorkouts(username, canViewWorkouts);
   const insightsQuery = useProfileInsights(username, canViewWorkouts);
@@ -52,18 +57,35 @@ export function ProfilePageClient() {
   const followingQuery = useFollowing(username);
 
   const busy = follow.isPending || unfollow.isPending;
+  const trainerBusy = assignTrainer.isPending || unassignTrainer.isPending;
 
   return (
     <AppShellScroll>
       <AppShellHeader
         actions={
           profile && profile.relationship !== "self" ? (
-            <FollowButton
-              busy={busy}
-              onFollow={() => follow.mutate(profile.username)}
-              onUnfollow={() => unfollow.mutate(profile.username)}
-              relationship={profile.relationship}
-            />
+            <div className="flex items-center gap-2">
+              {profile.relationship === "following" ? (
+                <Button
+                  disabled={trainerBusy}
+                  onClick={() =>
+                    profile.isMyTrainer
+                      ? unassignTrainer.mutate(profile.username)
+                      : assignTrainer.mutate(profile.username)
+                  }
+                  size="sm"
+                  variant={profile.isMyTrainer ? "default" : "outline"}
+                >
+                  {profile.isMyTrainer ? "Trainer" : "Assign trainer"}
+                </Button>
+              ) : null}
+              <FollowButton
+                busy={busy}
+                onFollow={() => follow.mutate(profile.username)}
+                onUnfollow={() => unfollow.mutate(profile.username)}
+                relationship={profile.relationship}
+              />
+            </div>
           ) : null
         }
         backHref="/friends"
@@ -106,6 +128,21 @@ export function ProfilePageClient() {
                   <p className="text-muted-foreground text-sm">
                     @{profile.username}
                   </p>
+                  {profile.isMyAthlete ? (
+                    <Badge className="mt-2" variant="secondary">
+                      <IconMilitaryTech />
+                      Your athlete
+                    </Badge>
+                  ) : null}
+                  {profile.trainers.length > 0 ? (
+                    <p className="text-muted-foreground mt-2 text-sm">
+                      Trainer
+                      {profile.trainers.length === 1 ? "" : "s"}:{" "}
+                      {profile.trainers
+                        .map((trainer) => `@${trainer.username}`)
+                        .join(", ")}
+                    </p>
+                  ) : null}
                 </div>
               </div>
 

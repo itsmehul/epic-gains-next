@@ -75,3 +75,37 @@ export const followRequestRelations = relations(followRequest, ({ one }) => ({
     relationName: "incomingFollowRequests",
   }),
 }));
+
+export const trainerAssignment = pgTable(
+  "trainer_assignment",
+  {
+    athleteId: text("athlete_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    trainerId: text("trainer_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.athleteId, table.trainerId] }),
+    index("trainer_assignment_trainerId_idx").on(table.trainerId),
+    index("trainer_assignment_athleteId_idx").on(table.athleteId),
+  ],
+);
+
+export const trainerAssignmentRelations = relations(
+  trainerAssignment,
+  ({ one }) => ({
+    athlete: one(user, {
+      fields: [trainerAssignment.athleteId],
+      references: [user.id],
+      relationName: "athletes",
+    }),
+    trainer: one(user, {
+      fields: [trainerAssignment.trainerId],
+      references: [user.id],
+      relationName: "trainers",
+    }),
+  }),
+);

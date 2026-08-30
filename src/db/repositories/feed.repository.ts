@@ -5,6 +5,7 @@ import { and, desc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import {
   getUserById,
+  listAthletes,
   listFollowing,
 } from "@/db/repositories/social.repository";
 import {
@@ -15,7 +16,7 @@ import {
   workoutMuscleGroupCondition,
   type ListWorkoutsOptions,
 } from "@/db/repositories/workout.repository";
-import { follow, user, workout, workoutMembership } from "@/db/schema";
+import { user, workout, workoutMembership } from "@/db/schema";
 
 export async function listVisibleWorkoutsForUser(
   _viewerId: string,
@@ -62,10 +63,18 @@ export async function listFollowingFeed(
   viewerId: string,
   options?: ListWorkoutsOptions & { limit?: number },
 ) {
-  const following = await listFollowing(viewerId);
-  if (following.length === 0) return [];
+  const [following, athletes] = await Promise.all([
+    listFollowing(viewerId),
+    listAthletes(viewerId),
+  ]);
+  const feedPeople = [
+    ...new Map(
+      [...following, ...athletes].map((person) => [person.id, person]),
+    ).values(),
+  ];
+  if (feedPeople.length === 0) return [];
 
-  const followingIds = following.map((u) => u.id);
+  const followingIds = feedPeople.map((u) => u.id);
   const q = options?.q?.trim() ?? "";
   const muscleGroups = options?.muscleGroups ?? [];
   const conditions = [
@@ -109,13 +118,6 @@ export async function listFollowingFeed(
       eq(workoutMembership.workoutId, workout.id),
     )
     .innerJoin(user, eq(user.id, workoutMembership.userId))
-    .innerJoin(
-      follow,
-      and(
-        eq(follow.followingId, workoutMembership.userId),
-        eq(follow.followerId, viewerId),
-      ),
-    )
     .where(and(...conditions))
     .orderBy(desc(workout.createdAt));
 
