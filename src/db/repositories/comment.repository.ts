@@ -70,6 +70,8 @@ export async function listVisibleComments(options: {
       exerciseId: comments.exerciseId,
       workoutId: comments.workoutId,
       text: comments.text,
+      role: comments.role,
+      mentions: comments.mentions,
       createdAt: comments.createdAt,
       authorId: comments.authorId,
       author: authorColumns,
@@ -88,6 +90,8 @@ export async function listVisibleComments(options: {
         exerciseId: row.exerciseId,
         workoutId: row.workoutId,
         text: row.text,
+        role: row.role,
+        mentions: row.mentions ?? [],
         createdAt: row.createdAt,
         authorId: row.authorId,
         author,
@@ -191,8 +195,28 @@ export async function createComment(data: CommentInsert) {
     exerciseId: row.exerciseId,
     workoutId: row.workoutId,
     text: row.text,
+    role: row.role,
+    mentions: row.mentions ?? [],
     createdAt: row.createdAt,
     authorId: row.authorId,
     author,
   };
+}
+
+export async function getCommentById(id: string) {
+  const [row] = await db
+    .select({
+      id: comments.id,
+      exerciseId: comments.exerciseId,
+      workoutId: comments.workoutId,
+      text: comments.text,
+      role: comments.role,
+      mentions: comments.mentions,
+      createdAt: comments.createdAt,
+      authorId: comments.authorId,
+    })
+    .from(comments)
+    .where(eq(comments.id, id))
+    .limit(1);
+  return row ?? null;
 }

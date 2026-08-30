@@ -4,3 +4,4 @@ export * from "./mcp-schema";
 export * from "./workout-schema";
 export * from "./social-schema";
 export * from "./achievement-schema";
+export * from "./agent-schema";

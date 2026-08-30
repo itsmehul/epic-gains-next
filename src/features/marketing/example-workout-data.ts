@@ -79,6 +79,8 @@ function makeComment(args: {
     exerciseId: args.exerciseId,
     workoutId: EXAMPLE_WORKOUT_ID,
     text: args.text,
+    role: "user",
+    mentions: [],
     createdAt: atDay(args.daysAgo, args.hour ?? 10, args.minute ?? 4),
     authorId: author.id,
     author,

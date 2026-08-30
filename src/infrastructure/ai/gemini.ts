@@ -1,12 +1,13 @@
 import "server-only";
 
 import { createGoogle } from "@ai-sdk/google";
-import { generateText } from "ai";
+import { generateText, streamText, type ModelMessage } from "ai";
 
+import { getDecryptedUserGeminiKey } from "@/db/repositories/gemini-key.repository";
 import { getEnv } from "@/shared/env";
 import { extractYoutubeWatchUrls } from "@/shared/youtube";
 
-const GEMINI_MODEL = "gemini-3.7-flash" as const;
+export const GEMINI_MODEL = "gemini-3.7-flash" as const;
 
 export function getGeminiProvider() {
   const env = getEnv();
@@ -17,6 +18,30 @@ export function getGeminiProvider() {
   }
 
   return createGoogle({ apiKey });
+}
+
+/** Per-user Gemini provider — no fallback to server env. */
+export async function getUserGeminiProvider(userId: string) {
+  const apiKey = await getDecryptedUserGeminiKey(userId);
+  if (!apiKey) {
+    throw new Error("gemini_key_required");
+  }
+  return createGoogle({ apiKey });
+}
+
+/** Validate a raw Gemini API key with a cheap generate call. */
+export async function validateGeminiApiKey(apiKey: string): Promise<boolean> {
+  try {
+    const google = createGoogle({ apiKey });
+    await generateText({
+      model: google(GEMINI_MODEL),
+      prompt: "Reply with ok",
+      maxOutputTokens: 8,
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Thin AI SDK example with Google Search and optional YouTube video input. */
@@ -52,4 +77,64 @@ export async function generateGeminiText(prompt: string) {
     },
   });
   return text;
+}
+
+function withYoutubeFileParts(
+  messages: ModelMessage[],
+  youtubeUrls: string[],
+): ModelMessage[] {
+  if (youtubeUrls.length === 0) return messages;
+  const fileParts = youtubeUrls.map((url) => ({
+    type: "file" as const,
+    data: url,
+    mediaType: "video/mp4" as const,
+  }));
+
+  const last = messages[messages.length - 1];
+  if (!last || last.role !== "user") {
+    return [
+      ...messages,
+      { role: "user" as const, content: [...fileParts] },
+    ];
+  }
+
+  const content =
+    typeof last.content === "string"
+      ? [{ type: "text" as const, text: last.content }, ...fileParts]
+      : Array.isArray(last.content)
+        ? [...last.content, ...fileParts]
+        : [...fileParts];
+
+  return [...messages.slice(0, -1), { ...last, content }];
+}
+
+export async function streamUserTrainerChat(options: {
+  userId: string;
+  system: string;
+  messages: ModelMessage[];
+  youtubeUrls?: string[];
+}) {
+  const google = await getUserGeminiProvider(options.userId);
+  const messages = withYoutubeFileParts(
+    options.messages,
+    options.youtubeUrls ?? [],
+  );
+
+  return streamText({
+    model: google(GEMINI_MODEL),
+    system: options.system,
+    messages,
+    tools: {
+      google_search: google.tools.googleSearch({}),
+    },
+    maxOutputTokens: 8192,
+    topP: 0.95,
+    providerOptions: {
+      google: {
+        thinkingConfig: {
+          thinkingLevel: "medium",
+        },
+      },
+    },
+  });
 }

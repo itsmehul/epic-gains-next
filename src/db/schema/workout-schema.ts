@@ -36,6 +36,16 @@ export type ImportPromptAnnotation = {
   note?: string;
 };
 
+export const COMMENT_ROLE_VALUES = ["user", "agent"] as const;
+
+export type CommentRole = (typeof COMMENT_ROLE_VALUES)[number];
+
+export type CommentMention =
+  | { kind: "agent" }
+  | { kind: "user"; userId: string; username: string };
+
+export const commentRoleEnum = pgEnum("comment_role", COMMENT_ROLE_VALUES);
+
 export const METRIC_PROFILE_VALUES = [
   "WEIGHT_REPS",
   "BODYWEIGHT_REPS",
@@ -249,6 +259,11 @@ export const comments = pgTable(
     exerciseId: text("exercise_id").notNull(),
     workoutId: text("workout_id"),
     text: text("text").notNull(),
+    role: commentRoleEnum("role").notNull().default("user"),
+    mentions: jsonb("mentions")
+      .$type<CommentMention[]>()
+      .notNull()
+      .default([]),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     authorId: text("author_id")
       .notNull()

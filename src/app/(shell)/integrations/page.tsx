@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { IconPlugConnected } from "@/components/ui/icons";
 
+import { GeminiKeyCard } from "@/components/integrations/gemini-key-card";
 import { AppShellBody, AppShellHeader } from "@/components/layout/app-shell";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -19,6 +20,7 @@ export default function IntegrationsPage() {
     <>
       <AppShellHeader title="Integrations" />
       <AppShellBody className="gap-6 p-4 md:p-6">
+        <GeminiKeyCard />
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

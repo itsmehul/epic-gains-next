@@ -6,6 +6,8 @@ import {
   createComment,
   listVisibleComments,
 } from "@/db/repositories/comment.repository";
+import { listFollowing } from "@/db/repositories/social.repository";
+import { resolveMentions } from "@/features/agent/mentions";
 import {
   createCommentSchema,
   listCommentsQuerySchema,
@@ -21,6 +23,8 @@ function serializeComment(item: {
   exerciseId: string;
   workoutId: string | null;
   text: string;
+  role: "user" | "agent";
+  mentions: unknown;
   createdAt: Date;
   authorId: string;
   author: {
@@ -33,6 +37,7 @@ function serializeComment(item: {
 }) {
   return {
     ...item,
+    mentions: Array.isArray(item.mentions) ? item.mentions : [],
     createdAt: item.createdAt.toISOString(),
   };
 }
@@ -108,11 +113,23 @@ export async function POST(req: Request) {
       }
     }
 
+    const following = await listFollowing(session.user.id);
+    const mentions = resolveMentions(
+      parsed.data.text,
+      following.map((u) => ({
+        id: u.id,
+        username: u.username,
+        name: u.name,
+      })),
+    );
+
     const item = await createComment({
       id: crypto.randomUUID(),
       exerciseId: parsed.data.exerciseId,
       workoutId,
       text: parsed.data.text,
+      role: "user",
+      mentions,
       authorId: session.user.id,
     });
     if (!item) {

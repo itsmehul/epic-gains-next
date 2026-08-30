@@ -1,6 +1,13 @@
 "use client";
 
-import { IconBarbell, IconSparkles, IconTrophy, IconUsers, IconX } from "@/components/ui/icons";
+import {
+  IconBarbell,
+  IconBrain,
+  IconSparkles,
+  IconTrophy,
+  IconUsers,
+  IconX,
+} from "@/components/ui/icons";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -170,6 +177,14 @@ function AppSidebarContent({
         >
           <IconSparkles className="size-4 shrink-0" />
           Skills
+        </SidebarNavItem>
+        <SidebarNavItem
+          active={pathname.startsWith("/agent")}
+          closeOnNavigate={showCloseButton}
+          href="/agent"
+        >
+          <IconBrain className="size-4 shrink-0" />
+          Trainer
         </SidebarNavItem>
       </div>
 
