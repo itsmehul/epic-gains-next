@@ -288,37 +288,21 @@ function formatSetSummary(values: RowValues): string {
   return parts.join(" · ");
 }
 
-function setMatchesTarget(set: WorkoutSet, target: TargetSet): boolean {
-  return (
-    (set.reps ?? null) === (target.reps ?? null) &&
-    (set.weight ?? null) === (target.weight ?? null) &&
-    (set.time ?? null) === (target.time ?? null) &&
-    (set.distance ?? null) === (target.distance ?? null)
-  );
+function inferConsumedTargetIndices(
+  targetCount: number,
+  loggedCount: number,
+): Set<number> {
+  const consumedCount = Math.min(targetCount, Math.max(0, loggedCount));
+  return new Set(Array.from({ length: consumedCount }, (_, index) => index));
 }
 
-function inferConsumedTargetIndices(
-  targets: TargetSet[],
-  loggedSets: WorkoutSet[],
-): Set<number> {
-  const consumed = new Set<number>();
-  const sorted = [...loggedSets].sort((a, b) => {
-    const aTime = new Date(a.createdAt ?? a.updatedAt).getTime();
-    const bTime = new Date(b.createdAt ?? b.updatedAt).getTime();
-    return aTime - bTime;
-  });
-
-  for (const logged of sorted) {
-    for (let index = 0; index < targets.length; index += 1) {
-      if (consumed.has(index)) continue;
-      if (setMatchesTarget(logged, targets[index]!)) {
-        consumed.add(index);
-        break;
-      }
-    }
-  }
-
-  return consumed;
+function rowValuesEqual(left: RowValues, right: RowValues) {
+  return (
+    left.reps === right.reps &&
+    left.weight === right.weight &&
+    left.time === right.time &&
+    left.distance === right.distance
+  );
 }
 
 function syncPlannedDrafts(
@@ -327,7 +311,15 @@ function syncPlannedDrafts(
   consumedTargetIndices: Set<number>,
   source: PlannedDraftSource,
 ): DraftRow[] {
-  const customDrafts = prev.filter((draft) => draft.source === "custom");
+  const leftoverIndices: number[] = [];
+  for (let index = 0; index < targets.length; index += 1) {
+    if (!consumedTargetIndices.has(index)) leftoverIndices.push(index);
+  }
+
+  const customDrafts =
+    leftoverIndices.length === 0
+      ? prev.filter((draft) => draft.source === "custom")
+      : [];
   const existingPlannedDrafts = new Map(
     prev
       .filter(
@@ -336,14 +328,25 @@ function syncPlannedDrafts(
       .map((draft) => [draft.targetIndex!, draft]),
   );
 
-  const nextPlannedDrafts: DraftRow[] = [];
-  for (let index = 0; index < targets.length; index += 1) {
-    if (consumedTargetIndices.has(index)) continue;
+  const nextPlannedDrafts = leftoverIndices.map((index) => {
+    const planned = draftFromTarget(targets[index]!, index, source);
     const existing = existingPlannedDrafts.get(index);
-    nextPlannedDrafts.push(
-      existing ?? draftFromTarget(targets[index]!, index, source),
-    );
-  }
+    if (!existing) return planned;
+    if (
+      existing.source === source &&
+      existing.sortAt === planned.sortAt &&
+      rowValuesEqual(existing.values, planned.values)
+    ) {
+      return existing;
+    }
+    return {
+      ...existing,
+      source,
+      values: planned.values,
+      sortAt: planned.sortAt,
+      shouldFocus: false,
+    };
+  });
 
   const next = [...nextPlannedDrafts, ...customDrafts];
   if (
@@ -597,38 +600,50 @@ export function ExerciseSetsPanel({
     [rowKeyBySetId],
   );
   const plannedDraftSyncKey = useMemo(() => {
-    if (!plannedTargets.length) return "";
-    const consumed = inferConsumedTargetIndices(
-      plannedTargets,
-      todayLoggedSets,
-    );
+    if (!plannedTargets.length) return `${plannedSource}:0:`;
     const fingerprint = plannedTargets
       .map(
         (target) =>
           `${target.reps ?? ""}:${target.weight ?? ""}:${target.time ?? ""}:${target.distance ?? ""}`,
       )
       .join("|");
-    return `${plannedSource}:${todayLoggedSets.length}:${fingerprint}:${[...consumed].sort((a, b) => a - b).join(",")}`;
-  }, [plannedSource, plannedTargets, todayLoggedSets]);
+    return `${plannedSource}:${todayLoggedSets.length}:${fingerprint}`;
+  }, [plannedSource, plannedTargets, todayLoggedSets.length]);
+
+  const plannedSyncRef = useRef({
+    plannedTargets,
+    plannedSource,
+    loggedCount: todayLoggedSets.length,
+  });
+  plannedSyncRef.current = {
+    plannedTargets,
+    plannedSource,
+    loggedCount: todayLoggedSets.length,
+  };
 
   useEffect(() => {
     if (!setsReady) return;
 
-    setDrafts((prev) => {
-      if (!plannedTargets.length) return prev;
+    const { plannedTargets: targets, plannedSource: source, loggedCount } =
+      plannedSyncRef.current;
 
-      const consumedTargetIndices = inferConsumedTargetIndices(
-        plannedTargets,
-        todayLoggedSets,
-      );
+    setDrafts((prev) => {
+      if (!targets.length) {
+        const customOnly = prev.filter((draft) => draft.source === "custom");
+        return customOnly.length === prev.length &&
+          customOnly.every((row, index) => row === prev[index])
+          ? prev
+          : customOnly;
+      }
+
       return syncPlannedDrafts(
         prev,
-        plannedTargets,
-        consumedTargetIndices,
-        plannedSource,
+        targets,
+        inferConsumedTargetIndices(targets.length, loggedCount),
+        source,
       );
     });
-  }, [setsReady, plannedDraftSyncKey, plannedTargets, plannedSource, todayLoggedSets]);
+  }, [setsReady, plannedDraftSyncKey]);
 
   useEffect(() => {
     const ids = new Set(sets.map((set) => set.id));
@@ -790,7 +805,12 @@ export function ExerciseSetsPanel({
     );
   const extrasOpen = extraFields.length > 0 && (showExtras || hasExtraValues);
 
+  const hasPlannedLeftovers =
+    plannedTargets.length > 0 &&
+    todayLoggedSets.length < plannedTargets.length;
+
   function handleAddSet() {
+    if (hasPlannedLeftovers) return;
     setError(null);
     const lastLogged = todaySets.at(-1);
     const lastDraft = drafts.at(-1);
@@ -817,15 +837,20 @@ export function ExerciseSetsPanel({
     return () => window.clearTimeout(timeoutId);
   }, [enteringRowKeys, transition.duration]);
 
-  async function approveDraft(draftId: string) {
+  async function approveDraft(
+    draftId: string,
+    valuesOverride?: Partial<RowValues>,
+  ) {
     const draft = drafts.find((row) => row.id === draftId);
     if (!draft) return;
 
-    if (!hasLoggedValues(draft.values)) {
+    const values = { ...draft.values, ...valuesOverride };
+
+    if (!hasLoggedValues(values)) {
       setError("Enter a value before approving the set");
       return;
     }
-    if (hasInvalidNumber(draft.values)) {
+    if (hasInvalidNumber(values)) {
       setError("Values must be valid numbers");
       return;
     }
@@ -838,13 +863,13 @@ export function ExerciseSetsPanel({
       const created = await createSet.mutateAsync({
         workoutId,
         exerciseId,
-        ...toPayload(draft.values),
+        ...toPayload(values),
       });
-      const values = valuesFromSet(created);
+      const loggedValues = valuesFromSet(created);
       setRowKeyBySetId((prev) => ({ ...prev, [created.id]: draftId }));
       setPromotedByRowKey((prev) => ({
         ...prev,
-        [draftId]: { setId: created.id, values },
+        [draftId]: { setId: created.id, values: loggedValues },
       }));
       setDrafts((prev) => prev.filter((row) => row.id !== draftId));
     } catch (err) {
@@ -908,6 +933,11 @@ export function ExerciseSetsPanel({
           setError(err instanceof Error ? err.message : "Failed to update time");
         },
       );
+      return;
+    }
+
+    if (row?.phase === "draft") {
+      void approveDraft(rowKey, { time: next });
     }
   }
 
@@ -991,12 +1021,14 @@ export function ExerciseSetsPanel({
     busy,
     index,
     autoFocusWeight,
+    canDiscard,
   }: {
     rowId: string;
     values: RowValues;
     busy: boolean;
     index: number;
     autoFocusWeight?: boolean;
+    canDiscard: boolean;
   }) {
     const rowExtraFields = extraFieldsForValues(values, profileFields);
     const rowExtrasOpen =
@@ -1082,18 +1114,20 @@ export function ExerciseSetsPanel({
               ) : null}
               Save
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              aria-label={`Discard draft set ${index + 1}`}
-              disabled={busy}
-              className="text-muted-foreground hover:text-destructive h-8 px-2"
-              onClick={() => removeDraft(rowId)}
-            >
-              <IconTrash className="size-4" />
-              <span className="sr-only md:not-sr-only md:ml-1">Discard</span>
-            </Button>
+            {canDiscard ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label={`Discard draft set ${index + 1}`}
+                disabled={busy}
+                className="text-muted-foreground hover:text-destructive h-8 px-2"
+                onClick={() => removeDraft(rowId)}
+              >
+                <IconTrash className="size-4" />
+                <span className="sr-only md:not-sr-only md:ml-1">Discard</span>
+              </Button>
+            ) : null}
           </div>
         </div>
       </div>
@@ -1133,22 +1167,14 @@ export function ExerciseSetsPanel({
                 (row.setId != null && busyId === row.setId);
               const expanded = expandedId === row.rowKey;
               const summary = formatSetSummary(row.values);
-              const subtitle =
-                row.phase === "logged"
-                  ? "Logged"
-                  : row.draftSource === "previous"
-                    ? "Draft · last session"
-                    : row.draftSource === "target"
-                      ? "Draft · save to log"
-                      : "Draft · custom";
 
               return (
                 <SetRowCard
                   key={row.rowKey}
                   rowKey={row.rowKey}
                   phase={row.phase}
+                  source={row.draftSource ?? "custom"}
                   summary={summary}
-                  subtitle={subtitle}
                   expanded={expanded}
                   busy={busy}
                   isEntering={enteringRowKeys.has(row.rowKey)}
@@ -1162,7 +1188,7 @@ export function ExerciseSetsPanel({
                       void handleDeleteLogged(row.setId);
                       return;
                     }
-                    if (row.phase === "draft") {
+                    if (row.phase === "draft" && row.draftSource === "custom") {
                       removeDraft(row.rowKey);
                     }
                   }}
@@ -1177,6 +1203,7 @@ export function ExerciseSetsPanel({
                     busy,
                     index: row.index,
                     autoFocusWeight: row.shouldFocus,
+                    canDiscard: row.draftSource === "custom",
                   })}
                 />
               );
@@ -1233,6 +1260,7 @@ export function ExerciseSetsPanel({
                   type="button"
                   variant="secondary"
                   className={canResolve ? "mt-3 mx-auto w-fit" : "mx-auto w-fit"}
+                  disabled={hasPlannedLeftovers}
                   onClick={handleAddSet}
                 >
                   <IconPlus data-icon="inline-start" />
@@ -1265,6 +1293,7 @@ export function ExerciseSetsPanel({
                   type="button"
                   variant="secondary"
                   className="mx-auto w-fit"
+                  disabled={hasPlannedLeftovers}
                   onClick={handleAddSet}
                 >
                   <IconPlus data-icon="inline-start" />

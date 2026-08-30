@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/shared/utils";
 
 export type SetRowPhase = "draft" | "approving" | "logged";
+export type SetRowSource = "target" | "previous" | "custom";
 
 export type SetRowValues = {
   reps: string;
@@ -18,8 +19,8 @@ export type SetRowValues = {
 type SetRowCardProps = {
   rowKey: string;
   phase: SetRowPhase;
+  source?: SetRowSource;
   summary: string;
-  subtitle: string;
   expanded: boolean;
   busy: boolean;
   isEntering?: boolean;
@@ -35,10 +36,31 @@ const springSnappy = { type: "spring" as const, stiffness: 520, damping: 36 };
 const collapseGridClass =
   "grid transition-[grid-template-rows] duration-280 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none";
 
+const statusToneClass = {
+  logged:
+    "bg-primary/10",
+  approving:
+    "bg-primary/10",
+  previous:
+    "bg-[repeating-linear-gradient(-38deg,color-mix(in_oklab,var(--foreground)_11%,transparent)_0_2px,transparent_2px_9px)]",
+  target:
+    "bg-[radial-gradient(color-mix(in_oklab,var(--foreground)_16%,transparent)_1.15px,transparent_1.2px)] bg-size-[7px_7px]",
+  custom:
+    "bg-transparent",
+} as const;
+
+function statusLabel(phase: SetRowPhase, source: SetRowSource): string {
+  if (phase === "logged") return "Logged";
+  if (phase === "approving") return "Saving";
+  if (source === "previous") return "Draft from last session";
+  if (source === "target") return "Draft from target";
+  return "Custom draft";
+}
+
 export function SetRowCard({
   phase,
+  source = "custom",
   summary,
-  subtitle,
   expanded,
   busy,
   isEntering = false,
@@ -57,6 +79,11 @@ export function SetRowCard({
   const checkboxChecked = isComplete;
   const canExpand = isDraft && !isApproving;
   const checkboxDisabled = isApproving || busy;
+  const tone = isLogged
+    ? "logged"
+    : isApproving
+      ? "approving"
+      : source;
 
   return (
     <motion.li
@@ -67,16 +94,16 @@ export function SetRowCard({
       transition={transition}
       className={cn(
         "overflow-clip transition-[background-color] duration-280",
-        isComplete && "bg-primary/8",
-        editorOpen && "bg-muted/40",
+        statusToneClass[tone],
+        editorOpen && "bg-muted/40 bg-none",
       )}
     >
       <div className="relative">
-        <div className="flex items-center gap-2 px-3 py-1.5">
+        <div className="flex items-center gap-1.5 px-3 py-2.5">
           <button
             type="button"
             className={cn(
-              "flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+              "flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-0.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
               !canExpand && "cursor-default",
             )}
             aria-expanded={editorOpen}
@@ -84,18 +111,16 @@ export function SetRowCard({
             onClick={onToggleExpanded}
           >
             <span className="min-w-0 flex-1">
+              <span className="sr-only">{statusLabel(phase, source)}. </span>
               <span
                 className={cn(
-                  "block truncate text-sm font-medium tabular-nums transition-colors duration-280",
+                  "block truncate text-lg font-semibold leading-tight tabular-nums tracking-tight transition-colors duration-280",
                   summary === "Tap to log" &&
                     isDraft &&
-                    "text-muted-foreground font-normal",
+                    "text-muted-foreground text-base font-normal tracking-normal",
                 )}
               >
                 {summary}
-              </span>
-              <span className="text-muted-foreground block text-[11px] tabular-nums transition-colors duration-280">
-                {subtitle}
               </span>
             </span>
           </button>
@@ -115,7 +140,7 @@ export function SetRowCard({
             </button>
           ) : null}
 
-          <div className="relative flex size-5 shrink-0 items-center justify-center">
+          <div className="relative flex size-8 shrink-0 items-center justify-center">
             <Checkbox
               checked={checkboxChecked}
               disabled={checkboxDisabled}
@@ -126,7 +151,7 @@ export function SetRowCard({
                     ? "Delete set"
                     : "Set logged"
               }
-              className="size-5 rounded-md border-foreground/40 bg-background transition-[background-color,border-color] duration-280 data-checked:border-primary data-checked:bg-primary"
+              className="size-8 rounded-md border-foreground/40 bg-background after:-inset-x-1 after:-inset-y-1 transition-[background-color,border-color] duration-280 data-checked:border-primary data-checked:bg-primary [&>[data-slot=checkbox-indicator]>.ms-icon]:size-5"
               onCheckedChange={(checked) => {
                 if (checked && isDraft) onApprove();
                 if (!checked && isLogged) onRemove();

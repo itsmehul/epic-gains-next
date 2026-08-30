@@ -13,6 +13,7 @@ import {
   IconPlayerPauseFilled,
   IconPlayerPlayFilled,
   IconStop,
+  IconX,
 } from "@/components/ui/icons";
 import { cn } from "@/shared/utils";
 
@@ -109,12 +110,10 @@ export function SetTimerDialog({
 
   const [elapsedMs, setElapsedMs] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
-  const [phase, setPhase] = useState<"running" | "review">("running");
   const startedAtRef = useRef<number | null>(null);
   const accumulatedRef = useRef(0);
   const rafRef = useRef<number | null>(null);
   const completeChimePlayedRef = useRef(false);
-  const stoppedSecondsRef = useRef(0);
 
   const computeElapsedMs = () => {
     const base = accumulatedRef.current;
@@ -131,7 +130,6 @@ export function SetTimerDialog({
       completeChimePlayedRef.current = false;
       setElapsedMs(0);
       setIsRunning(false);
-      setPhase("running");
       return;
     }
 
@@ -140,12 +138,11 @@ export function SetTimerDialog({
     startedAtRef.current = Date.now();
     setElapsedMs(0);
     setIsRunning(true);
-    setPhase("running");
     void getTimerAudioContext()?.resume();
   }, [open]);
 
   useEffect(() => {
-    if (!open || !isRunning || phase !== "running") return;
+    if (!open || !isRunning) return;
     const tick = () => {
       setElapsedMs(computeElapsedMs());
       rafRef.current = requestAnimationFrame(tick);
@@ -155,18 +152,18 @@ export function SetTimerDialog({
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
-  }, [open, isRunning, phase]);
+  }, [open, isRunning]);
 
   const currentElapsedMs = isRunning ? computeElapsedMs() : elapsedMs;
   const overshot = hasPreset && currentElapsedMs > targetMs;
 
   useEffect(() => {
-    if (!open || !hasPreset || phase !== "running") return;
+    if (!open || !hasPreset) return;
     if (currentElapsedMs < targetMs) return;
     if (completeChimePlayedRef.current) return;
     completeChimePlayedRef.current = true;
     playTimerCompleteChime();
-  }, [open, hasPreset, phase, currentElapsedMs, targetMs]);
+  }, [open, hasPreset, currentElapsedMs, targetMs]);
   const progress = hasPreset
     ? Math.min(1.15, currentElapsedMs / targetMs)
     : 0;
@@ -185,6 +182,11 @@ export function SetTimerDialog({
     setIsRunning(true);
   };
 
+  const commitSelectedTime = (seconds: number) => {
+    onSelectTime(seconds);
+    onOpenChange(false);
+  };
+
   const handleStop = () => {
     let totalMs = accumulatedRef.current;
     if (isRunning && startedAtRef.current !== null) {
@@ -194,24 +196,12 @@ export function SetTimerDialog({
     accumulatedRef.current = totalMs;
     setIsRunning(false);
     setElapsedMs(totalMs);
-    const elapsedSeconds = Math.max(0, totalMs / 1000);
-    stoppedSecondsRef.current = elapsedSeconds;
-    if (!hasPreset) {
-      onSelectTime(elapsedSeconds);
-      onOpenChange(false);
-      return;
-    }
-    setPhase("review");
+    commitSelectedTime(Math.max(0, totalMs / 1000));
   };
 
-  const commitSelectedTime = (seconds: number) => {
-    onSelectTime(seconds);
-    onOpenChange(false);
+  const handleUsePrevious = () => {
+    commitSelectedTime(presetSeconds);
   };
-
-  const elapsedSeconds = Math.max(0, elapsedMs / 1000);
-  const elapsedChanged =
-    Math.abs(elapsedSeconds - presetSeconds) >= 0.05;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -221,26 +211,26 @@ export function SetTimerDialog({
       >
         <div className="flex items-center justify-between px-4 py-3">
           <DialogTitle className="text-sm font-medium tracking-wide uppercase">
-            {phase === "review" ? "Save time" : isRunning ? "Running" : "Paused"}
+            {isRunning ? "Running" : "Paused"}
           </DialogTitle>
           <Button
             type="button"
             variant="ghost"
-            size="sm"
+            size="icon-sm"
             className="text-muted-foreground"
+            aria-label="Close"
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            <IconX strokeWidth={2} />
           </Button>
         </div>
 
         <DialogDescription className="sr-only">
-          Count-up timer for this set. You can go past the target time, then keep
-          the original target or track what you actually did.
+          Count-up timer for this set. Stop saves the current time. After the
+          target, you can also apply the previous record if one is set.
         </DialogDescription>
 
-        {phase === "running" ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-10 px-6 pb-16">
+        <div className="flex flex-1 flex-col items-center justify-center gap-10 px-6 pb-16">
             <div className="relative flex size-64 items-center justify-center sm:size-72">
               <svg viewBox="0 0 120 120" className="absolute inset-0 size-full -rotate-90">
                 <circle
@@ -285,70 +275,45 @@ export function SetTimerDialog({
               </div>
             </div>
 
-            <div className="flex items-center gap-5">
-              <Button
-                type="button"
-                size="icon-lg"
-                variant="secondary"
-                className="size-16 rounded-full"
-                aria-label={isRunning ? "Pause timer" : "Resume timer"}
-                onClick={handlePauseResume}
-              >
-                {isRunning ? (
-                  <IconPlayerPauseFilled className="size-7" />
-                ) : (
-                  <IconPlayerPlayFilled className="size-7" />
-                )}
-              </Button>
-              <Button
-                type="button"
-                size="icon-lg"
-                className="size-16 rounded-full"
-                aria-label="Stop timer"
-                onClick={handleStop}
-              >
-                <IconStop className="size-7" />
-              </Button>
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex items-center gap-5">
+                <Button
+                  type="button"
+                  size="icon-lg"
+                  variant="secondary"
+                  className="size-16 rounded-full"
+                  aria-label={isRunning ? "Pause timer" : "Resume timer"}
+                  onClick={handlePauseResume}
+                >
+                  {isRunning ? (
+                    <IconPlayerPauseFilled className="size-7" />
+                  ) : (
+                    <IconPlayerPlayFilled className="size-7" />
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  size="icon-lg"
+                  className="size-16 rounded-full"
+                  aria-label="Stop timer"
+                  onClick={handleStop}
+                >
+                  <IconStop className="size-7" />
+                </Button>
+              </div>
+              {overshot ? (
+                <Button
+                  type="button"
+                  size="lg"
+                  variant="secondary"
+                  className="h-12 rounded-full px-6"
+                  onClick={handleUsePrevious}
+                >
+                  Previous {formatSecondsLabel(presetSeconds)}
+                </Button>
+              ) : null}
             </div>
           </div>
-        ) : (
-          <div className="flex flex-1 flex-col items-center justify-center gap-8 px-6 pb-16">
-            <div className="flex flex-col items-center gap-2 text-center">
-              <p className="font-heading text-5xl font-semibold tabular-nums tracking-tight">
-                {formatStopwatch(elapsedMs)}
-              </p>
-              <p className="text-muted-foreground text-sm">
-                {elapsedChanged
-                  ? `Target was ${formatSecondsLabel(presetSeconds)}`
-                  : "Matches the current target"}
-              </p>
-            </div>
-
-            <div className="flex w-full max-w-sm flex-col gap-2">
-              <Button
-                type="button"
-                size="lg"
-                className="h-12 rounded-full"
-                onClick={() => {
-                  commitSelectedTime(stoppedSecondsRef.current || elapsedSeconds);
-                }}
-              >
-                Track {formatSecondsLabel(elapsedSeconds)}
-              </Button>
-              <Button
-                type="button"
-                size="lg"
-                variant="secondary"
-                className="h-12 rounded-full"
-                onClick={() => {
-                  commitSelectedTime(presetSeconds);
-                }}
-              >
-                Keep {formatSecondsLabel(presetSeconds)}
-              </Button>
-            </div>
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   );
