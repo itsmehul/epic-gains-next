@@ -37,13 +37,13 @@ Call both tools in the same turn with the same \`date\` (yesterday as \`YYYY-MM-
 
 Then write the template. Do not call any other tool.
 
-Forbidden: \`list_following\`, \`list_following_feed\`, \`list_follow_requests\`, \`follow_user\`, \`search_users\`, \`get_social_profile\`, looping \`performance_metrics\` per friend.
+Forbidden: \`list_following\`, \`list_following_feed\`, \`list_follow_requests\`, \`follow_user\`, \`search_users\`, \`get_social_profile\`, \`athletes_performance_metrics\`, looping \`performance_metrics\` per friend.
 
 If the follow list is empty, say so from the payload and only recap the focal athlete.
 
 ### 3. Rank from the payloads
 
-Use current-week volume as the primary rank, then sessions, then streak. Skip friends with \`canViewWorkouts: false\` in the ranking and list them under Hidden.
+Use \`following_performance_metrics.pulse\` for group median and volume leader. Rank visible friends by \`metrics.windows.currentWeek.volume\`, then sessions, then streak. Skip \`canViewWorkouts: false\` and list them under Hidden. Do not recompute medians.
 
 ### 4. Format output
 
@@ -59,7 +59,7 @@ Use current-week volume as the primary rank, then sessions, then streak. Skip fr
 
 **You vs the group (this week)**
 - **Your volume / sessions / streak:** [from performance_metrics]
-- **Group median volume:** [from visible friends; if fewer than 3 visible, write range instead of median]
+- **Group median volume:** [pulse.medianCurrentWeekVolume, or N/A]
 - **Rank:** [place] of [visible count] by current-week volume
 
 **Leaderboard (this week)**

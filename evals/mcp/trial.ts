@@ -11,6 +11,7 @@ import { COMPARE_1V_ALL_SKILL_MD } from "../../src/features/skills/compare-1v-al
 import { COMPARE_1V1_SKILL_MD } from "../../src/features/skills/compare-1v1-skill";
 import { FRIENDS_PROGRESS_SKILL_MD } from "../../src/features/skills/friends-progress-skill";
 import { PERFORMANCE_REPORT_SKILL_MD } from "../../src/features/skills/performance-report-skill";
+import { TRAINER_SKILL_MD } from "../../src/features/skills/trainer-skill";
 import type { McpEvalSpec } from "../score-mcp";
 
 export const DEFAULT_MCP_URL = "http://localhost:3000/api/mcp";
@@ -21,7 +22,8 @@ export type TaskId =
   | "check_friends"
   | "compare_1v1"
   | "compare_1v_all"
-  | "friends_progress";
+  | "friends_progress"
+  | "trainer";
 
 export const TASK_IDS: TaskId[] = [
   "check_performance",
@@ -29,6 +31,7 @@ export const TASK_IDS: TaskId[] = [
   "compare_1v1",
   "compare_1v_all",
   "friends_progress",
+  "trainer",
 ];
 
 /** Social/inbox tools that must not be used to “check access” during recaps. */
@@ -55,6 +58,7 @@ export const TASK_SKILL_MD: Record<TaskId, string> = {
   compare_1v1: COMPARE_1V1_SKILL_MD,
   compare_1v_all: COMPARE_1V_ALL_SKILL_MD,
   friends_progress: FRIENDS_PROGRESS_SKILL_MD,
+  trainer: TRAINER_SKILL_MD,
 };
 
 export const TASK_EVAL_SPEC: Record<TaskId, McpEvalSpec> = {
@@ -63,6 +67,7 @@ export const TASK_EVAL_SPEC: Record<TaskId, McpEvalSpec> = {
     forbiddenTools: [
       ...ANALYTICS_FORBIDDEN_SOCIAL,
       "following_performance_metrics",
+      "athletes_performance_metrics",
       "compare_performance_metrics",
     ],
   },
@@ -71,6 +76,7 @@ export const TASK_EVAL_SPEC: Record<TaskId, McpEvalSpec> = {
     forbiddenTools: [
       ...ANALYTICS_FORBIDDEN_SOCIAL,
       "performance_metrics",
+      "athletes_performance_metrics",
       "compare_performance_metrics",
     ],
   },
@@ -80,12 +86,17 @@ export const TASK_EVAL_SPEC: Record<TaskId, McpEvalSpec> = {
       ...ANALYTICS_FORBIDDEN_SOCIAL,
       "performance_metrics",
       "following_performance_metrics",
+      "athletes_performance_metrics",
       "performance_data",
     ],
   },
   compare_1v_all: {
     requiredTools: ["performance_metrics", "following_performance_metrics"],
-    forbiddenTools: [...ANALYTICS_FORBIDDEN_SOCIAL, "compare_performance_metrics"],
+    forbiddenTools: [
+      ...ANALYTICS_FORBIDDEN_SOCIAL,
+      "compare_performance_metrics",
+      "athletes_performance_metrics",
+    ],
     requireSameTurn: ["performance_metrics", "following_performance_metrics"],
   },
   friends_progress: {
@@ -93,6 +104,16 @@ export const TASK_EVAL_SPEC: Record<TaskId, McpEvalSpec> = {
     forbiddenTools: [
       ...ANALYTICS_FORBIDDEN_SOCIAL,
       "performance_metrics",
+      "athletes_performance_metrics",
+      "compare_performance_metrics",
+    ],
+  },
+  trainer: {
+    requiredTools: ["athletes_performance_metrics"],
+    forbiddenTools: [
+      ...ANALYTICS_FORBIDDEN_SOCIAL,
+      "performance_metrics",
+      "following_performance_metrics",
       "compare_performance_metrics",
     ],
   },
@@ -121,7 +142,7 @@ export function friendsPrompt(): string {
 
 1. Call following_performance_metrics once with no extra filters.
 2. Do not call list_following, list_follow_requests, get_social_profile, or performance_metrics.
-3. Summarize each returned friend from tool output only: visibility, recent volume, week-over-week change, streak, PRs, and notable notes. Do not invent metrics. If the list is empty or a friend is not visible, say so from the tool output.`;
+3. Use pulse for circle totals. Summarize each friend from metrics and comments only. Do not invent metrics.`;
 }
 
 export function yesterdayIso(): string {
@@ -140,7 +161,7 @@ export function compare1v1Prompt(username: string): string {
 Follow the 1v1 skill exactly.
 1. Call compare_performance_metrics once with date="${date}" and username="${username}". Do not pass leftUsername (me vs friend).
 2. Do not call performance_metrics, list_follow_requests, or any other tool.
-3. Write the 1v1 Comparison template from left.metrics and right.metrics only. Do not invent metrics or follow state.`;
+3. Write the 1v1 Comparison template from left.metrics and right.metrics only. The compare payload is compact on purpose — do not treat it as truncated and do not invent metrics.`;
 }
 
 export function compare1vAllPrompt(): string {
@@ -150,7 +171,7 @@ export function compare1vAllPrompt(): string {
 Follow the 1v all skill exactly.
 1. In the same turn, call performance_metrics with date="${date}" and no username, and following_performance_metrics once with the same date.
 2. Do not loop performance_metrics per friend. Do not call list_following, list_follow_requests, or get_social_profile.
-3. Write the 1v All Comparison template from tool output only. Do not invent metrics.`;
+3. Use pulse for median and volume leader. Write the 1v All Comparison template from tool output only. Do not invent metrics.`;
 }
 
 export function friendsProgressPrompt(): string {
@@ -160,7 +181,17 @@ export function friendsProgressPrompt(): string {
 Follow the friends progress skill exactly.
 1. Call following_performance_metrics once with date="${date}".
 2. Do not call list_following, list_follow_requests, get_social_profile, or performance_metrics.
-3. Write the Friends Progress Report template from tool output only. Do not invent metrics.`;
+3. Use pulse for circle totals. Write the Friends Progress Report from tool output only. Do not invent metrics.`;
+}
+
+export function trainerPrompt(): string {
+  const date = yesterdayIso();
+  return `Give me a report of my athletes, use Epic Gains.
+
+Follow the trainer skill exactly.
+1. Call athletes_performance_metrics once with date="${date}".
+2. Do not call list_athletes, list_following, list_follow_requests, get_social_profile, or performance_metrics.
+3. Use pulse for roster totals. Write the Trainer Report from tool output only. Do not invent metrics.`;
 }
 
 export function promptForTask(task: TaskId, username: string): string {
@@ -168,6 +199,7 @@ export function promptForTask(task: TaskId, username: string): string {
   if (task === "compare_1v1") return compare1v1Prompt(username);
   if (task === "compare_1v_all") return compare1vAllPrompt();
   if (task === "friends_progress") return friendsProgressPrompt();
+  if (task === "trainer") return trainerPrompt();
   return performancePrompt();
 }
 

@@ -30,15 +30,15 @@ Call \`following_performance_metrics\` once.
 
 - **Date:** Yesterday as \`YYYY-MM-DD\` unless the user named a date.
 - Then write the report. Do not call any other tool.
-- Forbidden: \`list_following\`, \`list_follow_requests\`, \`get_social_profile\`, \`search_users\`, \`performance_metrics\`.
+- Forbidden: \`list_following\`, \`list_follow_requests\`, \`get_social_profile\`, \`search_users\`, \`performance_metrics\`, \`athletes_performance_metrics\`.
 
 If \`friends\` is empty, say you follow nobody yet and stop.
 
 ### 2. Synthesize
 
-For each friend with \`canViewWorkouts: true\`, write a short pulse (verdict, yesterday, vs last week, signals). For \`canViewWorkouts: false\`, list them under Hidden with the tool \`reason\`.
+Use \`pulse\` for the circle rollup. Do not recompute trained counts or the volume leader.
 
-Open with a circle rollup: how many trained yesterday, how many trained this week, who led volume.
+For each friend with \`canViewWorkouts: true\`, write a short pulse from \`metrics.windows\`, \`weekOverWeek\`, \`analytics\`, and \`comments\`. For \`canViewWorkouts: false\`, list them under Hidden with the tool \`reason\`.
 
 ### 3. Format output
 
@@ -49,9 +49,9 @@ Open with a circle rollup: how many trained yesterday, how many trained this wee
 **Circle** [returnedCount] returned / [followingCount] following
 
 **Circle pulse**
-- **Trained yesterday:** [count]
-- **Trained this week:** [count]
-- **Volume leader (this week):** [@user or None]
+- **Trained yesterday:** [pulse.trainedFocalDay]
+- **Trained this week:** [pulse.trainedCurrentWeek]
+- **Volume leader (this week):** [pulse.volumeLeader]
 
 **@username (display name)**
 - **Yesterday:** [Focus / Rest Day, volume, sets]
@@ -69,7 +69,7 @@ Repeat the **@username** block once per visible friend. Sort by current-week vol
 
 ## Gotchas
 
-- One tool call only. The payload already includes profile fields and metrics.
+- One tool call only. Use \`pulse\` and each friend's \`metrics\`. Read comments; do not recompute totals.
 - Rest Day when focal-day sets are 0. Still show week context.
 - If \`truncated\` is true, say the list was capped at 50.
 - Cite payload numbers only. Host MCP approval UI is not a follow request.

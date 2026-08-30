@@ -23,8 +23,13 @@ import {
   countFollowers,
   countFollowing,
   listFollowing,
+  type PublicUser,
 } from "@/db/repositories/social.repository";
 import { getPerformanceMetricsForUser } from "@/db/repositories/set.repository";
+import {
+  buildCirclePulse,
+  toCirclePerformanceMetrics,
+} from "@/features/workouts/performance-metrics";
 import type { MuscleGroup } from "@/db/schema/workout-schema";
 import { canViewUserWorkouts } from "@/features/social/privacy";
 import { isValidUsername, normalizeUsername } from "@/features/social/username";
@@ -269,57 +274,92 @@ export async function updateMySocialSettings(
   return { ok: true as const, data: updated };
 }
 
-const FOLLOWING_PERFORMANCE_LIMIT = 50;
+const CIRCLE_PERFORMANCE_LIMIT = 50;
+
+type CirclePerformanceOptions = {
+  date?: Date;
+  muscleGroup?: MuscleGroup;
+  keyMuscle?: string;
+};
+
+async function loadCircleMemberMetrics(
+  viewerId: string,
+  member: PublicUser,
+  asOf: Date,
+  options: CirclePerformanceOptions,
+) {
+  const canViewWorkouts = await canViewUserWorkouts(viewerId, member);
+  if (!canViewWorkouts) {
+    return {
+      username: member.username,
+      name: member.name,
+      isPrivate: member.isPrivate,
+      canViewWorkouts: false as const,
+      reason: "Workouts are not visible for this user",
+    };
+  }
+
+  const metrics = await getPerformanceMetricsForUser(member.id, {
+    date: asOf,
+    muscleGroup: options.muscleGroup,
+    keyMuscle: options.keyMuscle,
+    viewerId,
+  });
+
+  return {
+    username: member.username,
+    name: member.name,
+    isPrivate: member.isPrivate,
+    canViewWorkouts: true as const,
+    metrics: toCirclePerformanceMetrics(metrics),
+  };
+}
 
 export async function getFollowingPerformanceMetrics(
   viewerId: string,
-  options: {
-    date?: Date;
-    muscleGroup?: MuscleGroup;
-    keyMuscle?: string;
-  } = {},
+  options: CirclePerformanceOptions = {},
 ) {
   await ensureUserSocialProfile(viewerId);
   const following = await listFollowing(viewerId);
   const asOf = options.date ?? new Date();
-  const selected = following.slice(0, FOLLOWING_PERFORMANCE_LIMIT);
-
+  const selected = following.slice(0, CIRCLE_PERFORMANCE_LIMIT);
   const friends = await Promise.all(
-    selected.map(async (friend) => {
-      const canViewWorkouts = await canViewUserWorkouts(viewerId, friend);
-      if (!canViewWorkouts) {
-        return {
-          username: friend.username,
-          name: friend.name,
-          isPrivate: friend.isPrivate,
-          canViewWorkouts: false as const,
-          reason: "Workouts are not visible for this user",
-        };
-      }
-
-      const metrics = await getPerformanceMetricsForUser(friend.id, {
-        date: asOf,
-        muscleGroup: options.muscleGroup,
-        keyMuscle: options.keyMuscle,
-        viewerId,
-      });
-
-      return {
-        username: friend.username,
-        name: friend.name,
-        isPrivate: friend.isPrivate,
-        canViewWorkouts: true as const,
-        metrics,
-      };
-    }),
+    selected.map((friend) =>
+      loadCircleMemberMetrics(viewerId, friend, asOf, options),
+    ),
   );
 
   return {
     asOf: localDateString(asOf),
     followingCount: following.length,
     returnedCount: friends.length,
-    truncated: following.length > FOLLOWING_PERFORMANCE_LIMIT,
+    truncated: following.length > CIRCLE_PERFORMANCE_LIMIT,
+    pulse: buildCirclePulse(friends),
     friends,
+  };
+}
+
+export async function getAthletesPerformanceMetrics(
+  viewerId: string,
+  options: CirclePerformanceOptions = {},
+) {
+  await ensureUserSocialProfile(viewerId);
+  const roster = await listAthletes(viewerId);
+  const asOf = options.date ?? new Date();
+  const selected = roster.slice(0, CIRCLE_PERFORMANCE_LIMIT);
+  const athletes = await Promise.all(
+    selected.map((athlete) =>
+      loadCircleMemberMetrics(viewerId, athlete, asOf, options),
+    ),
+  );
+
+  return {
+    asOf: localDateString(asOf),
+    athleteCount: roster.length,
+    returnedCount: athletes.length,
+    truncated: roster.length > CIRCLE_PERFORMANCE_LIMIT,
+    pulse: buildCirclePulse(athletes),
+    athletes,
   };
 }
 

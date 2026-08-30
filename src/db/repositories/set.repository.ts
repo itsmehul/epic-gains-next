@@ -1,24 +1,19 @@
 import "server-only";
 
-import { and, asc, desc, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { performanceVisibleToViewer } from "@/db/repositories/visibility";
-import { commentVisibleToViewer, listVisibleCommentsForOwner } from "@/db/repositories/comment.repository";
+import { listVisibleCommentsForOwner } from "@/db/repositories/comment.repository";
 import {
-  toPublicUser,
-  type PublicUser,
-} from "@/db/repositories/social.repository";
-import {
-  comments,
   exercise,
   set as workoutSet,
-  user,
   workout,
 } from "@/db/schema";
 import type { MetricProfile, MuscleGroup } from "@/db/schema/workout-schema";
 import {
   buildPerformanceMetrics,
+  buildPeriodPerformance,
   coveringRange,
   metricWindows,
   type AllTimeBest,
@@ -35,16 +30,6 @@ export type SetInsert = typeof workoutSet.$inferInsert;
 export type SetUpdate = Partial<
   Pick<SetInsert, "reps" | "weight" | "time" | "distance" | "workoutId" | "exerciseId">
 >;
-
-type LoggedSetComment = {
-  id: string;
-  exerciseId: string;
-  workoutId: string | null;
-  text: string;
-  createdAt: Date;
-  authorId: string;
-  author: PublicUser;
-};
 
 export async function listSets(filters?: {
   workoutId?: string;
@@ -254,50 +239,60 @@ function groupLoggedSetRows(rows: LoggedSetRow[]) {
   return daysMap;
 }
 
+function metricsDaysFromRows(rows: LoggedSetRow[]): MetricsDay[] {
+  const daysMap = groupLoggedSetRows(rows);
+  return [...daysMap.entries()]
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([day, workouts]) => ({
+      day,
+      workouts: [...workouts.values()].map((entry) => ({
+        id: entry.workout.id,
+        name: entry.workout.name,
+        exercises: [...entry.exercises.values()].map((item) => ({
+          id: item.exercise.id,
+          name: item.exercise.name,
+          metricProfile: item.exercise.metricProfile,
+          muscleGroup: item.exercise.muscleGroup,
+          keyMuscles: item.exercise.keyMuscles,
+          sets: item.sets.map((set) => ({
+            reps: set.reps,
+            weight: set.weight,
+            time: set.time,
+            distance: set.distance,
+          })),
+        })),
+      })),
+    }));
+}
+
 export async function listSetsByPeriodForUser(
   userId: string,
   options: ListSetsByPeriodOptions,
 ) {
   const range = periodRange(options.period, options.date);
-  const rows = await loadLoggedSetRows(userId, {
-    start: range.start,
-    end: range.end,
-    muscleGroup: options.muscleGroup,
-    keyMuscle: options.keyMuscle,
-  });
+  const asOf = localDateString(options.date ?? new Date());
+  const [rows, comments] = await Promise.all([
+    loadLoggedSetRows(userId, {
+      start: range.start,
+      end: range.end,
+      muscleGroup: options.muscleGroup,
+      keyMuscle: options.keyMuscle,
+    }),
+    listVisibleCommentsForOwner({
+      ownerId: userId,
+      viewerId: options.viewerId,
+      muscleGroup: options.muscleGroup,
+      keyMuscle: options.keyMuscle,
+    }),
+  ]);
 
-  const commentsByKey = await loadCommentsForLoggedSets(
-    rows,
-    options.viewerId,
-  );
-
-  const daysMap = groupLoggedSetRows(rows);
-  const days = [...daysMap.entries()]
-    .sort(([a], [b]) => b.localeCompare(a))
-    .map(([day, workouts]) => ({
-      day,
-      workouts: [...workouts.values()].map((entry) => ({
-        ...entry.workout,
-        exercises: [...entry.exercises.values()].map((item) => ({
-          ...item.exercise,
-          sets: item.sets,
-          comments: commentsForExercise(
-            commentsByKey,
-            item.exercise.id,
-            entry.workout.id,
-          ),
-        })),
-      })),
-    }));
-
-  return {
+  return buildPeriodPerformance({
     period: options.period,
-    range: {
-      start: range.startDay,
-      end: range.endDay,
-    },
-    days,
-  };
+    asOf,
+    range,
+    days: metricsDaysFromRows(rows),
+    comments,
+  });
 }
 
 export async function getPerformanceMetricsForUser(
@@ -327,29 +322,7 @@ export async function getPerformanceMetricsForUser(
     }),
   ]);
 
-  const daysMap = groupLoggedSetRows(rows);
-  const days: MetricsDay[] = [...daysMap.entries()]
-    .sort(([a], [b]) => b.localeCompare(a))
-    .map(([day, workouts]) => ({
-      day,
-      workouts: [...workouts.values()].map((entry) => ({
-        id: entry.workout.id,
-        name: entry.workout.name,
-        exercises: [...entry.exercises.values()].map((item) => ({
-          id: item.exercise.id,
-          name: item.exercise.name,
-          metricProfile: item.exercise.metricProfile,
-          muscleGroup: item.exercise.muscleGroup,
-          keyMuscles: item.exercise.keyMuscles,
-          sets: item.sets.map((set) => ({
-            reps: set.reps,
-            weight: set.weight,
-            time: set.time,
-            distance: set.distance,
-          })),
-        })),
-      })),
-    }));
+  const days = metricsDaysFromRows(rows);
 
   const exerciseIds = [...new Set(rows.map((row) => row.exercise.id))];
   const allTimeBests = await listAllTimeBestsForExercises(userId, exerciseIds);
@@ -401,80 +374,4 @@ async function listAllTimeBestsForExercises(
       ),
     )
     .groupBy(workoutSet.exerciseId);
-}
-
-async function loadCommentsForLoggedSets(
-  rows: { exercise: { id: string }; workout: { id: string } }[],
-  viewerId: string,
-) {
-  const commentsByKey = new Map<string, LoggedSetComment[]>();
-  const exerciseIds = [...new Set(rows.map((row) => row.exercise.id))];
-  const workoutIds = [...new Set(rows.map((row) => row.workout.id))];
-  if (exerciseIds.length === 0) return commentsByKey;
-
-  const commentRows = await db
-    .select({
-      id: comments.id,
-      exerciseId: comments.exerciseId,
-      workoutId: comments.workoutId,
-      text: comments.text,
-      createdAt: comments.createdAt,
-      authorId: comments.authorId,
-      author: {
-        id: user.id,
-        name: user.name,
-        username: user.username,
-        image: user.image,
-        isPrivate: user.isPrivate,
-      },
-    })
-    .from(comments)
-    .innerJoin(user, eq(user.id, comments.authorId))
-    .where(
-      and(
-        inArray(comments.exerciseId, exerciseIds),
-        or(isNull(comments.workoutId), inArray(comments.workoutId, workoutIds))!,
-        commentVisibleToViewer(viewerId),
-      ),
-    )
-    .orderBy(asc(comments.createdAt));
-
-  for (const row of commentRows) {
-    const author = toPublicUser(row.author);
-    if (!author) continue;
-    const mapped: LoggedSetComment = {
-      id: row.id,
-      exerciseId: row.exerciseId,
-      workoutId: row.workoutId,
-      text: row.text,
-      createdAt: row.createdAt,
-      authorId: row.authorId,
-      author,
-    };
-    const key = commentKey(row.exerciseId, row.workoutId);
-    const list = commentsByKey.get(key) ?? [];
-    list.push(mapped);
-    commentsByKey.set(key, list);
-  }
-
-  return commentsByKey;
-}
-
-function commentKey(exerciseId: string, workoutId: string | null) {
-  return `${exerciseId}:${workoutId ?? ""}`;
-}
-
-function commentsForExercise(
-  commentsByKey: Map<string, LoggedSetComment[]>,
-  exerciseId: string,
-  workoutId: string,
-) {
-  const scoped = commentsByKey.get(commentKey(exerciseId, workoutId)) ?? [];
-  const general = commentsByKey.get(commentKey(exerciseId, null)) ?? [];
-  const seen = new Set<string>();
-  return [...scoped, ...general].filter((comment) => {
-    if (seen.has(comment.id)) return false;
-    seen.add(comment.id);
-    return true;
-  });
 }

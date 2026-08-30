@@ -27,7 +27,7 @@ Options:
   --url <url>              MCP server URL (env MCP_URL)
   --api-key <key>          MCP API key (env MCP_API_KEY)
   --model <id>             Gemini model (env GEMINI_MODEL)
-  --task <id>              check_performance | check_friends | compare_1v1 | compare_1v_all | friends_progress
+  --task <id>              check_performance | check_friends | compare_1v1 | compare_1v_all | friends_progress | trainer
   --username <name>        Friend username for compare_1v1 (default nitin)
   -h, --help               Show this help
 
@@ -131,6 +131,10 @@ async function main() {
         {
           name: "Friends progress report",
           value: "friends_progress",
+        },
+        {
+          name: "Trainer report (athletes recap)",
+          value: "trainer",
         },
       ],
     },

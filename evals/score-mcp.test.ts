@@ -71,4 +71,26 @@ describe("scoreMcpTrial", () => {
     });
     expect(score.pass).toBe(false);
   });
+
+  it("passes a correct trainer roster trajectory", () => {
+    const score = scoreMcpTrial({
+      spec: TASK_EVAL_SPEC.trainer,
+      toolCalls: ["athletes_performance_metrics"],
+      toolCallsByStep: [["athletes_performance_metrics"]],
+      toolErrorCount: 0,
+      text: "Nitin: volume up, notes on bench.",
+    });
+    expect(score.pass).toBe(true);
+  });
+
+  it("fails when trainer recap lists athletes instead of metrics", () => {
+    const score = scoreMcpTrial({
+      spec: TASK_EVAL_SPEC.trainer,
+      toolCalls: ["list_athletes", "performance_metrics"],
+      toolCallsByStep: [["list_athletes"], ["performance_metrics"]],
+      toolErrorCount: 0,
+      text: "Here are your athletes.",
+    });
+    expect(score.pass).toBe(false);
+  });
 });

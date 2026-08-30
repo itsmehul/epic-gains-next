@@ -38,9 +38,11 @@ Call \`compare_performance_metrics\` once:
 - \`leftUsername\`: A's username only if A is not the authenticated user
 - \`date\`: yesterday as \`YYYY-MM-DD\` unless the user named a date
 
-Then write the template. Do not call any other tool.
+Then write the template from \`left.metrics\` and \`right.metrics\`. Do not call any other tool.
 
-Forbidden: \`performance_metrics\`, \`performance_data\`, \`following_performance_metrics\`, \`get_social_profile\`, \`search_users\`, \`list_following\`, \`list_followers\`, \`list_following_feed\`, \`list_follow_requests\`, \`accept_follow_request\`, \`reject_follow_request\`, \`follow_user\`, \`unfollow_user\`, trainer tools.
+Use server \`windows\`, \`weekOverWeek\`, and \`analytics\`. Read \`comments\` and \`recentSets\` notes to infer patterns. Two weeks of sets are in \`recentSets\`; older days are totals in \`olderHistory\`. Never call \`performance_metrics\` as a fallback.
+
+Forbidden: \`performance_metrics\`, \`performance_data\`, \`following_performance_metrics\`, \`athletes_performance_metrics\`, \`get_social_profile\`, \`search_users\`, \`list_following\`, \`list_followers\`, \`list_following_feed\`, \`list_follow_requests\`, \`accept_follow_request\`, \`reject_follow_request\`, \`follow_user\`, \`unfollow_user\`, trainer assignment tools.
 
 If a side has \`error\`, report that athlete as unavailable from that field and skip their numbers. Do not probe follow or trainer state.
 
@@ -67,7 +69,7 @@ If a side has \`error\`, report that athlete as unavailable from that field and 
 
 **Signals**
 - **Streak:** [A] vs [B]
-- **PRs (30d):** [A] vs [B]
+- **PRs (30d):** [A personalRecordCount + sample] vs [B]
 - **Notes:** [Only comments present in the payload]
 
 **Next**

@@ -24,6 +24,7 @@ import {
   assignTrainer,
   buildProfilePayload,
   followUser,
+  getAthletesPerformanceMetrics,
   getComparePerformanceMetrics,
   getFollowingPerformanceMetrics,
   getMyAthletes,
@@ -61,7 +62,7 @@ export function registerSocialMcpTools(server: McpServer) {
     {
       title: "Get social profile",
       description:
-        "Get a user's public profile, follow relationship, trainer assignment, and workout visibility. Not for recaps or 1v1/circle comparisons — those use compare_performance_metrics, performance_metrics, or following_performance_metrics. Do not call this to preflight access.",
+        "Get a user's public profile, follow relationship, trainer assignment, and workout visibility. Not for recaps or 1v1/circle/trainer comparisons — those use compare_performance_metrics, performance_metrics, following_performance_metrics, or athletes_performance_metrics. Do not call this to preflight access.",
       inputSchema: z.object({
         username: z.string().min(1),
       }),
@@ -200,7 +201,7 @@ export function registerSocialMcpTools(server: McpServer) {
     {
       title: "List athletes",
       description:
-        "List people who assigned the authenticated user as their trainer. For an athlete recap, call performance_metrics with their username.",
+        "List people who assigned the authenticated user as their trainer. For a roster recap, call athletes_performance_metrics once. Do not loop performance_metrics.",
       inputSchema: z.object({}),
     },
     async () => {
@@ -311,7 +312,7 @@ export function registerSocialMcpTools(server: McpServer) {
     {
       title: "Following performance metrics",
       description:
-        "One-call recap for everyone the authenticated user follows. Returns each friend's profile fields plus the same performance_metrics payload when workouts are visible, or a visibility reason when not. Do not list_following, list_follow_requests, get_social_profile, or loop performance_metrics. Optional date, muscleGroup, and keyMuscle apply to every friend. Caps at 50 follows.",
+        "One-call recap for everyone the authenticated user follows. Includes pulse (trained focal day, trained this week, volume leader, median week volume). Each visible friend has precomputed analytics, windows, and comments — not two weeks of sets. Do not list_following or loop performance_metrics. Caps at 50 follows.",
       inputSchema: z.object({
         date: z
           .string()
@@ -349,11 +350,53 @@ export function registerSocialMcpTools(server: McpServer) {
   );
 
   server.registerTool(
+    "athletes_performance_metrics",
+    {
+      title: "Athletes performance metrics",
+      description:
+        "One-call recap for athletes who assigned you as trainer. Includes pulse (trained focal day, trained this week, volume leader, median week volume). Each visible athlete has precomputed analytics, windows, and comments — not two weeks of sets. Do not list_athletes or loop performance_metrics. Caps at 50 athletes.",
+      inputSchema: z.object({
+        date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional()
+          .describe(
+            "As-of date YYYY-MM-DD. Defaults to today. Same window rules as performance_metrics.",
+          ),
+        muscleGroup: muscleGroupEnum
+          .optional()
+          .describe("Only include exercises in this muscle group."),
+        keyMuscle: z
+          .string()
+          .trim()
+          .min(1)
+          .max(80)
+          .optional()
+          .describe("Only include exercises whose key muscles match this name."),
+      }),
+    },
+    async ({ date, muscleGroup, keyMuscle }) => {
+      const { userId } = getMcpAuth();
+      const on = date ? parseIsoDate(date) : new Date();
+      if (date && !on) {
+        return mcpErrorResult("date must be a valid YYYY-MM-DD calendar date");
+      }
+
+      const result = await getAthletesPerformanceMetrics(userId, {
+        date: on ?? undefined,
+        muscleGroup,
+        keyMuscle,
+      });
+      return mcpTextResult(result);
+    },
+  );
+
+  server.registerTool(
     "compare_performance_metrics",
     {
       title: "Compare performance metrics",
       description:
-        "One-call 1v1 training comparison. Use this for me vs a friend or two named friends. Do not call performance_metrics twice, list_follow_requests, get_social_profile, or follow tools. Returns left and right on the same as-of date. Omit leftUsername for the authenticated user; username is the opponent. If a side is not visible, that side has error and the other side still returns. After this returns, write the comparison and stop.",
+        "One-call 1v1 comparison. Each side is precomputed analytics plus two ISO weeks of grouped sets and comments. Older history is compact totals. Do not follow with performance_metrics. Omit leftUsername for me vs friend; username is the opponent.",
       inputSchema: z.object({
         username: z
           .string()

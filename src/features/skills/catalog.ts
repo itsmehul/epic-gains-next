@@ -2,6 +2,7 @@ import { COMPARE_1V_ALL_SKILL_MD } from "@/features/skills/compare-1v-all-skill"
 import { COMPARE_1V1_SKILL_MD } from "@/features/skills/compare-1v1-skill";
 import { FRIENDS_PROGRESS_SKILL_MD } from "@/features/skills/friends-progress-skill";
 import { PERFORMANCE_REPORT_SKILL_MD } from "@/features/skills/performance-report-skill";
+import { TRAINER_SKILL_MD } from "@/features/skills/trainer-skill";
 
 export const INSTALLABLE_SKILLS = [
   {
@@ -31,5 +32,12 @@ export const INSTALLABLE_SKILLS = [
     description:
       "Circle recap for everyone you follow from one following_performance_metrics call.",
     markdown: FRIENDS_PROGRESS_SKILL_MD,
+  },
+  {
+    id: "trainer",
+    title: "Trainer report",
+    description:
+      "Roster recap for everyone who assigned you as trainer from one athletes_performance_metrics call.",
+    markdown: TRAINER_SKILL_MD,
   },
 ] as const;
