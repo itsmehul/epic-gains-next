@@ -41,15 +41,18 @@ describe("expandImportStructure", () => {
         interval_pattern: "45s work / 15s rest",
         equipment_needed: ["None / Bodyweight"],
       },
-      sections: [
+      exercises: [
         {
-          section_name: "Full Workout",
-          exercises: [
-            { name: "Side to side taps", timestamp: "00:26" },
-            { name: "Jump + cross chop", timestamp: "01:26" },
-            { name: "Run in place", timestamp: "02:26" },
-          ],
+          name: "Side to side taps",
+          timestamp: "00:26",
+          chapter: "Full Workout",
         },
+        {
+          name: "Jump + cross chop",
+          timestamp: "01:26",
+          chapter: "Full Workout",
+        },
+        { name: "Run in place", timestamp: "02:26", chapter: "Full Workout" },
       ],
     });
 
@@ -60,21 +63,43 @@ describe("expandImportStructure", () => {
         name: "Side to side taps",
         videoStartTime: 26,
         videoEndTime: 86,
+        chapter: "Full Workout",
         tags: ["Full Workout"],
       },
       {
         name: "Jump + cross chop",
         videoStartTime: 86,
         videoEndTime: 146,
+        chapter: "Full Workout",
         tags: ["Full Workout"],
       },
       {
         name: "Run in place",
         videoStartTime: 146,
         videoEndTime: 191,
+        chapter: "Full Workout",
         tags: ["Full Workout"],
       },
     ]);
+  });
+
+  it("omits chapter when the model leaves it off", () => {
+    const parsed = importWorkoutStructureSchema.parse({
+      overview: {
+        workout_length: "10 minutes",
+        interval_pattern: "45s work / 15s rest",
+      },
+      exercises: [{ name: "Arm Circles", timestamp: "00:36" }],
+    });
+
+    const expanded = expandImportStructure(parsed);
+    expect(expanded.exercises[0]).toMatchObject({
+      name: "Arm Circles",
+      videoStartTime: 36,
+      videoEndTime: 81,
+      tags: [],
+    });
+    expect(expanded.exercises[0]).not.toHaveProperty("chapter");
   });
 
   it("handles non-standard interval patterns gracefully", () => {
@@ -85,14 +110,9 @@ describe("expandImportStructure", () => {
         interval_pattern: "4 sets per exercise with 30-40s rest",
         equipment_needed: ["Dumbbells"],
       },
-      sections: [
-        {
-          section_name: "Full Body",
-          exercises: [
-            { name: "Arm Circles", timestamp: "01:21" },
-            { name: "High Knees", timestamp: "03:20" },
-          ],
-        },
+      exercises: [
+        { name: "Arm Circles", timestamp: "01:21", chapter: "Full Body" },
+        { name: "High Knees", timestamp: "03:20", chapter: "Full Body" },
       ],
     });
 
@@ -101,6 +121,7 @@ describe("expandImportStructure", () => {
       name: "Arm Circles",
       videoStartTime: 81,
       videoEndTime: 200,
+      chapter: "Full Body",
       tags: ["Full Body"],
     });
   });
@@ -113,14 +134,13 @@ describe("expandImportStructure", () => {
         interval_pattern: "40s work / 10s rest",
         equipment_needed: ["None"],
       },
-      sections: [
+      exercises: [
         {
-          section_name: "Cool Down",
-          exercises: [
-            { name: "Deep Lunge Left Leg", timestamp: "26:45" },
-            { name: "Inhale Exhale", timestamp: "27:25" },
-          ],
+          name: "Deep Lunge Left Leg",
+          timestamp: "26:45",
+          chapter: "Cool Down",
         },
+        { name: "Inhale Exhale", timestamp: "27:25", chapter: "Cool Down" },
       ],
     });
 
@@ -140,15 +160,10 @@ describe("expandImportStructure", () => {
         structure: "Circuit",
         interval_pattern: "40s work / 20s rest",
       },
-      sections: [
-        {
-          section_name: "Main",
-          exercises: [
-            { name: "Push-ups", timestamp: "00:10" },
-            { name: "Rest", timestamp: "00:50" },
-            { name: "Squats", timestamp: "01:10" },
-          ],
-        },
+      exercises: [
+        { name: "Push-ups", timestamp: "00:10", chapter: "Main" },
+        { name: "Rest", timestamp: "00:50", chapter: "Main" },
+        { name: "Squats", timestamp: "01:10", chapter: "Main" },
       ],
     });
 
@@ -171,25 +186,21 @@ describe("expandImportStructure", () => {
         structure: "HIIT",
         interval_pattern: "45s work / 15s rest",
       },
-      sections: [
+      exercises: [
         {
-          section_name: "Main",
-          exercises: [
-            {
-              name: "Front to Back Shuffle",
-              timestamp: "02:25",
-              metric_profile: "BODYWEIGHT_REPS",
-              muscle_group: "legs",
-              key_muscles: [
-                "Gastrocnemius",
-                "Soleus",
-                "Quadriceps",
-                "Gluteus Medius",
-              ],
-              suggested_sets: 1,
-              suggested_time: 45,
-            },
+          name: "Front to Back Shuffle",
+          timestamp: "02:25",
+          chapter: "Main",
+          metric_profile: "BODYWEIGHT_REPS",
+          muscle_group: "legs",
+          key_muscles: [
+            "Gastrocnemius",
+            "Soleus",
+            "Quadriceps",
+            "Gluteus Medius",
           ],
+          suggested_sets: 1,
+          suggested_time: 45,
         },
       ],
     });
@@ -207,24 +218,14 @@ describe("expandImportStructure", () => {
 describe("findSnappedCadenceTimestampsError", () => {
   it("rejects a later section snapped to a 60s :00 grid", () => {
     const error = findSnappedCadenceTimestampsError([
-      {
-        section_name: "Warm Up",
-        exercises: [
-          { name: "Neck Circles", timestamp: "00:50" },
-          { name: "Shoulder Circles", timestamp: "01:25" },
-          { name: "Arm Circles", timestamp: "01:58" },
-        ],
-      },
-      {
-        section_name: "Upper Body",
-        exercises: [
-          { name: "Walkout", timestamp: "07:00" },
-          { name: "Push-up", timestamp: "08:00" },
-          { name: "Burpee", timestamp: "09:00" },
-          { name: "Pike Push-up", timestamp: "10:00" },
-          { name: "Diamond Push-up", timestamp: "11:00" },
-        ],
-      },
+      { name: "Neck Circles", timestamp: "00:50", chapter: "Warm Up" },
+      { name: "Shoulder Circles", timestamp: "01:25", chapter: "Warm Up" },
+      { name: "Arm Circles", timestamp: "01:58", chapter: "Warm Up" },
+      { name: "Walkout", timestamp: "07:00", chapter: "Upper Body" },
+      { name: "Push-up", timestamp: "08:00", chapter: "Upper Body" },
+      { name: "Burpee", timestamp: "09:00", chapter: "Upper Body" },
+      { name: "Pike Push-up", timestamp: "10:00", chapter: "Upper Body" },
+      { name: "Diamond Push-up", timestamp: "11:00", chapter: "Upper Body" },
     ]);
     expect(error).toMatch(/Upper Body/);
     expect(error).toMatch(/07:00, 07:57, 08:58/);
@@ -232,16 +233,11 @@ describe("findSnappedCadenceTimestampsError", () => {
 
   it("rejects a constant-offset 60s grid", () => {
     const error = findSnappedCadenceTimestampsError([
-      {
-        section_name: "Upper Body",
-        exercises: [
-          { name: "Walkout", timestamp: "06:53" },
-          { name: "Push-up", timestamp: "07:53" },
-          { name: "Burpee", timestamp: "08:53" },
-          { name: "Pike Push-up", timestamp: "09:53" },
-          { name: "Diamond Push-up", timestamp: "10:53" },
-        ],
-      },
+      { name: "Walkout", timestamp: "06:53", chapter: "Upper Body" },
+      { name: "Push-up", timestamp: "07:53", chapter: "Upper Body" },
+      { name: "Burpee", timestamp: "08:53", chapter: "Upper Body" },
+      { name: "Pike Push-up", timestamp: "09:53", chapter: "Upper Body" },
+      { name: "Diamond Push-up", timestamp: "10:53", chapter: "Upper Body" },
     ]);
     expect(error).toMatch(/Upper Body/);
     expect(error).toMatch(/07:53/);
@@ -250,16 +246,11 @@ describe("findSnappedCadenceTimestampsError", () => {
   it("allows watched clocks that only look close to a minute", () => {
     expect(
       findSnappedCadenceTimestampsError([
-        {
-          section_name: "Upper Body",
-          exercises: [
-            { name: "Walkout", timestamp: "07:00" },
-            { name: "Push-up", timestamp: "07:57" },
-            { name: "Burpee", timestamp: "08:58" },
-            { name: "Pike Push-up", timestamp: "09:58" },
-            { name: "Diamond Push-up", timestamp: "10:58" },
-          ],
-        },
+        { name: "Walkout", timestamp: "07:00", chapter: "Upper Body" },
+        { name: "Push-up", timestamp: "07:57", chapter: "Upper Body" },
+        { name: "Burpee", timestamp: "08:58", chapter: "Upper Body" },
+        { name: "Pike Push-up", timestamp: "09:58", chapter: "Upper Body" },
+        { name: "Diamond Push-up", timestamp: "10:58", chapter: "Upper Body" },
       ]),
     ).toBeUndefined();
   });
@@ -271,17 +262,12 @@ describe("findSnappedCadenceTimestampsError", () => {
           workout_length: "45 minutes",
           interval_pattern: "30s work / 30s rest",
         },
-        sections: [
-          {
-            section_name: "Upper Body",
-            exercises: [
-              { name: "Walkout", timestamp: "07:00" },
-              { name: "Push-up", timestamp: "08:00" },
-              { name: "Burpee", timestamp: "09:00" },
-              { name: "Pike", timestamp: "10:00" },
-              { name: "Diamond", timestamp: "11:00" },
-            ],
-          },
+        exercises: [
+          { name: "Walkout", timestamp: "07:00", chapter: "Upper Body" },
+          { name: "Push-up", timestamp: "08:00", chapter: "Upper Body" },
+          { name: "Burpee", timestamp: "09:00", chapter: "Upper Body" },
+          { name: "Pike", timestamp: "10:00", chapter: "Upper Body" },
+          { name: "Diamond", timestamp: "11:00", chapter: "Upper Body" },
         ],
       }),
     ).toThrow(ImportStructureValidationError);

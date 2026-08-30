@@ -33,6 +33,15 @@ export const exerciseMetaDataSchema = z
         "This move's end in the source video, in seconds. Use the next chapter timestamp (which is also the next move's start), or video duration for the last move.",
       ),
     targets: z.array(targetSetSchema).optional(),
+    chapter: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .optional()
+      .describe(
+        "Optional workout chapter or block this move belongs to (e.g. Warm Up, Cooldown, Day 1).",
+      ),
   })
   .strict();
 
@@ -164,6 +173,15 @@ export const importFullWorkoutSchema = z.object({
           .nonnegative()
           .describe(
             "This move's end in seconds. Must equal the next exercise's videoStartTime, or video duration for the last move.",
+          ),
+        chapter: z
+          .string()
+          .trim()
+          .min(1)
+          .max(200)
+          .optional()
+          .describe(
+            "Optional chapter/block label such as Warm Up, Cooldown, or Day 1.",
           ),
         tags: z
           .array(z.string().trim().min(1).max(64))
@@ -298,6 +316,45 @@ export const importRejectionSchema = z.object({
   reason: z.string().trim().min(1).max(500),
 });
 
+const importStructureExerciseSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(200)
+    .describe(
+      "Canonical labelled move. One row per distinct move — do not repeat the same name for each 30s slot of a continuous block.",
+    ),
+  timestamp: clockTimestampSchema.describe(
+    "Exact MM:SS when this move starts on the video clock (timer, beep, overlay). Write the second you see (07:57, 08:58). Never invent 08:00, 09:00 or a shifted grid like 07:53, 08:53.",
+  ),
+  chapter: z
+    .string()
+    .trim()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe(
+      "Optional chapter/block label (e.g. Warm Up, Cooldown, Day 1). Omit when the video has no chapters.",
+    ),
+  metric_profile: metricProfileEnum.optional(),
+  metricProfile: metricProfileEnum.optional(),
+  muscle_group: muscleGroupEnum.optional(),
+  muscleGroup: muscleGroupEnum.optional(),
+  key_muscles: keyMusclesSchema.optional(),
+  keyMuscles: keyMusclesSchema.optional(),
+  suggested_sets: z.number().int().positive().optional(),
+  suggestedSets: z.number().int().positive().optional(),
+  suggested_reps: z.number().int().nonnegative().optional(),
+  suggestedReps: z.number().int().nonnegative().optional(),
+  suggested_weight: z.number().nonnegative().optional(),
+  suggestedWeight: z.number().nonnegative().optional(),
+  suggested_time: z.number().nonnegative().optional(),
+  suggestedTime: z.number().nonnegative().optional(),
+  suggested_distance: z.number().nonnegative().optional(),
+  suggestedDistance: z.number().nonnegative().optional(),
+});
+
 export const importWorkoutStructureSchema = z.object({
   workoutName: z.string().trim().min(1).max(200).optional(),
   author: z.string().trim().min(1).max(200).optional(),
@@ -314,48 +371,12 @@ export const importWorkoutStructureSchema = z.object({
       .describe(
         "Cadence as spoken/shown (e.g. 30s work / 30s rest). Metadata only — do not derive timestamps from this pattern.",
       ),
-    equipment_needed: z.array(z.string().trim().min(1).max(64)).max(20).optional(),
+    equipment_needed: z
+      .array(z.string().trim().min(1).max(64))
+      .max(20)
+      .optional(),
   }),
-  sections: z
-    .array(
-      z.object({
-        section_name: z.string().trim().min(1).max(200),
-        exercises: z
-          .array(
-            z.object({
-              name: z
-                .string()
-                .trim()
-                .min(1)
-                .max(200)
-                .describe(
-                  "Canonical labelled move. One row per distinct move — do not repeat the same name for each 30s slot of a continuous block.",
-                ),
-              timestamp: clockTimestampSchema.describe(
-                "Exact MM:SS when this move starts on the video clock (timer, beep, overlay). Write the second you see (07:57, 08:58). Never invent 08:00, 09:00 or a shifted grid like 07:53, 08:53.",
-              ),
-              metric_profile: metricProfileEnum.optional(),
-              metricProfile: metricProfileEnum.optional(),
-              muscle_group: muscleGroupEnum.optional(),
-              muscleGroup: muscleGroupEnum.optional(),
-              key_muscles: keyMusclesSchema.optional(),
-              keyMuscles: keyMusclesSchema.optional(),
-              suggested_sets: z.number().int().positive().optional(),
-              suggestedSets: z.number().int().positive().optional(),
-              suggested_reps: z.number().int().nonnegative().optional(),
-              suggestedReps: z.number().int().nonnegative().optional(),
-              suggested_weight: z.number().nonnegative().optional(),
-              suggestedWeight: z.number().nonnegative().optional(),
-              suggested_time: z.number().nonnegative().optional(),
-              suggestedTime: z.number().nonnegative().optional(),
-              suggested_distance: z.number().nonnegative().optional(),
-              suggestedDistance: z.number().nonnegative().optional(),
-            }),
-          )
-          .min(1),
-      }),
-    )
-    .min(1),
+  exercises: z.array(importStructureExerciseSchema).min(1),
 });
 
 export const createWorkoutExerciseSchema = z.object({

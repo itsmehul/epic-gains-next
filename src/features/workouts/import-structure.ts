@@ -17,6 +17,7 @@ export type ExpandedImportWorkout = {
     name: string;
     videoStartTime: number;
     videoEndTime: number;
+    chapter?: string;
     tags?: string[];
     metricProfile?: MetricProfile;
     muscleGroup?: MuscleGroup;
@@ -185,15 +186,22 @@ export class ImportStructureValidationError extends Error {
 
 /** Gemini often invents a fixed cadence (08:00, 09:00 or 07:53, 08:53) instead of each beep. */
 export function findSnappedCadenceTimestampsError(
-  sections: ImportWorkoutStructureInput["sections"],
+  exercises: Array<{ name: string; timestamp: string; chapter?: string }>,
 ): string | undefined {
-  for (const section of sections) {
-    const moves = section.exercises
-      .filter((exercise) => !isRestWorkoutItem({ name: exercise.name }))
-      .map((exercise) => ({
-        timestamp: exercise.timestamp,
-        start: parseClockTimestamp(exercise.timestamp),
-      }));
+  const groups = new Map<string, typeof exercises>();
+  for (const exercise of exercises) {
+    if (isRestWorkoutItem({ name: exercise.name })) continue;
+    const key = exercise.chapter ?? "";
+    const group = groups.get(key) ?? [];
+    group.push(exercise);
+    groups.set(key, group);
+  }
+
+  for (const [chapter, group] of groups) {
+    const moves = group.map((exercise) => ({
+      timestamp: exercise.timestamp,
+      start: parseClockTimestamp(exercise.timestamp),
+    }));
     if (moves.length < 5) continue;
 
     const gaps: number[] = [];
@@ -215,7 +223,8 @@ export function findSnappedCadenceTimestampsError(
       .slice(0, 4)
       .map((move) => move.timestamp)
       .join(", ");
-    return `${section.section_name} timestamps are a synthetic ${gap}s grid (${sample}, …). Do not shift a cadence by a constant offset (07:53, 08:53 is as wrong as 08:00, 09:00). Re-watch the beep/timer for each move — seconds-of-minute should change (e.g. 07:00, 07:57, 08:58).`;
+    const label = chapter || "Exercise";
+    return `${label} timestamps are a synthetic ${gap}s grid (${sample}, …). Do not shift a cadence by a constant offset (07:53, 08:53 is as wrong as 08:00, 09:00). Re-watch the beep/timer for each move — seconds-of-minute should change (e.g. 07:00, 07:57, 08:58).`;
   }
   return undefined;
 }
@@ -223,7 +232,10 @@ export function findSnappedCadenceTimestampsError(
 export function expandImportStructure(
   input: ImportWorkoutStructureInput,
 ): ExpandedImportWorkout {
-  const snapped = findSnappedCadenceTimestampsError(input.sections);
+  const allMoves = input.exercises.filter(
+    (exercise) => !isRestWorkoutItem({ name: exercise.name }),
+  );
+  const snapped = findSnappedCadenceTimestampsError(allMoves);
   if (snapped) {
     throw new ImportStructureValidationError(snapped);
   }
@@ -234,19 +246,12 @@ export function expandImportStructure(
   );
 
   const exercises: ExpandedImportWorkout["exercises"] = [];
-  const allMoves = input.sections.flatMap((section) =>
-    section.exercises
-      .filter((exercise) => !isRestWorkoutItem({ name: exercise.name }))
-      .map((exercise) => ({
-        ...exercise,
-        section_name: section.section_name,
-      })),
-  );
 
   for (let i = 0; i < allMoves.length; i += 1) {
     const current = allMoves[i];
     const next = allMoves[i + 1];
-    const tags = [current.section_name];
+    const chapter = current.chapter?.trim() || undefined;
+    const tags = chapter ? [chapter] : [];
     const start = parseClockTimestamp(current.timestamp);
     let videoEndTime: number;
     if (next) {
@@ -276,6 +281,7 @@ export function expandImportStructure(
       name: current.name,
       videoStartTime: start,
       videoEndTime,
+      ...(chapter ? { chapter } : {}),
       tags,
       metricProfile: current.metric_profile ?? current.metricProfile,
       muscleGroup: current.muscle_group ?? current.muscleGroup,
@@ -292,7 +298,7 @@ export function expandImportStructure(
     workoutName:
       input.workoutName?.trim() ||
       input.overview.structure?.trim() ||
-      input.sections[0]?.section_name ||
+      allMoves[0]?.chapter ||
       "Imported workout",
     author: input.author,
     channelUrl: input.channelUrl,

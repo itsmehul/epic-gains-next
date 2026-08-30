@@ -375,7 +375,7 @@ export function YoutubeImportPageClient() {
                         <Textarea
                           id={jsonId}
                           rows={16}
-                          placeholder='{\n  "overview": { ... },\n  "sections": [ ... ]\n}'
+                          placeholder='{\n  "overview": { ... },\n  "exercises": [ ... ]\n}'
                           value={jsonInput}
                           onChange={(e) => {
                             setJsonInput(e.target.value);

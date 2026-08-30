@@ -22,6 +22,7 @@ ${IMPORT_VIDEO_ELIGIBILITY_RULES}
 1. **Only Real Exercise Moves**: List only actual exercises/stretches performed.
 2. **Filter Out Gaps**: Never include rest periods, water breaks, transitions, or "catch your breath" buffers as exercise entries.
 3. **Ignore Non-Exercise Chapters**: If a video chapter or overlay is titled "Rest", "Break", "Intro", or "Preview", skip it.
+4. **Extract Workout Chapters**: When the video has real chapters/blocks — YouTube chapters, on-screen section titles, or spoken labels such as \`Warm Up\`, \`Cooldown\`, \`Day 1\`, \`Day 2\`, \`Circuit 1\`, \`Upper Body\` — put that label on each move as optional \`chapter\`. Omit \`chapter\` entirely if there are no chapters. Do not invent chapters.
 
 ---
 
@@ -105,20 +106,16 @@ If the video is eligible, return ONLY the JSON object inside a single markdown c
     "interval_pattern": "string (e.g., '60s intervals per exercise')",
     "equipment_needed": ["string"]
   },
-  "sections": [
+  "exercises": [
     {
-      "section_name": "string (e.g., 'Full Body Mobility')",
-      "exercises": [
-        {
-          "name": "string (Canonical name without angles, degrees, or parenthetical form cues)",
-          "timestamp": "string (exact MM:SS on the video clock — not rounded)",
-          "metric_profile": "string",
-          "muscle_group": "string",
-          "key_muscles": ["string"],
-          "suggested_sets": 1,
-          "suggested_time": 60
-        }
-      ]
+      "name": "string (Canonical name without angles, degrees, or parenthetical form cues)",
+      "timestamp": "string (exact MM:SS on the video clock — not rounded)",
+      "chapter": "string (optional: 'Warm Up', 'Cooldown', 'Day 1' — omit if none)",
+      "metric_profile": "string",
+      "muscle_group": "string",
+      "key_muscles": ["string"],
+      "suggested_sets": 1,
+      "suggested_time": 60
     }
   ]
 }

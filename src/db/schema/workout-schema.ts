@@ -26,6 +26,8 @@ export type ExerciseMetaData = {
   videoStartTime?: number;
   videoEndTime?: number;
   targets?: TargetSet[];
+  /** Workout chapter / block this appearance belongs to (e.g. Warm Up, Cooldown, Day 1). */
+  chapter?: string;
 };
 
 export type ImportPromptAnnotation = {

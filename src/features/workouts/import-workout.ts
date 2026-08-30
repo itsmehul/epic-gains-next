@@ -222,6 +222,9 @@ export async function importSharedWorkout(
           videoStartTime: ex.videoStartTime,
           videoEndTime: ex.videoEndTime,
           targets: resolveImportTargets(ex),
+          ...("chapter" in ex && ex.chapter
+            ? { chapter: ex.chapter }
+            : {}),
         },
         tags: ex.tags ?? [],
       });

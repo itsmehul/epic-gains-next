@@ -1,4 +1,4 @@
-export const IMPORT_PROMPT_VERSION = "1";
+export const IMPORT_PROMPT_VERSION = "2";
 
 export const IMPORT_PROMPT_VERDICTS = [
   "accurate",
@@ -34,6 +34,12 @@ export const IMPORT_PROMPT_INSTRUCTIONS = [
     group: "The exercise list",
     title: "Intros and breaks are skipped",
     body: "Preview, intro, and rest chapters aren’t treated as exercises.",
+  },
+  {
+    id: "core-extract-chapters",
+    group: "The exercise list",
+    title: "Chapters are labelled",
+    body: "Each move has a chapter when the video has real blocks — Warm Up, Cooldown, Day 1 — and no invented chapter when it doesn’t.",
   },
   {
     id: "naming-canonical",

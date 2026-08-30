@@ -35,13 +35,11 @@ function isRejection(
 }
 
 function flattenMoves(input: ImportWorkoutStructureInput): FlatMove[] {
-  return input.sections.flatMap((section) =>
-    section.exercises.map((exercise) => ({
-      name: exercise.name,
-      timestamp: exercise.timestamp,
-      seconds: parseClockTimestamp(exercise.timestamp),
-    })),
-  );
+  return input.exercises.map((exercise) => ({
+    name: exercise.name,
+    timestamp: exercise.timestamp,
+    seconds: parseClockTimestamp(exercise.timestamp),
+  }));
 }
 
 function nameSet(moves: FlatMove[]): Set<string> {

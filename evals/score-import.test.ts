@@ -26,12 +26,7 @@ describe("scoreImportOutput", () => {
           workout_length: "10 minutes",
           interval_pattern: "continuous",
         },
-        sections: [
-          {
-            section_name: "Dance",
-            exercises: [{ name: "Hip roll", timestamp: "00:10" }],
-          },
-        ],
+        exercises: [{ name: "Hip roll", timestamp: "00:10", chapter: "Dance" }],
       }),
       expected: { rejected: true, reason: UNSTRUCTURED_DANCE_REJECT_REASON },
     });
@@ -47,29 +42,19 @@ describe("scoreImportOutput", () => {
         workout_length: "20 minutes",
         interval_pattern: "45s work / 15s rest",
       },
-      sections: [
-        {
-          section_name: "Full Workout",
-          exercises: [
-            { name: "Side to side taps", timestamp: "00:26" },
-            { name: "Jump + cross chop", timestamp: "01:26" },
-            { name: "Run in place", timestamp: "02:26" },
-          ],
-        },
+      exercises: [
+        { name: "Side to side taps", timestamp: "00:26", chapter: "Full Workout" },
+        { name: "Jump + cross chop", timestamp: "01:26", chapter: "Full Workout" },
+        { name: "Run in place", timestamp: "02:26", chapter: "Full Workout" },
       ],
     };
     const score = scoreImportOutput({
       text: JSON.stringify({
         overview: expected.overview,
-        sections: [
-          {
-            section_name: "Full Workout",
-            exercises: [
-              { name: "Side-to-side taps", timestamp: "00:27" },
-              { name: "Jump + cross chop", timestamp: "01:26" },
-              { name: "Run in place", timestamp: "02:28" },
-            ],
-          },
+        exercises: [
+          { name: "Side-to-side taps", timestamp: "00:27", chapter: "Full Workout" },
+          { name: "Jump + cross chop", timestamp: "01:26", chapter: "Full Workout" },
+          { name: "Run in place", timestamp: "02:28", chapter: "Full Workout" },
         ],
       }),
       expected,

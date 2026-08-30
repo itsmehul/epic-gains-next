@@ -17,7 +17,7 @@ describe("importRejectionSchema", () => {
       importRejectionSchema.safeParse({
         workoutName: "HIIT",
         overview: { workout_length: "20", interval_pattern: "60s" },
-        sections: [],
+        exercises: [],
       }).success,
     ).toBe(false);
   });
