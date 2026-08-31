@@ -9,6 +9,7 @@ export type Comment = {
   role: CommentRole;
   mentions: CommentMention[];
   createdAt: Date | string;
+  parentId: string | null;
   authorId: string;
   author: PublicUser;
 };

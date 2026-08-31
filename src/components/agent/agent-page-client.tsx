@@ -160,11 +160,12 @@ export function AgentPageClient() {
             </Avatar>
             <div className="space-y-1.5">
               <h2 className="text-lg font-semibold tracking-tight">
-                Add a Gemini key to unlock Trainer
+                Add an OpenRouter key to unlock Trainer
               </h2>
               <p className="text-muted-foreground text-sm leading-6">
-                The Fitness Trainer Agent uses your own Gemini API key. Paste it
-                once in Integrations — it is encrypted and never shown again.
+                The Fitness Trainer Agent uses Gemini through OpenRouter. Paste
+                your OpenRouter API key once in Integrations — it is encrypted
+                and never shown again.
               </p>
             </div>
             <Link

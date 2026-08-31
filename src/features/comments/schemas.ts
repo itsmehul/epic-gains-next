@@ -8,6 +8,7 @@ export const listCommentsQuerySchema = z.object({
 export const createCommentSchema = z.object({
   exerciseId: z.string().min(1),
   workoutId: z.string().min(1).nullable().optional(),
+  parentId: z.string().min(1).nullable().optional(),
   text: z.string().trim().min(1).max(2000),
 });
 

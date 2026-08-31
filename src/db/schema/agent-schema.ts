@@ -3,7 +3,7 @@ import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import { user } from "./auth-schema";
 
-/** Per-user Gemini API key, stored encrypted (AES-256-GCM). */
+/** Per-user OpenRouter API key (Gemini via OpenRouter), stored encrypted (AES-256-GCM). */
 export const userGeminiKey = pgTable("user_gemini_key", {
   userId: text("user_id")
     .primaryKey()

@@ -1,21 +1,18 @@
 import "dotenv/config";
 
-import {
-  createGoogle,
-  type GoogleProviderMetadata,
-} from "@ai-sdk/google";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateText } from "ai";
 import inquirer from "inquirer";
 
 import { generateYoutubeImportPrompt } from "../src/features/workouts/import-prompt";
 import { extractYoutubeWatchUrls } from "../src/shared/youtube";
 
-const DEFAULT_MODEL = "gemini-3.7-flash";
+const DEFAULT_MODEL = "google/gemini-3.6-flash";
 
 const generationConfig = {
   maxOutputTokens: 65536,
   topP: 0.95,
-  thinkingLevel: "medium" as const,
+  thinkingEffort: "medium" as const,
 };
 
 const DEFAULT_PROMPT = generateYoutubeImportPrompt(
@@ -23,12 +20,10 @@ const DEFAULT_PROMPT = generateYoutubeImportPrompt(
 );
 
 async function main() {
-  const apiKey =
-    process.env.GEMINI_API_KEY?.trim() ||
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
+  const apiKey = process.env.OPENROUTER_API_KEY?.trim();
   if (!apiKey) {
     throw new Error(
-      "GEMINI_API_KEY is not set. Add it to .env and retry.",
+      "OPENROUTER_API_KEY is not set. Add it to .env and retry.",
     );
   }
 
@@ -39,7 +34,7 @@ async function main() {
     {
       type: "input",
       name: "model",
-      message: "Gemini model",
+      message: "OpenRouter Gemini model",
       default: DEFAULT_MODEL,
     },
     {
@@ -62,10 +57,10 @@ async function main() {
 
   console.log("Attaching video:", youtubeUrls.join(", "));
 
-  const google = createGoogle({ apiKey });
+  const openrouter = createOpenRouter({ apiKey });
   const { text: output, sources, usage, providerMetadata } =
     await generateText({
-      model: google(model.trim()),
+      model: openrouter(model.trim()),
       messages: [
         {
           role: "user",
@@ -80,14 +75,14 @@ async function main() {
         },
       ],
       tools: {
-        google_search: google.tools.googleSearch({}),
+        web_search: openrouter.tools.webSearch({ engine: "native" }),
       },
       maxOutputTokens: generationConfig.maxOutputTokens,
       topP: generationConfig.topP,
       providerOptions: {
-        google: {
-          thinkingConfig: {
-            thinkingLevel: generationConfig.thinkingLevel,
+        openrouter: {
+          reasoning: {
+            effort: generationConfig.thinkingEffort,
           },
         },
       },
@@ -96,16 +91,13 @@ async function main() {
   console.log("\n--- response ---\n");
   console.log(output);
 
-  const metadata = providerMetadata?.google as
-    | GoogleProviderMetadata
-    | undefined;
   if (sources?.length) {
     console.log("\n--- sources ---");
     console.log(sources);
   }
-  if (metadata?.groundingMetadata) {
-    console.log("\n--- grounding ---");
-    console.log(metadata.groundingMetadata);
+  if (providerMetadata?.openrouter) {
+    console.log("\n--- openrouter ---");
+    console.log(providerMetadata.openrouter);
   }
   if (usage) {
     console.log("\n--- usage ---");

@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
 
-import { createGoogle } from "@ai-sdk/google";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateText } from "ai";
 import inquirer from "inquirer";
 
@@ -15,7 +15,7 @@ import {
   DEFAULT_MCP_URL,
   DEFAULT_MODEL,
   formatError,
-  geminiApiKey,
+  openRouterApiKey,
   logToolCalls,
   promptForTask,
   runDirectProbes,
@@ -40,7 +40,7 @@ Options:
   --suite <id>             mcp | import | all
   --url <url>              MCP server URL (env MCP_URL)
   --api-key <key>          MCP API key (env MCP_API_KEY)
-  --model <id>             Gemini model (env GEMINI_MODEL)
+  --model <id>             OpenRouter Gemini model (env GEMINI_MODEL)
   --username <name>        Friend username for compare_1v1 (default nitin)
   --task <id>              MCP task or import case id (alias: --case)
   --case <id>              Same as --task
@@ -82,7 +82,7 @@ function parseSuite(value: string | undefined): Suite | undefined {
 const generationConfig = {
   maxOutputTokens: 65536,
   topP: 0.95,
-  thinkingLevel: "medium" as const,
+  thinkingEffort: "medium" as const,
 };
 
 async function runImportSuite(input: {
@@ -103,7 +103,7 @@ async function runImportSuite(input: {
     );
   }
 
-  const google = createGoogle({ apiKey: geminiApiKey() });
+  const openrouter = createOpenRouter({ apiKey: openRouterApiKey() });
   let passed = 0;
 
   for (const item of cases) {
@@ -114,7 +114,7 @@ async function runImportSuite(input: {
     const prompt = generateYoutubeImportPrompt(item.url);
     const started = performance.now();
     const result = await generateText({
-      model: google(input.model),
+      model: openrouter(input.model),
       messages: [
         {
           role: "user",
@@ -127,9 +127,9 @@ async function runImportSuite(input: {
       maxOutputTokens: generationConfig.maxOutputTokens,
       topP: generationConfig.topP,
       providerOptions: {
-        google: {
-          thinkingConfig: {
-            thinkingLevel: generationConfig.thinkingLevel,
+        openrouter: {
+          reasoning: {
+            effort: generationConfig.thinkingEffort,
           },
         },
       },
@@ -273,7 +273,7 @@ async function main() {
     {
       type: "input",
       name: "model",
-      message: "Gemini model",
+      message: "OpenRouter Gemini model",
       when: () => !fromCli.model,
       default: DEFAULT_MODEL,
     },

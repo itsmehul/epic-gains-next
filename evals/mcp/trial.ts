@@ -1,4 +1,4 @@
-import { createGoogle } from "@ai-sdk/google";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import {
   createMCPClient,
   mcpAppClientCapabilities,
@@ -15,7 +15,7 @@ import { TRAINER_SKILL_MD } from "../../src/features/skills/trainer-skill";
 import type { McpEvalSpec } from "../score-mcp";
 
 export const DEFAULT_MCP_URL = "http://localhost:3000/api/mcp";
-export const DEFAULT_MODEL = "gemini-3.7-flash";
+export const DEFAULT_MODEL = "google/gemini-3.6-flash";
 
 export type TaskId =
   | "check_performance"
@@ -203,12 +203,10 @@ export function promptForTask(task: TaskId, username: string): string {
   return performancePrompt();
 }
 
-export function geminiApiKey(): string {
-  const apiKey =
-    process.env.GEMINI_API_KEY?.trim() ||
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
+export function openRouterApiKey(): string {
+  const apiKey = process.env.OPENROUTER_API_KEY?.trim();
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is not set. Add it to .env and retry.");
+    throw new Error("OPENROUTER_API_KEY is not set. Add it to .env and retry.");
   }
   return apiKey;
 }
@@ -351,10 +349,10 @@ export async function runLlmTrial(input: {
   prompt: string;
   maxSteps: number;
 }) {
-  const google = createGoogle({ apiKey: geminiApiKey() });
+  const openrouter = createOpenRouter({ apiKey: openRouterApiKey() });
   const started = performance.now();
   const result = await generateText({
-    model: google(input.model),
+    model: openrouter(input.model),
     system: [input.client.instructions, TASK_SKILL_MD[input.task]]
       .filter(Boolean)
       .join("\n\n"),

@@ -265,6 +265,7 @@ export const comments = pgTable(
       .notNull()
       .default([]),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    parentId: text("parent_id"),
     authorId: text("author_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
@@ -280,10 +281,16 @@ export const comments = pgTable(
       foreignColumns: [workout.id],
       name: "comments_workout_id_fk",
     }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.parentId],
+      foreignColumns: [table.id],
+      name: "comments_parent_id_fk",
+    }).onDelete("cascade"),
     index("comments_exerciseId_idx").on(table.exerciseId),
     index("comments_workoutId_idx").on(table.workoutId),
     index("comments_authorId_idx").on(table.authorId),
     index("comments_createdAt_idx").on(table.createdAt),
+    index("comments_parentId_idx").on(table.parentId),
     index("comments_exerciseId_workoutId_idx").on(
       table.exerciseId,
       table.workoutId,
@@ -366,7 +373,7 @@ export const importPromptFeedbackRelations = relations(
   }),
 );
 
-export const commentsRelations = relations(comments, ({ one }) => ({
+export const commentsRelations = relations(comments, ({ one, many }) => ({
   exercise: one(exercise, {
     fields: [comments.exerciseId],
     references: [exercise.id],
@@ -379,4 +386,10 @@ export const commentsRelations = relations(comments, ({ one }) => ({
     fields: [comments.authorId],
     references: [user.id],
   }),
+  parent: one(comments, {
+    fields: [comments.parentId],
+    references: [comments.id],
+    relationName: "comment_replies",
+  }),
+  replies: many(comments, { relationName: "comment_replies" }),
 }));

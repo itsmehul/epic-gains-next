@@ -35,7 +35,7 @@ export function GeminiKeyCard() {
     setLocalError(null);
     const trimmed = apiKey.trim();
     if (!trimmed) {
-      setLocalError("Paste a Gemini API key");
+      setLocalError("Paste an OpenRouter API key");
       return;
     }
     try {
@@ -64,12 +64,12 @@ export function GeminiKeyCard() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <IconBrain className="size-5" />
-          Gemini
+          Gemini via OpenRouter
         </CardTitle>
         <CardDescription>
-          Add your own Gemini API key to unlock the Fitness Trainer Agent in
-          comments (@agent) and on the Trainer page. The key is encrypted at
-          rest and never shown again.
+          Add your OpenRouter API key to unlock the Fitness Trainer Agent in
+          comments (@agent) and on the Trainer page. Requests run Gemini through
+          OpenRouter. The key is encrypted at rest and never shown again.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -106,7 +106,7 @@ export function GeminiKeyCard() {
               type="password"
               autoComplete="off"
               spellCheck={false}
-              placeholder="Paste Gemini API key"
+              placeholder="Paste OpenRouter API key"
               value={apiKey}
               disabled={pending}
               onChange={(event) => setApiKey(event.target.value)}
@@ -121,11 +121,11 @@ export function GeminiKeyCard() {
               Get a key from{" "}
               <a
                 className="underline underline-offset-2"
-                href="https://aistudio.google.com/apikey"
+                href="https://openrouter.ai/keys"
                 target="_blank"
                 rel="noreferrer"
               >
-                Google AI Studio
+                OpenRouter
               </a>
               .
             </p>

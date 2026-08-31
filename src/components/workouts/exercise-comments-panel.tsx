@@ -3,7 +3,9 @@
 import {
   IconBrain,
   IconMessage2,
+  IconReply,
   IconSend,
+  IconX,
 } from "@/components/ui/icons";
 import { useChat } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -16,22 +18,23 @@ import {
   useState,
   type FormEvent,
   type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
 } from "react";
 
+import { CommentMarkdown } from "@/components/workouts/comment-markdown";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useGeminiKeyStatus } from "@/features/agent/hooks";
-import {
-  commentMentionsAgent,
-  splitCommentText,
-} from "@/features/agent/mentions";
+import { commentMentionsAgent } from "@/features/agent/mentions";
 import {
   commentKeys,
   useComments,
   useCreateComment,
 } from "@/features/comments/hooks";
+import { groupCommentsIntoThreads } from "@/features/comments/thread";
 import type { Comment } from "@/features/comments/types";
 import { useFollowing, useMeSocial } from "@/features/social/hooks";
 import type { SocialUser } from "@/features/social/types";
@@ -74,96 +77,74 @@ function formatRelativeTime(value: Date | string) {
 function UserAvatar({
   name,
   image,
+  size = "md",
 }: {
   name: string;
   image?: string | null;
+  size?: "sm" | "md";
 }) {
   return (
-    <Avatar className="shrink-0">
+    <Avatar className="shrink-0" size={size === "sm" ? "sm" : "default"}>
       {image ? <AvatarImage alt="" src={image} /> : null}
-      <AvatarFallback>{initials(name)}</AvatarFallback>
-    </Avatar>
-  );
-}
-
-function AgentAvatar() {
-  return (
-    <Avatar className="shrink-0">
-      <AvatarFallback className="bg-primary/15 text-primary">
-        <IconBrain className="size-4" />
+      <AvatarFallback className={size === "sm" ? "text-[10px]" : undefined}>
+        {initials(name)}
       </AvatarFallback>
     </Avatar>
   );
 }
 
-function CommentBody({ comment }: { comment: Comment }) {
-  const parts = splitCommentText(comment.text, comment.mentions);
+function AgentAvatar({ size = "md" }: { size?: "sm" | "md" }) {
   return (
-    <p className="mt-1 whitespace-pre-wrap wrap-break-word text-sm leading-6">
-      {parts.map((part, index) => {
-        if (part.type === "text") {
-          return <span key={index}>{part.value}</span>;
-        }
-        if (part.kind === "agent") {
-          return (
-            <span
-              key={index}
-              className="bg-primary/10 text-primary rounded px-1 py-0.5 font-medium"
-            >
-              @agent
-            </span>
-          );
-        }
-        return (
-          <Link
-            key={index}
-            href={`/u/${part.username}`}
-            className="bg-primary/10 text-primary rounded px-1 py-0.5 font-medium hover:underline"
-          >
-            @{part.username}
-          </Link>
-        );
-      })}
-    </p>
+    <Avatar className="shrink-0" size={size === "sm" ? "sm" : "default"}>
+      <AvatarFallback className="bg-primary/15 text-primary">
+        <IconBrain className={size === "sm" ? "size-3.5" : "size-4"} />
+      </AvatarFallback>
+    </Avatar>
   );
 }
 
 function CommentRow({
   comment,
   linkAuthor = true,
+  compact = false,
+  onReply,
 }: {
   comment: Comment;
   linkAuthor?: boolean;
+  compact?: boolean;
+  onReply?: () => void;
 }) {
   const when = comment.createdAt ? formatRelativeTime(comment.createdAt) : "";
   const isAgent = comment.role === "agent";
   const profileHref = `/u/${comment.author.username}`;
   const displayName = isAgent ? "Fitness Trainer Agent" : comment.author.name;
   const displayHandle = isAgent ? "@agent" : `@${comment.author.username}`;
+  const avatarSize = compact ? "sm" : "md";
 
   return (
-    <li className="flex gap-3">
+    <article className="flex gap-3">
       {isAgent ? (
         <div className="mt-0.5 shrink-0">
-          <AgentAvatar />
+          <AgentAvatar size={avatarSize} />
         </div>
       ) : linkAuthor ? (
         <Link href={profileHref} className="mt-0.5 shrink-0">
-          <UserAvatar name={comment.author.name} image={comment.author.image} />
+          <UserAvatar
+            name={comment.author.name}
+            image={comment.author.image}
+            size={avatarSize}
+          />
         </Link>
       ) : (
         <div className="mt-0.5 shrink-0">
-          <UserAvatar name={comment.author.name} image={comment.author.image} />
+          <UserAvatar
+            name={comment.author.name}
+            image={comment.author.image}
+            size={avatarSize}
+          />
         </div>
       )}
-      <div
-        className={cn(
-          "min-w-0 flex-1 rounded-2xl px-3.5 py-2.5 ring-1",
-          isAgent
-            ? "bg-primary/5 ring-primary/15"
-            : "bg-muted/50 ring-foreground/5",
-        )}
-      >
+      <div className="min-w-0 flex-1">
         <p className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-[13px] leading-5">
           {isAgent || !linkAuthor ? (
             <span className="text-foreground truncate font-medium">
@@ -198,25 +179,29 @@ function CommentRow({
             </>
           ) : null}
         </p>
-        {isAgent ? (
-          <p className="mt-1 whitespace-pre-wrap wrap-break-word text-sm leading-6">
-            {comment.text}
-          </p>
-        ) : (
-          <CommentBody comment={comment} />
-        )}
+        <CommentMarkdown text={comment.text} mentions={comment.mentions} />
+        {onReply ? (
+          <button
+            type="button"
+            onClick={onReply}
+            className="text-muted-foreground hover:text-foreground mt-1 inline-flex items-center gap-1 text-[12px] font-medium"
+          >
+            <IconReply className="size-3.5" />
+            Reply
+          </button>
+        ) : null}
       </div>
-    </li>
+    </article>
   );
 }
 
 function StreamingAgentRow({ text }: { text: string }) {
   return (
-    <li className="flex gap-3">
+    <article className="flex gap-3">
       <div className="mt-0.5 shrink-0">
-        <AgentAvatar />
+        <AgentAvatar size="sm" />
       </div>
-      <div className="bg-primary/5 min-w-0 flex-1 rounded-2xl px-3.5 py-2.5 ring-1 ring-primary/15">
+      <div className="min-w-0 flex-1">
         <p className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-[13px] leading-5">
           <span className="text-foreground truncate font-medium">
             Fitness Trainer Agent
@@ -227,23 +212,25 @@ function StreamingAgentRow({ text }: { text: string }) {
           </span>
           <span className="text-muted-foreground shrink-0">typing…</span>
         </p>
-        <p className="mt-1 whitespace-pre-wrap wrap-break-word text-sm leading-6">
-          {text || <Spinner className="size-3.5" />}
-        </p>
+        {text ? (
+          <CommentMarkdown text={text} mentions={[]} />
+        ) : (
+          <Spinner className="mt-1 size-3.5" />
+        )}
       </div>
-    </li>
+    </article>
   );
 }
 
 function CommentsSkeleton() {
   return (
-    <ul className="flex flex-col gap-3" aria-hidden>
+    <ul className="flex flex-col gap-5" aria-hidden>
       {[0, 1, 2].map((index) => (
         <li key={index} className="flex gap-3">
           <div className="bg-muted size-8 shrink-0 animate-pulse rounded-full" />
           <div
             className={cn(
-              "bg-muted/70 min-h-16 flex-1 animate-pulse rounded-2xl",
+              "bg-muted/70 min-h-16 flex-1 animate-pulse rounded-xl",
               index === 1 && "min-h-24",
               index === 2 && "min-h-12",
             )}
@@ -321,6 +308,143 @@ function MentionMenu({
   );
 }
 
+function CommentComposer({
+  text,
+  setText,
+  textareaRef,
+  pending,
+  placeholder,
+  error,
+  onSubmit,
+  mentionQuery,
+  mentionOptions,
+  activeMention,
+  setActiveMention,
+  insertMention,
+  updateMentionState,
+  onMentionAgentUnavailable,
+  hint,
+}: {
+  text: string;
+  setText: (value: string) => void;
+  textareaRef: RefObject<HTMLTextAreaElement | null>;
+  pending: boolean;
+  placeholder: string;
+  error?: ReactNode;
+  onSubmit: () => void;
+  mentionQuery: string | null;
+  mentionOptions: MentionOption[];
+  activeMention: number;
+  setActiveMention: (updater: (i: number) => number) => void;
+  insertMention: (option: MentionOption) => void;
+  updateMentionState: (value: string, cursor: number) => void;
+  onMentionAgentUnavailable: () => boolean;
+  hint?: string;
+}) {
+  const trimmed = text.trim();
+
+  function onComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (mentionQuery != null && mentionOptions.length > 0) {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setActiveMention((i) => (i + 1) % mentionOptions.length);
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setActiveMention(
+          (i) => (i - 1 + mentionOptions.length) % mentionOptions.length,
+        );
+        return;
+      }
+      if (event.key === "Enter" || event.key === "Tab") {
+        event.preventDefault();
+        const option = mentionOptions[activeMention];
+        if (option) insertMention(option);
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        return;
+      }
+    }
+
+    if (event.key !== "Enter" || event.shiftKey) return;
+    if (event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
+  }
+
+  return (
+    <form
+      onSubmit={(event: FormEvent) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <div className="relative">
+        {mentionQuery != null ? (
+          <MentionMenu
+            options={mentionOptions}
+            activeIndex={activeMention}
+            onSelect={(option) => {
+              if (option.kind === "agent" && onMentionAgentUnavailable()) {
+                return;
+              }
+              insertMention(option);
+            }}
+          />
+        ) : null}
+        <Textarea
+          ref={textareaRef}
+          value={text}
+          onChange={(event) => {
+            const value = event.target.value;
+            setText(value);
+            updateMentionState(value, event.target.selectionStart);
+          }}
+          onKeyDown={onComposerKeyDown}
+          onClick={(event) => {
+            updateMentionState(
+              event.currentTarget.value,
+              event.currentTarget.selectionStart,
+            );
+          }}
+          placeholder={placeholder}
+          disabled={pending}
+          rows={2}
+          maxLength={2000}
+          aria-invalid={Boolean(error) || undefined}
+          className="min-h-16 bg-muted/60 pr-12 pb-8 md:text-sm"
+        />
+        <Button
+          type="submit"
+          size="icon-sm"
+          disabled={!trimmed || pending}
+          className="absolute right-2 bottom-2 size-8 rounded-full"
+          aria-label="Post comment"
+        >
+          {pending ? (
+            <Spinner className="size-3.5" />
+          ) : (
+            <IconSend className="size-3.5" />
+          )}
+        </Button>
+      </div>
+      {hint ? (
+        <p className="text-muted-foreground mt-1.5 text-[11px] leading-4">
+          {hint}
+        </p>
+      ) : null}
+      {error ? (
+        <p className="text-destructive mt-1.5 text-xs" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </form>
+  );
+}
+
 export function ExerciseCommentsPanel({
   exerciseId,
   workoutId,
@@ -333,12 +457,16 @@ export function ExerciseCommentsPanel({
   readOnly?: boolean;
 }) {
   const [text, setText] = useState("");
+  const [replyText, setReplyText] = useState("");
+  const [replyToId, setReplyToId] = useState<string | null>(null);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [activeMention, setActiveMention] = useState(0);
   const [agentError, setAgentError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const replyTextareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingCommentIdRef = useRef<string | null>(null);
+  const streamingRootIdRef = useRef<string | null>(null);
   const queryClient = useQueryClient();
 
   const commentsQuery = useComments({
@@ -374,13 +502,14 @@ export function ExerciseCommentsPanel({
     transport,
     onFinish: () => {
       pendingCommentIdRef.current = null;
+      streamingRootIdRef.current = null;
       void queryClient.invalidateQueries({ queryKey: commentKeys.all });
       setAgentMessages([]);
     },
   });
 
   const items = itemsProp ?? commentsQuery.data?.items ?? [];
-  const newestFirst = items.toReversed();
+  const threads = useMemo(() => groupCommentsIntoThreads(items), [items]);
   const streaming =
     agentStatus === "submitted" || agentStatus === "streaming";
   const streamingText = agentMessages
@@ -392,11 +521,14 @@ export function ExerciseCommentsPanel({
     )
     .map((p) => p.text)
     .join("");
+  const streamingRootId = streaming ? streamingRootIdRef.current : null;
 
   const pending = createComment.isPending || streaming;
-  const trimmed = text.trim();
   const isLoading = itemsProp == null && commentsQuery.isLoading;
   const isError = itemsProp == null && commentsQuery.isError;
+  const activeText = replyToId ? replyText : text;
+  const setActiveText = replyToId ? setReplyText : setText;
+  const activeTextareaRef = replyToId ? replyTextareaRef : textareaRef;
 
   const mentionOptions = useMemo((): MentionOption[] => {
     if (mentionQuery == null) return [];
@@ -408,7 +540,7 @@ export function ExerciseCommentsPanel({
         kind: "agent",
         label: geminiKey.data?.configured
           ? "Fitness Trainer Agent"
-          : "Fitness Trainer Agent (add Gemini key)",
+          : "Fitness Trainer Agent (add OpenRouter key)",
         handle: "agent",
       });
     }
@@ -428,6 +560,11 @@ export function ExerciseCommentsPanel({
     setActiveMention(0);
   }, [mentionQuery]);
 
+  useEffect(() => {
+    if (!replyToId) return;
+    replyTextareaRef.current?.focus();
+  }, [replyToId]);
+
   function updateMentionState(value: string, cursor: number) {
     const before = value.slice(0, cursor);
     const match = before.match(/(^|[\s([{])@([a-zA-Z0-9_]*)$/);
@@ -439,16 +576,17 @@ export function ExerciseCommentsPanel({
   }
 
   function insertMention(option: MentionOption) {
-    const el = textareaRef.current;
+    const el = activeTextareaRef.current;
+    const current = activeText;
     if (!el) return;
-    const cursor = el.selectionStart ?? text.length;
-    const before = text.slice(0, cursor);
-    const after = text.slice(cursor);
+    const cursor = el.selectionStart ?? current.length;
+    const before = current.slice(0, cursor);
+    const after = current.slice(cursor);
     const match = before.match(/(^|[\s([{])@([a-zA-Z0-9_]*)$/);
     if (!match || match.index == null) return;
     const start = match.index + match[1]!.length;
-    const next = `${text.slice(0, start)}@${option.handle} ${after}`;
-    setText(next);
+    const next = `${current.slice(0, start)}@${option.handle} ${after}`;
+    setActiveText(next);
     setMentionQuery(null);
     requestAnimationFrame(() => {
       const pos = start + option.handle.length + 2;
@@ -457,8 +595,8 @@ export function ExerciseCommentsPanel({
     });
   }
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
+  async function postComment(raw: string, parentId: string | null) {
+    const trimmed = raw.trim();
     if (!trimmed || pending) return;
     setAgentError(null);
     setMentionQuery(null);
@@ -466,19 +604,26 @@ export function ExerciseCommentsPanel({
       const created = await createComment.mutateAsync({
         exerciseId,
         workoutId: workoutId ?? null,
+        parentId,
         text: trimmed,
       });
-      setText("");
-      listRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      if (parentId) {
+        setReplyText("");
+        setReplyToId(null);
+      } else {
+        setText("");
+        listRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      }
 
       if (commentMentionsAgent(created.mentions)) {
         if (!geminiKey.data?.configured) {
           setAgentError(
-            "Add a Gemini API key in Integrations to get a trainer reply.",
+            "Add an OpenRouter API key in Integrations to get a trainer reply.",
           );
           return;
         }
         pendingCommentIdRef.current = created.id;
+        streamingRootIdRef.current = created.parentId ?? created.id;
         setAgentMessages([]);
         await sendMessage({ text: trimmed });
       }
@@ -487,44 +632,44 @@ export function ExerciseCommentsPanel({
     }
   }
 
-  function onComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (mentionQuery != null && mentionOptions.length > 0) {
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        setActiveMention((i) => (i + 1) % mentionOptions.length);
-        return;
-      }
-      if (event.key === "ArrowUp") {
-        event.preventDefault();
-        setActiveMention(
-          (i) => (i - 1 + mentionOptions.length) % mentionOptions.length,
-        );
-        return;
-      }
-      if (event.key === "Enter" || event.key === "Tab") {
-        event.preventDefault();
-        const option = mentionOptions[activeMention];
-        if (option) insertMention(option);
-        return;
-      }
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setMentionQuery(null);
-        return;
-      }
-    }
-
-    if (event.key !== "Enter" || event.shiftKey) return;
-    if (event.nativeEvent.isComposing) return;
-    event.preventDefault();
-    event.currentTarget.form?.requestSubmit();
+  function startReply(comment: Comment) {
+    const handle =
+      comment.role === "agent" ? "agent" : comment.author.username;
+    setReplyToId(comment.parentId ?? comment.id);
+    setReplyText(`@${handle} `);
+    setMentionQuery(null);
   }
 
-  const empty =
-    newestFirst.length === 0 && !streaming;
+  const empty = threads.length === 0 && !streaming;
+  const composerError =
+    createComment.isError
+      ? createComment.error instanceof Error
+        ? createComment.error.message
+        : "Failed to post comment"
+      : agentError || chatError
+        ? `${agentError ?? (chatError instanceof Error ? chatError.message : "Trainer reply failed")} `
+        : null;
+
+  const composerProps = {
+    pending,
+    mentionQuery,
+    mentionOptions,
+    activeMention,
+    setActiveMention,
+    insertMention,
+    updateMentionState,
+    onMentionAgentUnavailable: () => {
+      if (geminiKey.data?.configured) return false;
+      setAgentError(
+        "Add an OpenRouter API key in Integrations to mention @agent.",
+      );
+      setMentionQuery(null);
+      return true;
+    },
+  };
 
   return (
-    <div className="flex flex-col gap-4 px-4 md:px-0">
+    <div className="flex flex-col gap-5 px-4 md:px-0">
       <div ref={listRef}>
         {isLoading ? (
           <CommentsSkeleton />
@@ -549,103 +694,123 @@ export function ExerciseCommentsPanel({
             )}
           </div>
         ) : (
-          <ul className="flex flex-col gap-3">
-            {streaming ? <StreamingAgentRow text={streamingText} /> : null}
-            {newestFirst.map((comment) => (
-              <CommentRow
-                key={comment.id}
-                comment={comment}
-                linkAuthor={!readOnly}
-              />
-            ))}
+          <ul className="flex flex-col gap-6">
+            {streaming &&
+            streamingRootId &&
+            !threads.some((thread) => thread.root.id === streamingRootId) ? (
+              <li>
+                <StreamingAgentRow text={streamingText} />
+              </li>
+            ) : null}
+            {threads.map(({ root, replies }) => {
+              const showStream =
+                streaming && streamingRootId === root.id;
+              return (
+                <li key={root.id} className="flex flex-col gap-3">
+                  <CommentRow
+                    comment={root}
+                    linkAuthor={!readOnly}
+                    onReply={
+                      readOnly
+                        ? undefined
+                        : () => {
+                            startReply(root);
+                          }
+                    }
+                  />
+                  {replies.length > 0 || showStream || replyToId === root.id ? (
+                    <div className="border-foreground/10 ml-4 flex flex-col gap-3 border-l pl-4 sm:ml-5">
+                      {replies.map((reply) => (
+                        <CommentRow
+                          key={reply.id}
+                          comment={reply}
+                          linkAuthor={!readOnly}
+                          compact
+                          onReply={
+                            readOnly
+                              ? undefined
+                              : () => {
+                                  startReply(reply);
+                                }
+                          }
+                        />
+                      ))}
+                      {showStream ? (
+                        <StreamingAgentRow text={streamingText} />
+                      ) : null}
+                      {readOnly || replyToId !== root.id ? null : (
+                        <div>
+                          <div className="mb-1.5 flex items-center justify-between">
+                            <p className="text-muted-foreground text-[12px]">
+                              Reply in thread
+                            </p>
+                            <button
+                              type="button"
+                              className="text-muted-foreground hover:text-foreground inline-flex size-6 items-center justify-center rounded-full"
+                              aria-label="Cancel reply"
+                              onClick={() => {
+                                setReplyToId(null);
+                                setReplyText("");
+                                setMentionQuery(null);
+                              }}
+                            >
+                              <IconX className="size-3.5" />
+                            </button>
+                          </div>
+                          <CommentComposer
+                            {...composerProps}
+                            text={replyText}
+                            setText={setReplyText}
+                            textareaRef={replyTextareaRef}
+                            placeholder="Reply… @agent or @friend"
+                            onSubmit={() => {
+                              void postComment(replyText, root.id);
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
 
       {readOnly ? null : (
-        <form
-          onSubmit={(event) => {
-            void handleSubmit(event);
-          }}
-        >
-          <div className="relative">
-            {mentionQuery != null ? (
-              <MentionMenu
-                options={mentionOptions}
-                activeIndex={activeMention}
-                onSelect={(option) => {
-                  if (
-                    option.kind === "agent" &&
-                    !geminiKey.data?.configured
-                  ) {
-                    setAgentError(
-                      "Add a Gemini API key in Integrations to mention @agent.",
-                    );
-                    setMentionQuery(null);
-                    return;
-                  }
-                  insertMention(option);
-                }}
-              />
-            ) : null}
-            <Textarea
-              ref={textareaRef}
-              value={text}
-              onChange={(event) => {
-                const value = event.target.value;
-                setText(value);
-                updateMentionState(value, event.target.selectionStart);
-              }}
-              onKeyDown={onComposerKeyDown}
-              onClick={(event) => {
-                updateMentionState(
-                  event.currentTarget.value,
-                  event.currentTarget.selectionStart,
-                );
-              }}
-              placeholder="Leave a cue… or @agent / @friend"
-              disabled={pending}
-              rows={2}
-              maxLength={2000}
-              aria-invalid={createComment.isError || undefined}
-              className="min-h-18 bg-muted/60 pr-12 pb-9 md:text-sm"
-            />
-            <Button
-              type="submit"
-              size="icon-sm"
-              disabled={!trimmed || pending}
-              className="absolute right-2 bottom-2 size-8 rounded-full"
-              aria-label="Post comment"
-            >
-              {pending ? (
-                <Spinner className="size-3.5" />
-              ) : (
-                <IconSend className="size-3.5" />
-              )}
-            </Button>
-          </div>
-          <p className="text-muted-foreground mt-1.5 text-[11px] leading-4">
-            Enter to send · Shift+Enter for a new line · @ to mention
-          </p>
-          {createComment.isError ? (
-            <p className="text-destructive mt-1.5 text-xs" role="alert">
-              {createComment.error instanceof Error
-                ? createComment.error.message
-                : "Failed to post comment"}
-            </p>
-          ) : null}
-          {agentError || chatError ? (
-            <p className="text-destructive mt-1.5 text-xs" role="alert">
-              {agentError ??
-                (chatError instanceof Error
-                  ? chatError.message
-                  : "Trainer reply failed")}{" "}
-              <Link href="/integrations" className="underline underline-offset-2">
-                Open Integrations
-              </Link>
-            </p>
-          ) : null}
-        </form>
+        <div>
+          <CommentComposer
+            {...composerProps}
+            text={text}
+            setText={setText}
+            textareaRef={textareaRef}
+            placeholder="Leave a cue… or @agent / @friend"
+            onSubmit={() => {
+              void postComment(text, null);
+            }}
+            hint="Enter to send · Shift+Enter for a new line · @ to mention"
+            error={
+              composerError ? (
+                createComment.isError || agentError || chatError ? (
+                  <>
+                    {composerError}
+                    {agentError || chatError ? (
+                      <Link
+                        href="/integrations"
+                        className="underline underline-offset-2"
+                      >
+                        Open Integrations
+                      </Link>
+                    ) : null}
+                  </>
+                ) : (
+                  composerError
+                )
+              ) : null
+            }
+          />
+        </div>
       )}
     </div>
   );

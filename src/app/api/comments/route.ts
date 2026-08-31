@@ -4,6 +4,7 @@ import { getExerciseById } from "@/db/repositories/exercise.repository";
 import { getVisibleWorkoutById } from "@/db/repositories/feed.repository";
 import {
   createComment,
+  getCommentById,
   listVisibleComments,
 } from "@/db/repositories/comment.repository";
 import { listFollowing } from "@/db/repositories/social.repository";
@@ -26,6 +27,7 @@ function serializeComment(item: {
   role: "user" | "agent";
   mentions: unknown;
   createdAt: Date;
+  parentId: string | null;
   authorId: string;
   author: {
     id: string;
@@ -113,6 +115,15 @@ export async function POST(req: Request) {
       }
     }
 
+    let parentId: string | null = parsed.data.parentId ?? null;
+    if (parentId) {
+      const parent = await getCommentById(parentId);
+      if (!parent || parent.exerciseId !== parsed.data.exerciseId) {
+        return apiError("Parent comment not found", 404);
+      }
+      parentId = parent.parentId ?? parent.id;
+    }
+
     const following = await listFollowing(session.user.id);
     const mentions = resolveMentions(
       parsed.data.text,
@@ -130,6 +141,7 @@ export async function POST(req: Request) {
       text: parsed.data.text,
       role: "user",
       mentions,
+      parentId,
       authorId: session.user.id,
     });
     if (!item) {

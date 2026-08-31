@@ -73,6 +73,7 @@ export async function listVisibleComments(options: {
       role: comments.role,
       mentions: comments.mentions,
       createdAt: comments.createdAt,
+      parentId: comments.parentId,
       authorId: comments.authorId,
       author: authorColumns,
     })
@@ -93,6 +94,7 @@ export async function listVisibleComments(options: {
         role: row.role,
         mentions: row.mentions ?? [],
         createdAt: row.createdAt,
+        parentId: row.parentId,
         authorId: row.authorId,
         author,
       },
@@ -198,6 +200,7 @@ export async function createComment(data: CommentInsert) {
     role: row.role,
     mentions: row.mentions ?? [],
     createdAt: row.createdAt,
+    parentId: row.parentId,
     authorId: row.authorId,
     author,
   };
@@ -213,6 +216,7 @@ export async function getCommentById(id: string) {
       role: comments.role,
       mentions: comments.mentions,
       createdAt: comments.createdAt,
+      parentId: comments.parentId,
       authorId: comments.authorId,
     })
     .from(comments)

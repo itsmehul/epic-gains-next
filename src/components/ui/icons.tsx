@@ -93,6 +93,7 @@ export const IconPlayerPlayFilled = createIcon("play_arrow", true);
 export const IconPlugConnected = createIcon("electrical_services");
 export const IconPlus = createIcon("add");
 export const IconRefresh = createIcon("refresh");
+export const IconReply = createIcon("reply");
 export const IconSearch = createIcon("search");
 export const IconSelector = createIcon("unfold_more");
 export const IconSend = createIcon("send");

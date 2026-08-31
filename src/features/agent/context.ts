@@ -4,11 +4,9 @@ import { getExerciseById } from "@/db/repositories/exercise.repository";
 import { listVisibleComments } from "@/db/repositories/comment.repository";
 import { listSets } from "@/db/repositories/set.repository";
 import { listWorkoutExercises } from "@/db/repositories/workout-exercise.repository";
-import { extractYoutubeWatchUrls } from "@/shared/youtube";
 
 export type AgentExerciseContext = {
   systemExtra: string;
-  youtubeUrls: string[];
 };
 
 /** Build workout/exercise context for the Fitness Trainer Agent. */
@@ -19,7 +17,7 @@ export async function buildAgentExerciseContext(options: {
 }): Promise<AgentExerciseContext> {
   const exercise = await getExerciseById(options.exerciseId);
   if (!exercise) {
-    return { systemExtra: "", youtubeUrls: [] };
+    return { systemExtra: "" };
   }
 
   const appearances = await listWorkoutExercises({
@@ -46,11 +44,6 @@ export async function buildAgentExerciseContext(options: {
     .filter((c) => c.role !== "agent")
     .slice(-8)
     .map((c) => `- ${c.text}`);
-
-  const youtubeUrls: string[] = [];
-  if (appearance?.videoUrl) {
-    youtubeUrls.push(...extractYoutubeWatchUrls(appearance.videoUrl));
-  }
 
   const targets = appearance?.metaData?.targets ?? [];
   const lines = [
@@ -92,7 +85,6 @@ export async function buildAgentExerciseContext(options: {
 
   return {
     systemExtra: lines.join("\n"),
-    youtubeUrls,
   };
 }
 
@@ -100,4 +92,5 @@ export const TRAINER_SYSTEM_PROMPT = `You are the Epic Gains Fitness Trainer Age
 Be concise, practical, and encouraging. Focus on form cues, warm-ups, regressions, progressions, and variants.
 When helpful, use Google Search to find reputable demo videos (YouTube preferred) and cite the links clearly.
 If the athlete mentions a struggle, diagnose likely causes and give 2–4 actionable tips.
-Do not invent personal medical advice; suggest seeing a professional for pain or injury red flags.`;
+Do not invent personal medical advice; suggest seeing a professional for pain or injury red flags.
+Format replies in compact Markdown (short paragraphs, **bold** cues, lists when you have 2+ tips). Keep it scannable.`;

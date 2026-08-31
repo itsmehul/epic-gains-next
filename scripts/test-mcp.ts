@@ -26,7 +26,7 @@ function printHelp() {
 Options:
   --url <url>              MCP server URL (env MCP_URL)
   --api-key <key>          MCP API key (env MCP_API_KEY)
-  --model <id>             Gemini model (env GEMINI_MODEL)
+  --model <id>             OpenRouter Gemini model (env GEMINI_MODEL)
   --task <id>              check_performance | check_friends | compare_1v1 | compare_1v_all | friends_progress | trainer
   --username <name>        Friend username for compare_1v1 (default nitin)
   -h, --help               Show this help
@@ -101,14 +101,14 @@ async function main() {
     {
       type: "input",
       name: "model",
-      message: "Gemini model",
+      message: "OpenRouter Gemini model",
       when: () => !fromCli.model,
       default: DEFAULT_MODEL,
     },
     {
       type: "select",
       name: "task",
-      message: "What should Gemini do?",
+      message: "What should the model do?",
       when: () => !fromCli.task,
       default: "check_performance",
       choices: [

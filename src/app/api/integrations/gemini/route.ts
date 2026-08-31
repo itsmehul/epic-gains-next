@@ -23,7 +23,7 @@ export async function GET() {
     return NextResponse.json({ configured });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to check Gemini key";
+      error instanceof Error ? error.message : "Failed to check OpenRouter key";
     return apiError(message, 500);
   }
 }
@@ -49,14 +49,14 @@ export async function PUT(req: Request) {
 
     const valid = await validateGeminiApiKey(parsed.data.apiKey);
     if (!valid) {
-      return apiError("Gemini rejected this API key", 400);
+      return apiError("OpenRouter rejected this API key", 400);
     }
 
     await upsertUserGeminiKey(session.user.id, parsed.data.apiKey);
     return NextResponse.json({ configured: true });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to save Gemini key";
+      error instanceof Error ? error.message : "Failed to save OpenRouter key";
     return apiError(message, 500);
   }
 }
@@ -70,7 +70,7 @@ export async function DELETE() {
     return NextResponse.json({ configured: false });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to remove Gemini key";
+      error instanceof Error ? error.message : "Failed to remove OpenRouter key";
     return apiError(message, 500);
   }
 }

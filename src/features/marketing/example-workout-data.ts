@@ -82,6 +82,7 @@ function makeComment(args: {
     role: "user",
     mentions: [],
     createdAt: atDay(args.daysAgo, args.hour ?? 10, args.minute ?? 4),
+    parentId: null,
     authorId: author.id,
     author,
   };

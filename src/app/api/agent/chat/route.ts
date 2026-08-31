@@ -75,7 +75,6 @@ export async function POST(req: Request) {
     }
 
     let system = TRAINER_SYSTEM_PROMPT;
-    let youtubeUrls: string[] = [];
 
     if (exerciseId) {
       const context = await buildAgentExerciseContext({
@@ -86,7 +85,6 @@ export async function POST(req: Request) {
       if (context.systemExtra) {
         system = `${TRAINER_SYSTEM_PROMPT}\n\n${context.systemExtra}`;
       }
-      youtubeUrls = context.youtubeUrls;
     }
 
     const modelMessages = await convertToModelMessages(messages);
@@ -94,7 +92,6 @@ export async function POST(req: Request) {
       userId: session.user.id,
       system,
       messages: modelMessages,
-      youtubeUrls,
     });
 
     return result.toUIMessageStreamResponse({
@@ -103,6 +100,7 @@ export async function POST(req: Request) {
         if (isAborted || !commentId || !exerciseId) return;
         const text = textFromUIMessage(responseMessage);
         if (!text) return;
+        const trigger = await getCommentById(commentId);
         await createComment({
           id: crypto.randomUUID(),
           exerciseId,
@@ -110,6 +108,7 @@ export async function POST(req: Request) {
           text,
           role: "agent",
           mentions: [],
+          parentId: trigger?.parentId ?? commentId,
           authorId: session.user.id,
         });
       },
