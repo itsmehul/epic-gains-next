@@ -56,6 +56,7 @@
     "@visx/shape": "4.0.1-alpha.0",
     "ai": "^7.0.34",
     "better-auth": "^1.6.23",
+    "braintrust": "3.29.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "d3-array": "^3.2.4",

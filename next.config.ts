@@ -1,4 +1,5 @@
 import withSerwistInit from "@serwist/next";
+import { wrapNextjsConfigWithBraintrust } from "braintrust/next";
 import type { NextConfig } from "next";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
@@ -44,4 +45,4 @@ const nextConfig: NextConfig = {
     return config;
   },
 };
-export default withSerwist(nextConfig);
+export default wrapNextjsConfigWithBraintrust(withSerwist(nextConfig));
