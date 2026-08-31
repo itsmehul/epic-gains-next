@@ -1,4 +1,6 @@
 export {
+  concisenessStats,
+  scoreConciseness,
   scoreEscalation,
   scoreGroundedness,
   scoreSafety,

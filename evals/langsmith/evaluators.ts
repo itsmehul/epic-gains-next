@@ -41,6 +41,52 @@ function includesAny(text: string, needles: string[]) {
   return needles.some((needle) => hay.includes(needle.toLowerCase()));
 }
 
+const FILLER_PHRASES = [
+  "as an ai",
+  "great question",
+  "that's a great",
+  "i'd be happy",
+  "i would be happy",
+  "let me break this down",
+  "let me explain",
+  "it's important to remember",
+  "it is important to note",
+  "in this response",
+  "hope this helps",
+  "feel free to ask",
+  "comprehensive guide",
+  "in conclusion",
+  "first and foremost",
+  "it is worth noting",
+  "without further ado",
+  "as a language model",
+];
+
+const MIN_REPLY_WORDS = 8;
+const MAX_REPLY_WORDS = 180;
+const MAX_LIST_ITEMS = 6;
+const MAX_SENTENCES = 8;
+
+export function concisenessStats(text: string) {
+  const trimmed = text.trim();
+  const words = trimmed ? trimmed.split(/\s+/).filter(Boolean) : [];
+  const sentences = trimmed
+    ? trimmed.split(/[.!?]+/).map((part) => part.trim()).filter(Boolean)
+    : [];
+  const listItems = trimmed
+    ? trimmed.split("\n").filter((line) => /^\s*(?:[-*]|\d+[.)])\s+/.test(line))
+    : [];
+  const filler = FILLER_PHRASES.filter((phrase) =>
+    trimmed.toLowerCase().includes(phrase),
+  );
+  return {
+    wordCount: words.length,
+    sentenceCount: sentences.length,
+    listItemCount: listItems.length,
+    filler,
+  };
+}
+
 function commentForChecks(checks: AgentCheck[]) {
   const failed = checks.filter((row) => !row.pass).map((row) => row.detail);
   return failed.length ? failed.join("; ") : "ok";
@@ -149,6 +195,56 @@ export function scoreSafety(input: {
   return { score, checks };
 }
 
+export function scoreConciseness(input: {
+  outputs: AgentEvalOutputs;
+}): { score: number; checks: AgentCheck[] } {
+  const text = input.outputs.text ?? "";
+  const stats = concisenessStats(text);
+  const checks: AgentCheck[] = [];
+
+  const inBand =
+    stats.wordCount >= MIN_REPLY_WORDS && stats.wordCount <= MAX_REPLY_WORDS;
+  checks.push({
+    id: "length-band",
+    pass: inBand,
+    detail: inBand
+      ? `${stats.wordCount} words (brief)`
+      : stats.wordCount < MIN_REPLY_WORDS
+        ? `${stats.wordCount} words (too terse)`
+        : `${stats.wordCount} words (verbose; cap ${MAX_REPLY_WORDS})`,
+  });
+
+  const noFiller = stats.filler.length === 0;
+  checks.push({
+    id: "no-filler",
+    pass: noFiller,
+    detail: noFiller
+      ? "no padded filler"
+      : `filler: ${stats.filler.join(", ")}`,
+  });
+
+  const listsOk = stats.listItemCount <= MAX_LIST_ITEMS;
+  checks.push({
+    id: "list-budget",
+    pass: listsOk,
+    detail: listsOk
+      ? `${stats.listItemCount} list items`
+      : `${stats.listItemCount} list items (cap ${MAX_LIST_ITEMS})`,
+  });
+
+  const sentencesOk = stats.sentenceCount <= MAX_SENTENCES;
+  checks.push({
+    id: "sentence-budget",
+    pass: sentencesOk,
+    detail: sentencesOk
+      ? `${stats.sentenceCount} sentences`
+      : `${stats.sentenceCount} sentences (cap ${MAX_SENTENCES})`,
+  });
+
+  const score = checks.every((row) => row.pass) ? 1 : 0;
+  return { score, checks };
+}
+
 export function scoreEscalation(input: {
   outputs: AgentEvalOutputs;
   reference: AgentEvalReference;
@@ -223,6 +319,18 @@ export function score_escalation(run: unknown, example: unknown) {
   };
 }
 
+export function score_conciseness(run: unknown, example: unknown) {
+  void example;
+  const scored = scoreConciseness({
+    outputs: runOutputs(run),
+  });
+  return {
+    key: "conciseness",
+    score: scored.score,
+    comment: commentForChecks(scored.checks),
+  };
+}
+
 export function score_groundedness_online(run: unknown) {
   return score_groundedness(run, null);
 }
@@ -233,5 +341,9 @@ export function score_safety_online(run: unknown) {
 
 export function score_escalation_online(run: unknown) {
   return score_escalation(run, null);
+}
+
+export function score_conciseness_online(run: unknown) {
+  return score_conciseness(run, null);
 }
 

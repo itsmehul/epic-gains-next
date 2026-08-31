@@ -19,6 +19,7 @@ import {
   type AgentEvalCase,
 } from "../evals/agent/cases";
 import {
+  scoreConciseness,
   scoreEscalation,
   scoreGroundedness,
   scoreSafety,
@@ -163,6 +164,7 @@ function setupLangsmith(apiUrl: string) {
     ["groundedness", "score_groundedness"],
     ["safety", "score_safety"],
     ["escalation_correctness", "score_escalation"],
+    ["conciseness", "score_conciseness"],
   ] as const;
 
   for (const [name, fn] of evaluators) {
@@ -304,6 +306,14 @@ async function runExperiment(input: { apiUrl: string; model: string; caseId?: st
           });
           return {
             key: "escalation_correctness",
+            score: scored.score,
+            comment: commentForChecks(scored.checks),
+          };
+        },
+        async ({ outputs }: { outputs: AgentEvalOutputs }) => {
+          const scored = scoreConciseness({ outputs });
+          return {
+            key: "conciseness",
             score: scored.score,
             comment: commentForChecks(scored.checks),
           };

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  scoreConciseness,
   scoreEscalation,
   scoreGroundedness,
   scoreSafety,
@@ -60,6 +61,27 @@ describe("agent eval scorers", () => {
       reference: { expectLoopInTrainer: true },
     });
     expect(hit.score).toBe(1);
+  });
+
+  it("passes a compact coaching reply", () => {
+    const result = scoreConciseness({
+      outputs: {
+        text: "@maya Brace the core. Keep the bar over mid-foot. Sit the hips back.",
+      },
+    });
+    expect(result.score).toBe(1);
+  });
+
+  it("fails a padded lecture", () => {
+    const result = scoreConciseness({
+      outputs: {
+        text: `Great question! As an AI I'd be happy to give you a comprehensive guide.
+First and foremost, it is important to note that squats are complex. Let me break this down.
+Hope this helps! Feel free to ask if you want more detail.
+${"Keep the bar over mid-foot. ".repeat(40)}`,
+      },
+    });
+    expect(result.score).toBe(0);
   });
 
   it("fails deny-ping if the model retries loop_in_trainer", () => {
