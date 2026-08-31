@@ -120,9 +120,11 @@ export async function respondToTrainerEscalation(options: {
     return { ok: false as const, error: "Escalation expired", status: 400 };
   }
 
+  const prompt = await getTrainerSystemPrompt();
   const generated = await generateUserTrainerChat({
     userId: options.userId,
-    system: await getTrainerSystemPrompt(),
+    system: prompt.system,
+    promptMetadata: prompt.metadata,
     messages: [
       ...messages,
       {

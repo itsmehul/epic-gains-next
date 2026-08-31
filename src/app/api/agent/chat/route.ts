@@ -68,7 +68,7 @@ export async function POST(req: Request) {
     }
 
     const modelMessages = await convertToModelMessages(messages);
-    const system = await getTrainerSystemPrompt();
+    const prompt = await getTrainerSystemPrompt();
     const lift = {
       exerciseId,
       workoutId,
@@ -78,7 +78,8 @@ export async function POST(req: Request) {
     if (commentId && exerciseId) {
       const generated = await generateUserTrainerChat({
         userId: session.user.id,
-        system,
+        system: prompt.system,
+        promptMetadata: prompt.metadata,
         messages: modelMessages,
         lift,
       });
@@ -98,7 +99,8 @@ export async function POST(req: Request) {
 
     const result = await streamUserTrainerChat({
       userId: session.user.id,
-      system,
+      system: prompt.system,
+      promptMetadata: prompt.metadata,
       messages: modelMessages,
       lift,
     });

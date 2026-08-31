@@ -7,6 +7,7 @@ import {
   wrapLanguageModel,
   type ModelMessage,
 } from "ai";
+import { LangSmithTelemetry } from "langsmith/experimental/vercel";
 
 import { getDecryptedUserGeminiKey } from "@/db/repositories/gemini-key.repository";
 import { piiGuardMiddleware } from "@/features/agent/pii";
@@ -55,6 +56,7 @@ type TrainerChatOptions = {
   userId: string;
   system: string;
   messages: ModelMessage[];
+  promptMetadata?: Record<string, string>;
   lift?: {
     exerciseId?: string;
     workoutId?: string | null;
@@ -106,6 +108,14 @@ async function trainerChatConfig(options: TrainerChatOptions) {
       },
     },
     experimental_toolApprovalSecret: getEnv().BETTER_AUTH_SECRET,
+    telemetry: {
+      functionId: "trainer-agent",
+      integrations: [
+        LangSmithTelemetry({
+          metadata: options.promptMetadata,
+        }),
+      ],
+    },
     maxOutputTokens: 8192,
     topP: 0.95,
     providerOptions: geminiProviderOptions,

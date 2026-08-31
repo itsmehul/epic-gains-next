@@ -1,5 +1,6 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateText, isStepCount, tool, type ModelMessage } from "ai";
+import { LangSmithTelemetry } from "langsmith/experimental/vercel";
 import { z } from "zod";
 
 import { loopInTrainerApprovalRequest } from "@/features/agent/escalation";
@@ -147,9 +148,18 @@ export async function runAgentEvalTrial(
     ? priorDeniedMessages(item.inputs.comment)
     : [{ role: "user", content: item.inputs.comment }];
 
+  const prompt = await getTrainerSystemPrompt();
   const generated = await generateText({
     model: openrouter(model),
-    system: await getTrainerSystemPrompt(),
+    system: prompt.system,
+    telemetry: {
+      functionId: "trainer-agent",
+      integrations: [
+        LangSmithTelemetry({
+          metadata: prompt.metadata,
+        }),
+      ],
+    },
     messages,
     tools: {
       web_search: openrouter.tools.webSearch({ engine: "native" }),
