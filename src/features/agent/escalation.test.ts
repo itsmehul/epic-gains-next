@@ -8,12 +8,12 @@ import {
 
 describe("escalation helpers", () => {
   it("asks the athlete before pinging", () => {
-    expect(
-      escalationAskText({
-        preview: "Check form on the last set.",
-        trainers: [{ name: "Maya", username: "maya" }],
-      }),
-    ).toContain("Approve to notify them");
+    const text = escalationAskText({
+      preview: "Check form on the last set.",
+      trainers: [{ name: "Maya", username: "maya" }],
+    });
+    expect(text).toContain("Approve to notify them");
+    expect(text).toContain("physical therapist");
   });
 
   it("extracts a loop_in_trainer approval request", () => {

@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+import "dotenv/config";
+
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
@@ -27,6 +29,7 @@ import {
 import { extractJsonValue } from "../evals/parse-model-json";
 import { scoreImportOutput } from "../evals/score-import";
 import { scoreMcpTrial } from "../evals/score-mcp";
+import { runAgentLocalEval } from "../evals/agent/compare";
 import { generateYoutubeImportPrompt } from "../src/features/workouts/import-prompt";
 import { runAgentLangsmithEval } from "./langsmith-agent-eval";
 
@@ -45,6 +48,9 @@ Options:
   --username <name>        Friend username for compare_1v1 (default nitin)
   --task <id>              MCP task or import case id (alias: --case)
   --case <id>              Same as --task
+  --compare-baseline       Run baseline vs agent locally (default for agent suite)
+  --no-compare-baseline    Agent-only local eval (skip baseline)
+  --langsmith              Also run LangSmith experiment (needs LANGSMITH_API_KEY)
   --save-actual            Write model JSON under evals/ground-truths/exercises/actual/
   -h, --help               Show this help
 
@@ -63,6 +69,9 @@ function parseCli() {
       username: { type: "string" },
       task: { type: "string" },
       case: { type: "string" },
+      "compare-baseline": { type: "boolean" },
+      "no-compare-baseline": { type: "boolean" },
+      langsmith: { type: "boolean" },
       "save-actual": { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
@@ -249,6 +258,8 @@ async function main() {
     model: cli.model?.trim() || process.env.GEMINI_MODEL?.trim(),
     username: cli.username?.trim(),
     caseId: cli.task?.trim() || cli.case?.trim(),
+    compareBaseline: cli["no-compare-baseline"] !== true,
+    langsmith: cli.langsmith === true,
     saveActual: cli["save-actual"] === true,
   };
 
@@ -268,7 +279,7 @@ async function main() {
       choices: [
         { name: "MCP tool-use (test-mcp tasks)", value: "mcp" },
         { name: "YouTube import vs exercise ground truths", value: "import" },
-        { name: "Trainer agent comments (LangSmith)", value: "agent" },
+        { name: "Trainer agent comments (local baseline vs agent)", value: "agent" },
         { name: "All", value: "all" },
       ],
     },
@@ -337,12 +348,21 @@ async function main() {
 
   if (suite === "agent" || suite === "all") {
     results.push(
-      await runAgentLangsmithEval({
-        run: true,
+      await runAgentLocalEval({
         model,
         caseId: fromCli.caseId,
+        compareBaseline: fromCli.compareBaseline,
       }),
     );
+    if (fromCli.langsmith) {
+      results.push(
+        await runAgentLangsmithEval({
+          run: true,
+          model,
+          caseId: fromCli.caseId,
+        }),
+      );
+    }
   }
 
   if (suite === "mcp" || suite === "all") {

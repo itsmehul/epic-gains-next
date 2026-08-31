@@ -3,7 +3,15 @@ import { generateText, isStepCount, tool, type ModelMessage } from "ai";
 import { LangSmithTelemetry } from "langsmith/experimental/vercel";
 import { z } from "zod";
 
-import { loopInTrainerApprovalRequest } from "@/features/agent/escalation";
+import {
+  escalationAskText,
+  loopInTrainerApprovalRequest,
+} from "@/features/agent/escalation";
+import {
+  FIND_DEMOS_SYSTEM_PROMPT,
+  LIFT_RESEARCH_SYSTEM_PROMPT,
+  TRAINER_SYSTEM_PROMPT,
+} from "@/features/agent/prompt";
 import {
   getFindDemosSystemPrompt,
   getLiftResearchSystemPrompt,
@@ -12,6 +20,11 @@ import {
 
 import type { AgentEvalCase } from "./cases";
 import type { AgentEvalOutputs } from "./score-agent";
+import {
+  caseMessages,
+  extractTrajectory,
+  toolNamesFromSteps,
+} from "./shared";
 
 const SQUAT_LIFT = {
   available: true as const,
@@ -66,32 +79,6 @@ const MUSCLE_CATALOG_ONLY = {
   logged: [] as typeof MUSCLE_LOGGED.logged,
   hint: "No matching sets in this window. relatedCatalog are catalog moves that hit the same muscles.",
 };
-
-function toolNamesFromSteps(steps: Array<{ toolCalls?: Array<{ toolName: string }> }>) {
-  const names: string[] = [];
-  for (const step of steps) {
-    for (const call of step.toolCalls ?? []) names.push(call.toolName);
-  }
-  return names;
-}
-
-function priorDeniedMessages(comment: string): ModelMessage[] {
-  return [
-    {
-      role: "user",
-      content: "Sharp pain on the squat — loop in my coach.",
-    },
-    {
-      role: "assistant",
-      content:
-        "I can loop in Maya. They would see a short relay about the squat pain. Approve to notify them, or skip to keep this between us.",
-    },
-    {
-      role: "user",
-      content: comment,
-    },
-  ];
-}
 
 export async function runAgentEvalTrial(
   item: AgentEvalCase,
@@ -188,7 +175,7 @@ export async function runAgentEvalTrial(
     execute: async ({ task }, { abortSignal }) => {
       const generated = await generateText({
         model: openrouter(model),
-        system: researchPrompt.system,
+        system: LIFT_RESEARCH_SYSTEM_PROMPT,
         prompt: task,
         abortSignal,
         telemetry: {
@@ -220,7 +207,7 @@ export async function runAgentEvalTrial(
     execute: async ({ task }, { abortSignal }) => {
       const generated = await generateText({
         model: openrouter(model),
-        system: demosPrompt.system,
+        system: FIND_DEMOS_SYSTEM_PROMPT,
         prompt: task,
         abortSignal,
         telemetry: {
@@ -248,13 +235,11 @@ export async function runAgentEvalTrial(
     },
   });
 
-  const messages: ModelMessage[] = item.inputs.deniedPriorPing
-    ? priorDeniedMessages(item.inputs.comment)
-    : [{ role: "user", content: item.inputs.comment }];
+  const messages: ModelMessage[] = caseMessages(item.inputs);
 
   const generated = await generateText({
     model: openrouter(model),
-    system: prompt.system,
+    system: TRAINER_SYSTEM_PROMPT,
     telemetry: {
       functionId: "trainer-agent",
       integrations: [
@@ -288,11 +273,20 @@ export async function runAgentEvalTrial(
   const toolsCalled = toolNamesFromSteps(generated.steps);
   const approval = loopInTrainerApprovalRequest(generated.content);
   const loopInTrainerCalls = toolsCalled.filter((name) => name === "loop_in_trainer").length;
+  const text = approval
+    ? escalationAskText({
+        modelText: generated.text,
+        preview: approval.preview,
+        trainers,
+      })
+    : generated.text;
 
   return {
-    text: generated.text,
+    text,
     toolsCalled,
     requestedLoopInTrainer: Boolean(approval) || loopInTrainerCalls > 0,
     loopInTrainerCalls,
+    steps: extractTrajectory(generated.steps),
+    approvalRequested: Boolean(approval),
   };
 }

@@ -13,6 +13,8 @@
 # testing
 /coverage
 evals/ground-truths/exercises/actual/
+evals/agent/trajectories/
+evals/agent/results/
 
 # next.js
 /.next/

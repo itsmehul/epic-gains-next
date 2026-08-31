@@ -3,6 +3,12 @@ export type AgentEvalOutputs = {
   toolsCalled?: string[];
   requestedLoopInTrainer?: boolean;
   loopInTrainerCalls?: number;
+  steps?: Array<{
+    toolName: string;
+    inputPreview: string;
+    outputPreview: string;
+  }>;
+  approvalRequested?: boolean;
 };
 
 export type AgentEvalReference = {

@@ -56,6 +56,8 @@ export function escalationAskText(options: {
           .join(", ")
       : "your trainer";
   const ask = `I can loop in ${who}. They would see this:\n\n${options.preview}\n\nApprove to notify them, or skip to keep this between us.`;
-  const lead = options.modelText?.trim();
-  return lead ? `${lead}\n\n${ask}` : ask;
+  const lead =
+    options.modelText?.trim() ||
+    "Stop the lift if this is a pop or sharp pain. See a doctor or physical therapist before loading again.";
+  return `${lead}\n\n${ask}`;
 }
