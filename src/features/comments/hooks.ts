@@ -47,3 +47,32 @@ export function useCreateComment() {
     },
   });
 }
+
+export function useAgentCommentReply() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      exerciseId: string;
+      workoutId?: string | null;
+      commentId: string;
+      text: string;
+    }) =>
+      apiFetch<{ ok: true }>("/api/agent/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          messages: [
+            {
+              id: input.commentId,
+              role: "user",
+              parts: [{ type: "text", text: input.text }],
+            },
+          ],
+          exerciseId: input.exerciseId,
+          workoutId: input.workoutId ?? null,
+          commentId: input.commentId,
+        }),
+      }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: commentKeys.all }),
+  });
+}

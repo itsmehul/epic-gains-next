@@ -7,9 +7,6 @@ import {
   IconSend,
   IconX,
 } from "@/components/ui/icons";
-import { useChat } from "@ai-sdk/react";
-import { useQueryClient } from "@tanstack/react-query";
-import { DefaultChatTransport } from "ai";
 import Link from "next/link";
 import {
   useEffect,
@@ -30,7 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useGeminiKeyStatus } from "@/features/agent/hooks";
 import { commentMentionsAgent } from "@/features/agent/mentions";
 import {
-  commentKeys,
+  useAgentCommentReply,
   useComments,
   useCreateComment,
 } from "@/features/comments/hooks";
@@ -195,7 +192,7 @@ function CommentRow({
   );
 }
 
-function StreamingAgentRow({ text }: { text: string }) {
+function TypingAgentRow() {
   return (
     <article className="flex gap-3">
       <div className="mt-0.5 shrink-0">
@@ -212,11 +209,7 @@ function StreamingAgentRow({ text }: { text: string }) {
           </span>
           <span className="text-muted-foreground shrink-0">typing…</span>
         </p>
-        {text ? (
-          <CommentMarkdown text={text} mentions={[]} />
-        ) : (
-          <Spinner className="mt-1 size-3.5" />
-        )}
+        <Spinner className="mt-1 size-3.5" />
       </div>
     </article>
   );
@@ -462,12 +455,10 @@ export function ExerciseCommentsPanel({
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [activeMention, setActiveMention] = useState(0);
   const [agentError, setAgentError] = useState<string | null>(null);
+  const [typingThreadId, setTypingThreadId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const replyTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const pendingCommentIdRef = useRef<string | null>(null);
-  const streamingRootIdRef = useRef<string | null>(null);
-  const queryClient = useQueryClient();
 
   const commentsQuery = useComments({
     exerciseId,
@@ -475,55 +466,14 @@ export function ExerciseCommentsPanel({
     enabled: itemsProp == null && Boolean(exerciseId),
   });
   const createComment = useCreateComment();
+  const agentReply = useAgentCommentReply();
   const me = useMeSocial();
   const following = useFollowing(me.data?.username ?? "");
   const geminiKey = useGeminiKeyStatus();
 
-  const transport = useMemo(
-    () =>
-      new DefaultChatTransport({
-        api: "/api/agent/chat",
-        body: () => ({
-          exerciseId,
-          workoutId: workoutId ?? null,
-          commentId: pendingCommentIdRef.current,
-        }),
-      }),
-    [exerciseId, workoutId],
-  );
-
-  const {
-    messages: agentMessages,
-    sendMessage,
-    status: agentStatus,
-    setMessages: setAgentMessages,
-    error: chatError,
-  } = useChat({
-    transport,
-    onFinish: () => {
-      pendingCommentIdRef.current = null;
-      streamingRootIdRef.current = null;
-      void queryClient.invalidateQueries({ queryKey: commentKeys.all });
-      setAgentMessages([]);
-    },
-  });
-
   const items = itemsProp ?? commentsQuery.data?.items ?? [];
   const threads = useMemo(() => groupCommentsIntoThreads(items), [items]);
-  const streaming =
-    agentStatus === "submitted" || agentStatus === "streaming";
-  const streamingText = agentMessages
-    .filter((m) => m.role === "assistant")
-    .flatMap((m) =>
-      m.parts.filter(
-        (p): p is { type: "text"; text: string } => p.type === "text",
-      ),
-    )
-    .map((p) => p.text)
-    .join("");
-  const streamingRootId = streaming ? streamingRootIdRef.current : null;
-
-  const pending = createComment.isPending || streaming;
+  const pending = createComment.isPending || agentReply.isPending;
   const isLoading = itemsProp == null && commentsQuery.isLoading;
   const isError = itemsProp == null && commentsQuery.isError;
   const activeText = replyToId ? replyText : text;
@@ -622,10 +572,17 @@ export function ExerciseCommentsPanel({
           );
           return;
         }
-        pendingCommentIdRef.current = created.id;
-        streamingRootIdRef.current = created.parentId ?? created.id;
-        setAgentMessages([]);
-        await sendMessage({ text: trimmed });
+        setTypingThreadId(created.parentId ?? created.id);
+        try {
+          await agentReply.mutateAsync({
+            exerciseId,
+            workoutId,
+            commentId: created.id,
+            text: trimmed,
+          });
+        } finally {
+          setTypingThreadId(null);
+        }
       }
     } catch {
       // error shown below from mutation / chat
@@ -640,14 +597,14 @@ export function ExerciseCommentsPanel({
     setMentionQuery(null);
   }
 
-  const empty = threads.length === 0 && !streaming;
+  const empty = threads.length === 0 && !typingThreadId;
   const composerError =
     createComment.isError
       ? createComment.error instanceof Error
         ? createComment.error.message
         : "Failed to post comment"
-      : agentError || chatError
-        ? `${agentError ?? (chatError instanceof Error ? chatError.message : "Trainer reply failed")} `
+      : agentError || agentReply.isError
+        ? `${agentError ?? (agentReply.error instanceof Error ? agentReply.error.message : "Trainer reply failed")} `
         : null;
 
   const composerProps = {
@@ -695,16 +652,14 @@ export function ExerciseCommentsPanel({
           </div>
         ) : (
           <ul className="flex flex-col gap-6">
-            {streaming &&
-            streamingRootId &&
-            !threads.some((thread) => thread.root.id === streamingRootId) ? (
+            {typingThreadId &&
+            !threads.some((thread) => thread.root.id === typingThreadId) ? (
               <li>
-                <StreamingAgentRow text={streamingText} />
+                <TypingAgentRow />
               </li>
             ) : null}
             {threads.map(({ root, replies }) => {
-              const showStream =
-                streaming && streamingRootId === root.id;
+              const showTyping = typingThreadId === root.id;
               return (
                 <li key={root.id} className="flex flex-col gap-3">
                   <CommentRow
@@ -718,7 +673,7 @@ export function ExerciseCommentsPanel({
                           }
                     }
                   />
-                  {replies.length > 0 || showStream || replyToId === root.id ? (
+                  {replies.length > 0 || showTyping || replyToId === root.id ? (
                     <div className="border-foreground/10 ml-4 flex flex-col gap-3 border-l pl-4 sm:ml-5">
                       {replies.map((reply) => (
                         <CommentRow
@@ -735,9 +690,7 @@ export function ExerciseCommentsPanel({
                           }
                         />
                       ))}
-                      {showStream ? (
-                        <StreamingAgentRow text={streamingText} />
-                      ) : null}
+                      {showTyping ? <TypingAgentRow /> : null}
                       {readOnly || replyToId !== root.id ? null : (
                         <div>
                           <div className="mb-1.5 flex items-center justify-between">
@@ -792,10 +745,10 @@ export function ExerciseCommentsPanel({
             hint="Enter to send · Shift+Enter for a new line · @ to mention"
             error={
               composerError ? (
-                createComment.isError || agentError || chatError ? (
+                createComment.isError || agentError || agentReply.isError ? (
                   <>
                     {composerError}
-                    {agentError || chatError ? (
+                    {agentError || agentReply.isError ? (
                       <Link
                         href="/integrations"
                         className="underline underline-offset-2"

@@ -49,5 +49,4 @@ next-env.d.ts
 .pnpm-store
 
 micro1.pdf
-# Added by Braintrust Wizard
 .braintrust.json

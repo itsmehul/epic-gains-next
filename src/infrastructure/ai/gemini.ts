@@ -1,16 +1,15 @@
 import "server-only";
 
-import { generateText, streamText, type ModelMessage } from "ai";
+import { generateText, isStepCount, streamText, type ModelMessage } from "ai";
 
 import { getDecryptedUserGeminiKey } from "@/db/repositories/gemini-key.repository";
-
 import {
-  createOpenRouterFromKey,
-  GEMINI_MODEL,
-  getOpenRouterProvider,
-} from "./openrouter";
+  getCurrentLiftTool,
+  loopInTrainerTool,
+  searchMuscleWorkTool,
+} from "@/features/agent/tools";
 
-export { GEMINI_MODEL };
+import { createOpenRouterFromKey, GEMINI_MODEL } from "./openrouter";
 
 const geminiProviderOptions = {
   openrouter: {
@@ -20,12 +19,8 @@ const geminiProviderOptions = {
   },
 } as const;
 
-export function getGeminiProvider() {
-  return getOpenRouterProvider();
-}
-
 /** Per-user OpenRouter provider — no fallback to server env. */
-export async function getUserGeminiProvider(userId: string) {
+async function getUserGeminiProvider(userId: string) {
   const apiKey = await getDecryptedUserGeminiKey(userId);
   if (!apiKey) {
     throw new Error("gemini_key_required");
@@ -48,37 +43,60 @@ export async function validateGeminiApiKey(apiKey: string): Promise<boolean> {
   }
 }
 
-/** Thin AI SDK example with web search. */
-export async function generateGeminiText(prompt: string) {
-  const openrouter = getGeminiProvider();
-  const { text } = await generateText({
-    model: openrouter(GEMINI_MODEL),
-    prompt,
-    tools: {
-      web_search: openrouter.tools.webSearch({ engine: "native" }),
-    },
-    maxOutputTokens: 65536,
-    providerOptions: geminiProviderOptions,
-  });
-  return text;
-}
-
-export async function streamUserTrainerChat(options: {
+type TrainerChatOptions = {
   userId: string;
   system: string;
   messages: ModelMessage[];
-}) {
-  const openrouter = await getUserGeminiProvider(options.userId);
+  lift?: {
+    exerciseId?: string;
+    workoutId?: string | null;
+    commentId?: string;
+  };
+};
 
-  return streamText({
+async function trainerChatConfig(options: TrainerChatOptions) {
+  const openrouter = await getUserGeminiProvider(options.userId);
+  return {
     model: openrouter(GEMINI_MODEL),
     system: options.system,
     messages: options.messages,
     tools: {
       web_search: openrouter.tools.webSearch({ engine: "native" }),
+      get_current_lift: getCurrentLiftTool,
+      loop_in_trainer: loopInTrainerTool,
+      search_muscle_work: searchMuscleWorkTool,
     },
+    toolsContext: {
+      get_current_lift: {
+        userId: options.userId,
+        exerciseId: options.lift?.exerciseId,
+        workoutId: options.lift?.workoutId,
+        commentId: options.lift?.commentId,
+      },
+      loop_in_trainer: {
+        userId: options.userId,
+        exerciseId: options.lift?.exerciseId,
+        workoutId: options.lift?.workoutId,
+        commentId: options.lift?.commentId,
+      },
+      search_muscle_work: {
+        userId: options.userId,
+        exerciseId: options.lift?.exerciseId,
+        workoutId: options.lift?.workoutId,
+        commentId: options.lift?.commentId,
+      },
+    },
+    stopWhen: isStepCount(5),
     maxOutputTokens: 8192,
     topP: 0.95,
     providerOptions: geminiProviderOptions,
-  });
+  };
+}
+
+export async function generateUserTrainerChat(options: TrainerChatOptions) {
+  return generateText(await trainerChatConfig(options));
+}
+
+export async function streamUserTrainerChat(options: TrainerChatOptions) {
+  return streamText(await trainerChatConfig(options));
 }

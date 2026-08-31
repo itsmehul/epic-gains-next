@@ -6,11 +6,11 @@ import { z } from "zod";
 
 import { createComment, getCommentById } from "@/db/repositories/comment.repository";
 import { hasUserGeminiKey } from "@/db/repositories/gemini-key.repository";
+import { TRAINER_SYSTEM_PROMPT } from "@/features/agent/context";
 import {
-  TRAINER_SYSTEM_PROMPT,
-  buildAgentExerciseContext,
-} from "@/features/agent/context";
-import { streamUserTrainerChat } from "@/infrastructure/ai/gemini";
+  generateUserTrainerChat,
+  streamUserTrainerChat,
+} from "@/infrastructure/ai/gemini";
 import {
   apiError,
   requireApiSession,
@@ -26,14 +26,6 @@ const bodySchema = z.object({
   workoutId: z.string().min(1).nullable().optional(),
   commentId: z.string().min(1).optional(),
 });
-
-function textFromUIMessage(message: UIMessage): string {
-  return message.parts
-    .filter((part): part is { type: "text"; text: string } => part.type === "text")
-    .map((part) => part.text)
-    .join("")
-    .trim();
-}
 
 export async function POST(req: Request) {
   const session = await requireApiSession();
@@ -74,32 +66,33 @@ export async function POST(req: Request) {
       }
     }
 
-    let system = TRAINER_SYSTEM_PROMPT;
-
-    if (exerciseId) {
-      const context = await buildAgentExerciseContext({
-        userId: session.user.id,
-        exerciseId,
-        workoutId,
-      });
-      if (context.systemExtra) {
-        system = `${TRAINER_SYSTEM_PROMPT}\n\n${context.systemExtra}`;
-      }
-    }
-
     const modelMessages = await convertToModelMessages(messages);
-    const result = await streamUserTrainerChat({
-      userId: session.user.id,
-      system,
-      messages: modelMessages,
-    });
+    const lift = {
+      exerciseId,
+      workoutId,
+      commentId,
+    };
 
-    return result.toUIMessageStreamResponse({
-      originalMessages: messages,
-      onFinish: async ({ responseMessage, isAborted }) => {
-        if (isAborted || !commentId || !exerciseId) return;
-        const text = textFromUIMessage(responseMessage);
-        if (!text) return;
+    if (commentId && exerciseId) {
+      const generated = await generateUserTrainerChat({
+        userId: session.user.id,
+        system: TRAINER_SYSTEM_PROMPT,
+        messages: modelMessages,
+        lift,
+      });
+      const text = generated.text.trim();
+      const relayedTrainer = generated.toolResults.some(
+        (result) =>
+          result.toolName === "loop_in_trainer" &&
+          typeof result.output === "object" &&
+          result.output != null &&
+          "ok" in result.output &&
+          result.output.ok === true,
+      );
+      if (!text && !relayedTrainer) {
+        return apiError("Trainer reply was empty", 502);
+      }
+      if (text) {
         const trigger = await getCommentById(commentId);
         await createComment({
           id: crypto.randomUUID(),
@@ -111,7 +104,19 @@ export async function POST(req: Request) {
           parentId: trigger?.parentId ?? commentId,
           authorId: session.user.id,
         });
-      },
+      }
+      return Response.json({ ok: true });
+    }
+
+    const result = await streamUserTrainerChat({
+      userId: session.user.id,
+      system: TRAINER_SYSTEM_PROMPT,
+      messages: modelMessages,
+      lift,
+    });
+
+    return result.toUIMessageStreamResponse({
+      originalMessages: messages,
     });
   } catch (error) {
     if (error instanceof Error && error.message === "gemini_key_required") {

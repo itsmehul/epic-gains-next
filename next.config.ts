@@ -1,5 +1,4 @@
 import withSerwistInit from "@serwist/next";
-import { wrapNextjsConfigWithBraintrust } from "braintrust/next";
 import type { NextConfig } from "next";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
@@ -23,7 +22,13 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  serverExternalPackages: ["pg", "pg-workflows", "ksuid", "@opentelemetry/api"],
+  serverExternalPackages: [
+    "pg",
+    "pg-workflows",
+    "ksuid",
+    "@opentelemetry/api",
+    "langsmith",
+  ],
   allowedDevOrigins: ['192.168.29.225', 'e272-2405-201-b-813d-54ad-470f-d2f6-debf.ngrok-free.app'],
   webpack: (config, { isServer, nextRuntime, webpack }) => {
     // instrumentation.ts is compiled for node, edge, and browser. Replace the
@@ -45,4 +50,4 @@ const nextConfig: NextConfig = {
     return config;
   },
 };
-export default wrapNextjsConfigWithBraintrust(withSerwist(nextConfig));
+export default withSerwist(nextConfig);

@@ -68,6 +68,33 @@ export function commentMentionsAgent(mentions: CommentMention[] | null | undefin
   return Boolean(mentions?.some((m) => m.kind === "agent"));
 }
 
+/** Build an @mention comment that loops trainers into a thread. */
+export function buildTrainerRelayComment(
+  message: string,
+  trainers: Array<{ id: string; username: string }>,
+): { text: string; mentions: CommentMention[] } {
+  const unique = trainers.filter(
+    (trainer, index, list) =>
+      list.findIndex((item) => item.id === trainer.id) === index,
+  );
+  const handles = unique.map((trainer) => `@${trainer.username}`);
+  const body = message.trim();
+  const alreadyPrefixed = handles.every((handle) =>
+    body.toLowerCase().includes(handle.toLowerCase()),
+  );
+  const text = alreadyPrefixed
+    ? body
+    : [handles.join(" "), body].filter(Boolean).join(" ");
+  return {
+    text,
+    mentions: unique.map((trainer) => ({
+      kind: "user" as const,
+      userId: trainer.id,
+      username: trainer.username,
+    })),
+  };
+}
+
 /** User ids mentioned in a comment, excluding the author and @agent. */
 export function mentionedUserIds(
   mentions: CommentMention[] | null | undefined,

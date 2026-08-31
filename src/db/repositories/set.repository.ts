@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lt, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { performanceVisibleToViewer } from "@/db/repositories/visibility";
@@ -133,6 +133,15 @@ type LoggedSetRow = {
   };
 };
 
+function keyMuscleIlike(patternSource: string) {
+  const pattern = `%${patternSource.replace(/[%_]/g, "\\$&")}%`;
+  return sql`exists (
+        select 1
+        from unnest(${exercise.keyMuscles}) as muscle
+        where muscle ilike ${pattern} escape '\\'
+      )`;
+}
+
 function muscleFilterConditions(options: {
   muscleGroup?: MuscleGroup;
   keyMuscle?: string;
@@ -143,14 +152,7 @@ function muscleFilterConditions(options: {
   }
   const keyMuscle = options.keyMuscle?.trim();
   if (keyMuscle) {
-    const pattern = `%${keyMuscle.replace(/[%_]/g, "\\$&")}%`;
-    conditions.push(
-      sql`exists (
-        select 1
-        from unnest(${exercise.keyMuscles}) as muscle
-        where muscle ilike ${pattern} escape '\\'
-      )`,
-    );
+    conditions.push(keyMuscleIlike(keyMuscle));
   }
   return conditions;
 }
@@ -200,6 +202,70 @@ async function loadLoggedSetRows(
     .innerJoin(exercise, eq(exercise.id, workoutSet.exerciseId))
     .where(and(...conditions))
     .orderBy(desc(workoutSet.updatedAt), asc(workoutSet.createdAt));
+}
+
+export async function listRecentSetsMatchingMuscles(
+  userId: string,
+  options: {
+    start: Date;
+    end: Date;
+    muscleGroups?: MuscleGroup[];
+    keyMusclePatterns?: string[];
+    limit?: number;
+  },
+): Promise<LoggedSetRow[]> {
+  const muscleParts = [];
+  if (options.muscleGroups && options.muscleGroups.length > 0) {
+    muscleParts.push(inArray(exercise.muscleGroup, options.muscleGroups));
+  }
+  for (const pattern of options.keyMusclePatterns ?? []) {
+    const trimmed = pattern.trim();
+    if (trimmed) muscleParts.push(keyMuscleIlike(trimmed));
+  }
+  if (muscleParts.length === 0) return [];
+
+  return db
+    .select({
+      set: {
+        id: workoutSet.id,
+        reps: workoutSet.reps,
+        weight: workoutSet.weight,
+        time: workoutSet.time,
+        distance: workoutSet.distance,
+        workoutId: workoutSet.workoutId,
+        exerciseId: workoutSet.exerciseId,
+        userId: workoutSet.userId,
+        createdAt: workoutSet.createdAt,
+        updatedAt: workoutSet.updatedAt,
+      },
+      workout: {
+        id: workout.id,
+        name: workout.name,
+        author: workout.author,
+        channelUrl: workout.channelUrl,
+        createdAt: workout.createdAt,
+      },
+      exercise: {
+        id: exercise.id,
+        name: exercise.name,
+        metricProfile: exercise.metricProfile,
+        muscleGroup: exercise.muscleGroup,
+        keyMuscles: exercise.keyMuscles,
+      },
+    })
+    .from(workoutSet)
+    .innerJoin(workout, eq(workout.id, workoutSet.workoutId))
+    .innerJoin(exercise, eq(exercise.id, workoutSet.exerciseId))
+    .where(
+      and(
+        eq(workoutSet.userId, userId),
+        gte(workoutSet.updatedAt, options.start),
+        lt(workoutSet.updatedAt, options.end),
+        or(...muscleParts)!,
+      ),
+    )
+    .orderBy(desc(workoutSet.updatedAt), asc(workoutSet.createdAt))
+    .limit(options.limit ?? 200);
 }
 
 function groupLoggedSetRows(rows: LoggedSetRow[]) {

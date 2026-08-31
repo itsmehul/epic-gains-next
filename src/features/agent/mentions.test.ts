@@ -4,6 +4,7 @@ import {
   commentMentionsAgent,
   extractMentionHandles,
   mentionedUserIds,
+  buildTrainerRelayComment,
   resolveMentions,
   splitCommentText,
 } from "@/features/agent/mentions";
@@ -27,6 +28,25 @@ describe("mentions", () => {
     expect(commentMentionsAgent(mentions)).toBe(true);
     expect(mentionedUserIds(mentions, "author")).toEqual(["1"]);
     expect(mentionedUserIds(mentions, "1")).toEqual([]);
+  });
+
+  it("prefixes trainer handles on a relay message", () => {
+    expect(
+      buildTrainerRelayComment("Pain on the last set — please check form.", [
+        { id: "t1", username: "maya" },
+      ]),
+    ).toEqual({
+      text: "@maya Pain on the last set — please check form.",
+      mentions: [{ kind: "user", userId: "t1", username: "maya" }],
+    });
+  });
+
+  it("does not duplicate handles already in the message", () => {
+    expect(
+      buildTrainerRelayComment("@maya can you jump in?", [
+        { id: "t1", username: "maya" },
+      ]).text,
+    ).toBe("@maya can you jump in?");
   });
 
   it("splits text into mention chips", () => {
