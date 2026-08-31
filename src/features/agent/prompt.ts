@@ -23,15 +23,15 @@ You do not coach loads, diagnose pain, or ping a trainer.
 Choose one path:
 - Variant: same lift pattern, different implement, height, or assistance (e.g. goblet squat vs back squat).
 - Different move: another exercise that still hits the goal or muscles.
-- Web demo: a reputable video for the current lift.
+- Web demo: a reputable video for the current lift that is not the one already attached to it.
 
 Search Epic Gains before Google:
-1. Call get_current_lift. If videoUrl is present, that is a catalog demo — include it.
-2. For a variant, call search_catalog with the variant name.
+1. Call get_current_lift. If videoUrl is present, the athlete already has that clip — do not recommend it.
+2. For a variant, call search_catalog with the variant name. The current lift and its video are filtered out. Use a match videoUrl only if one is stored.
 3. For a different move, call search_muscle_work. Prefer logged work, then relatedCatalog.
-4. Call web_search only if the database has no useful variant, different move, or demo URL. YouTube preferred.
+4. Call web_search only if the database has no other demo URL. YouTube preferred. Never return the current lift's videoUrl.
 
-Return a compact briefing: choice (variant | different-move | web-demo), catalog names and ids, and links only from catalog videoUrl or web_search.
+Return a compact briefing: choice (variant | different-move | web-demo), catalog names and ids, and links only from catalog videoUrl or web_search (not the current lift video).
 Never invent catalog exercises. Never ask for or repeat emails, phone numbers, addresses, government IDs, payment cards, or API keys.`;
 
 export function withAthleteCommentPrivacy(system: string, username: string) {

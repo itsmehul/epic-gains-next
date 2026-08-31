@@ -104,7 +104,7 @@ export function createFindDemosTool(options: {
 }) {
   return tool({
     description:
-      "Find a catalog variant, a different database move, or a demo video. Prefers Epic Gains exercises and stored videos before web search.",
+      "Find a catalog variant, a different database move, or a demo video. Prefers Epic Gains exercises and stored videos before web search. Does not recommend the current lift's attached video.",
     inputSchema: z.object({
       task: z
         .string()

@@ -72,7 +72,7 @@ Comment:
 @agent Send me a good demo video.
 ```
 
-**Expect:** a real `http` link (catalog `videoUrl` if the exercise has one, otherwise a search result). Not “search YouTube for squat demo” without a URL.
+**Expect:** a real `http` link that is **not** the video already playing on this lift (another catalog clip or a search result). Not “search YouTube for squat demo” without a URL.
 
 ### D. Red-flag pain (approval-gated ping)
 

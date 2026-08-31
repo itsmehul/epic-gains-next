@@ -3,6 +3,7 @@ import "server-only";
 import { tool } from "ai";
 import { z } from "zod";
 
+import { listWorkoutExercises } from "@/db/repositories/workout-exercise.repository";
 import { getAthleteLiftData } from "@/features/agent/context";
 import { redactPii } from "@/features/agent/pii";
 import { searchCatalogExercises } from "@/features/agent/search-catalog";
@@ -109,7 +110,7 @@ export const searchMuscleWorkTool = tool({
 
 export const searchCatalogTool = tool({
   description:
-    "Search the Epic Gains exercise catalog by name or alias. Use to find variants or a different catalog move before searching the web. Returns muscle tags and a workout video URL when one is stored.",
+    "Search the Epic Gains exercise catalog by name or alias. Use to find variants or a different catalog move before searching the web. Returns muscle tags and a workout video URL when one is stored. The current lift and its attached video are omitted.",
   inputSchema: z.object({
     q: z
       .string()
@@ -129,9 +130,18 @@ export const searchCatalogTool = tool({
   }),
   contextSchema: trainerToolContextSchema,
   execute: async ({ q, limit }, { context }) => {
+    let excludeVideoUrl: string | null = null;
+    if (context.exerciseId) {
+      const appearances = await listWorkoutExercises({
+        workoutId: context.workoutId ?? undefined,
+        exerciseId: context.exerciseId,
+      });
+      excludeVideoUrl = appearances[0]?.videoUrl ?? null;
+    }
     return searchCatalogExercises({
       q: redactPii(q),
       excludeExerciseId: context.exerciseId,
+      excludeVideoUrl,
       limit,
     });
   },

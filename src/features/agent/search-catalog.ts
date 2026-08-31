@@ -9,11 +9,23 @@ import {
 } from "@/db/repositories/exercise.repository";
 import { workoutExercise } from "@/db/schema";
 import type { MuscleGroup } from "@/db/schema/workout-schema";
+import { getYouTubeVideoId } from "@/features/workouts/youtube";
+
+function isSameVideo(left: string, right: string) {
+  const a = left.trim();
+  const b = right.trim();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const idA = getYouTubeVideoId(a);
+  const idB = getYouTubeVideoId(b);
+  return Boolean(idA && idB && idA === idB);
+}
 
 /** Fuzzy catalog search plus a sample workout video URL when one exists. */
 export async function searchCatalogExercises(options: {
   q: string;
   excludeExerciseId?: string;
+  excludeVideoUrl?: string | null;
   limit?: number;
 }) {
   const limit = Math.min(Math.max(options.limit ?? 8, 1), 12);
@@ -52,10 +64,12 @@ export async function searchCatalogExercises(options: {
   ]);
 
   const byId = new Map(full.map((exercise) => [exercise.id, exercise]));
+  const excluded = options.excludeVideoUrl?.trim() || null;
   const videoByExercise = new Map<string, string>();
   for (const row of appearances) {
     const url = row.videoUrl?.trim();
     if (!url || videoByExercise.has(row.exerciseId)) continue;
+    if (excluded && isSameVideo(url, excluded)) continue;
     videoByExercise.set(row.exerciseId, url);
   }
 
@@ -74,6 +88,6 @@ export async function searchCatalogExercises(options: {
         videoUrl: videoByExercise.get(hit.id) ?? null,
       };
     }),
-    hint: "Prefer these catalog/logged-program moves and their videoUrl over a web search.",
+    hint: "Prefer these catalog/logged-program moves and their videoUrl over a web search. Never recommend the athlete's current lift video.",
   };
 }

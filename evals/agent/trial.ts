@@ -125,7 +125,7 @@ export async function runAgentEvalTrial(
           videoUrl: "https://www.youtube.com/watch?v=MeIiIdhvXT4",
         },
       ],
-      hint: "Prefer these catalog/logged-program moves and their videoUrl over a web search.",
+      hint: "Prefer these catalog/logged-program moves and their videoUrl over a web search. Never recommend the athlete's current lift video.",
     }),
   });
 
