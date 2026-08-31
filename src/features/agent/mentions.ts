@@ -24,7 +24,7 @@ export function extractMentionHandles(text: string): string[] {
 }
 
 /**
- * Resolve @agent and @username mentions against people the author follows.
+ * Resolve @agent and @username mentions against known users.
  * Unmatched handles are ignored (stay plain text).
  */
 export function resolveMentions(
@@ -62,6 +62,39 @@ export function resolveMentions(
   }
 
   return mentions;
+}
+
+export function mergeCommentMentions(
+  ...lists: Array<CommentMention[] | null | undefined>
+): CommentMention[] {
+  const mentions: CommentMention[] = [];
+  let hasAgent = false;
+  const userIds = new Set<string>();
+
+  for (const list of lists) {
+    for (const mention of list ?? []) {
+      if (mention.kind === "agent") {
+        if (!hasAgent) {
+          mentions.push(mention);
+          hasAgent = true;
+        }
+        continue;
+      }
+      if (userIds.has(mention.userId)) continue;
+      userIds.add(mention.userId);
+      mentions.push(mention);
+    }
+  }
+
+  return mentions;
+}
+
+/** Prefix @username and record the mention so the comment is visible to that person. */
+export function addressCommentToUsers(
+  text: string,
+  recipients: Array<{ id: string; username: string }>,
+): { text: string; mentions: CommentMention[] } {
+  return buildTrainerRelayComment(text, recipients);
 }
 
 export function commentMentionsAgent(mentions: CommentMention[] | null | undefined) {

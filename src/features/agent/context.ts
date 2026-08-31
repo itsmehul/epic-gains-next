@@ -106,5 +106,5 @@ export async function getAthleteLiftData(options: {
   };
 }
 
-export { TRAINER_SYSTEM_PROMPT } from "@/features/agent/prompt";
+export { TRAINER_SYSTEM_PROMPT, withAthleteCommentPrivacy } from "@/features/agent/prompt";
 export { getTrainerSystemPrompt } from "@/features/agent/prompt-hub";

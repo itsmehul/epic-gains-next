@@ -125,3 +125,21 @@ export async function markNotificationsRead(
     .set({ readAt: new Date() })
     .where(and(...conditions));
 }
+
+export async function markNotificationsReadForComments(
+  recipientId: string,
+  commentIds: string[],
+) {
+  if (commentIds.length === 0) return;
+
+  await db
+    .update(notification)
+    .set({ readAt: new Date() })
+    .where(
+      and(
+        eq(notification.recipientId, recipientId),
+        isNull(notification.readAt),
+        inArray(notification.commentId, commentIds),
+      ),
+    );
+}

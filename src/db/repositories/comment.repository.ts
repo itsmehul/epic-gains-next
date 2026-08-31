@@ -1,9 +1,9 @@
 import "server-only";
 
-import { and, asc, eq, exists, isNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { comments, exercise, follow, trainerAssignment, user, workout } from "@/db/schema";
+import { comments, exercise, notification, user, workout } from "@/db/schema";
 import type { MuscleGroup } from "@/db/schema/workout-schema";
 import { toPublicUser } from "@/db/repositories/social.repository";
 
@@ -17,31 +17,16 @@ const authorColumns = {
   isPrivate: user.isPrivate,
 };
 
+/** Author plus anyone @mentioned. Followers do not see the thread otherwise. */
 export function commentVisibleToViewer(viewerId: string) {
   return or(
     eq(comments.authorId, viewerId),
-    exists(
-      db
-        .select({ one: sql`1` })
-        .from(follow)
-        .where(
-          and(
-            eq(follow.followerId, viewerId),
-            eq(follow.followingId, comments.authorId),
-          ),
-        ),
-    ),
-    exists(
-      db
-        .select({ one: sql`1` })
-        .from(trainerAssignment)
-        .where(
-          and(
-            eq(trainerAssignment.trainerId, viewerId),
-            eq(trainerAssignment.athleteId, comments.authorId),
-          ),
-        ),
-    ),
+    sql`exists (
+      select 1
+      from jsonb_array_elements(${comments.mentions}) as mention
+      where mention->>'kind' = 'user'
+        and mention->>'userId' = ${viewerId}
+    )`,
   )!;
 }
 
@@ -77,9 +62,18 @@ export async function listVisibleComments(options: {
       parentId: comments.parentId,
       authorId: comments.authorId,
       author: authorColumns,
+      mentionNotificationId: notification.id,
+      mentionReadAt: notification.readAt,
     })
     .from(comments)
     .innerJoin(user, eq(user.id, comments.authorId))
+    .leftJoin(
+      notification,
+      and(
+        eq(notification.commentId, comments.id),
+        eq(notification.recipientId, options.viewerId),
+      ),
+    )
     .where(and(...conditions))
     .orderBy(asc(comments.createdAt));
 
@@ -99,6 +93,7 @@ export async function listVisibleComments(options: {
         parentId: row.parentId,
         authorId: row.authorId,
         author,
+        unread: Boolean(row.mentionNotificationId && row.mentionReadAt == null),
       },
     ];
   });
@@ -206,6 +201,7 @@ export async function createComment(data: CommentInsert) {
     parentId: row.parentId,
     authorId: row.authorId,
     author,
+    unread: false,
   };
 }
 

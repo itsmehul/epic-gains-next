@@ -54,6 +54,7 @@ export function WorkoutExerciseTabs({
   });
   const commentItems = comments ?? commentsQuery.data?.items ?? [];
   const commentCount = commentItems.length;
+  const unreadMentionCount = commentItems.filter((item) => item.unread).length;
 
   return (
     <Tabs
@@ -74,7 +75,11 @@ export function WorkoutExerciseTabs({
           <TabsTrigger value="comments" className={tabTriggerClassName}>
             <IconMessage2 aria-hidden />
             Comments
-            {commentCount > 0 ? (
+            {unreadMentionCount > 0 ? (
+              <Badge className="h-4 min-w-4 justify-center px-1.5 text-[10px] tabular-nums">
+                {unreadMentionCount}
+              </Badge>
+            ) : commentCount > 0 ? (
               <Badge
                 variant="secondary"
                 className="h-4 min-w-4 justify-center px-1.5 text-[10px] tabular-nums"
@@ -110,6 +115,7 @@ export function WorkoutExerciseTabs({
             workoutId={workoutId}
             items={comments}
             readOnly={readOnly}
+            isActive={tab === "comments"}
           />
         </TabsContent>
         <TabsContent keepMounted value="analytics" className={tabPanelClassName}>

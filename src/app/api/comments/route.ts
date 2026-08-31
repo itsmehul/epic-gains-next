@@ -8,8 +8,11 @@ import {
   listVisibleComments,
 } from "@/db/repositories/comment.repository";
 import { createMentionNotifications } from "@/db/repositories/notification.repository";
-import { listFollowing } from "@/db/repositories/social.repository";
-import { resolveMentions } from "@/features/agent/mentions";
+import { listUsersByUsernames } from "@/db/repositories/social.repository";
+import {
+  extractMentionHandles,
+  resolveMentions,
+} from "@/features/agent/mentions";
 import { publicTrainerEscalation, type PublicTrainerEscalation } from "@/features/agent/escalation";
 import {
   createCommentSchema,
@@ -39,6 +42,7 @@ function serializeComment(item: {
     image: string | null;
     isPrivate: boolean;
   };
+  unread?: boolean;
 }) {
   return {
     ...item,
@@ -46,6 +50,7 @@ function serializeComment(item: {
     trainerEscalation: publicTrainerEscalation(item.meta),
     meta: undefined,
     createdAt: item.createdAt.toISOString(),
+    unread: Boolean(item.unread),
   };
 }
 
@@ -129,10 +134,12 @@ export async function POST(req: Request) {
       parentId = parent.parentId ?? parent.id;
     }
 
-    const following = await listFollowing(session.user.id);
+    const mentioned = await listUsersByUsernames(
+      extractMentionHandles(parsed.data.text),
+    );
     const mentions = resolveMentions(
       parsed.data.text,
-      following.map((u) => ({
+      mentioned.map((u) => ({
         id: u.id,
         username: u.username,
         name: u.name,

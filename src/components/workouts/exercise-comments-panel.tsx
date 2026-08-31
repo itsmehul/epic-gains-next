@@ -35,6 +35,7 @@ import {
 } from "@/features/comments/hooks";
 import { groupCommentsIntoThreads } from "@/features/comments/thread";
 import type { Comment } from "@/features/comments/types";
+import { useMarkNotificationsRead } from "@/features/notifications/hooks";
 import { useFollowing, useMeSocial } from "@/features/social/hooks";
 import type { SocialUser } from "@/features/social/types";
 import { cn } from "@/shared/utils";
@@ -121,13 +122,19 @@ function CommentRow({
 }) {
   const when = comment.createdAt ? formatRelativeTime(comment.createdAt) : "";
   const isAgent = comment.role === "agent";
+  const unread = Boolean(comment.unread);
   const profileHref = `/u/${comment.author.username}`;
   const displayName = isAgent ? "Fitness Trainer Agent" : comment.author.name;
   const displayHandle = isAgent ? "@agent" : `@${comment.author.username}`;
   const avatarSize = compact ? "sm" : "md";
 
   return (
-    <article className="flex gap-3">
+    <article
+      className={cn(
+        "flex gap-3",
+        unread && "-mx-2 rounded-xl bg-primary/6 px-2 py-1.5",
+      )}
+    >
       {isAgent ? (
         <div className="mt-0.5 shrink-0">
           <AgentAvatar size={avatarSize} />
@@ -182,6 +189,13 @@ function CommentRow({
                 {when}
               </time>
             </>
+          ) : null}
+          {unread ? (
+            <span
+              className="bg-primary ml-0.5 size-1.5 shrink-0 rounded-full"
+              title="Unread mention"
+              aria-label="Unread mention"
+            />
           ) : null}
         </p>
         <CommentMarkdown text={comment.text} mentions={comment.mentions} />
@@ -459,11 +473,13 @@ export function ExerciseCommentsPanel({
   workoutId,
   items: itemsProp,
   readOnly = false,
+  isActive = true,
 }: {
   exerciseId: string;
   workoutId?: string;
   items?: Comment[];
   readOnly?: boolean;
+  isActive?: boolean;
 }) {
   const [text, setText] = useState("");
   const [replyText, setReplyText] = useState("");
@@ -490,6 +506,8 @@ export function ExerciseCommentsPanel({
 
   const items = itemsProp ?? commentsQuery.data?.items ?? [];
   const threads = useMemo(() => groupCommentsIntoThreads(items), [items]);
+  const markRead = useMarkNotificationsRead();
+  const markedMentionIds = useRef(new Set<string>());
   const pending = createComment.isPending || agentReply.isPending;
   const isLoading = itemsProp == null && commentsQuery.isLoading;
   const isError = itemsProp == null && commentsQuery.isError;
@@ -522,6 +540,16 @@ export function ExerciseCommentsPanel({
 
     return options.slice(0, 8);
   }, [mentionQuery, following.data?.items, geminiKey.data?.configured]);
+
+  useEffect(() => {
+    if (!isActive || readOnly) return;
+    const unreadIds = items
+      .filter((comment) => comment.unread && !markedMentionIds.current.has(comment.id))
+      .map((comment) => comment.id);
+    if (unreadIds.length === 0) return;
+    for (const id of unreadIds) markedMentionIds.current.add(id);
+    markRead.mutate({ commentIds: unreadIds });
+  }, [isActive, items, markRead, readOnly]);
 
   useEffect(() => {
     setActiveMention(0);
@@ -662,8 +690,8 @@ export function ExerciseCommentsPanel({
             <p className="text-foreground text-sm font-medium">No notes yet</p>
             {readOnly ? null : (
               <p className="max-w-64 text-sm leading-5">
-                Add a cue, a form reminder, or how this lift felt today. Try
-                @agent for tips.
+                Add a private cue or how this lift felt. @mention someone to
+                share it, or @agent for tips.
               </p>
             )}
           </div>
@@ -748,7 +776,7 @@ export function ExerciseCommentsPanel({
                             text={replyText}
                             setText={setReplyText}
                             textareaRef={replyTextareaRef}
-                            placeholder="Reply… @agent or @friend"
+                            placeholder="Reply privately… @agent or @friend to share"
                             onSubmit={() => {
                               void postComment(replyText, root.id);
                             }}
@@ -771,11 +799,11 @@ export function ExerciseCommentsPanel({
             text={text}
             setText={setText}
             textareaRef={textareaRef}
-            placeholder="Leave a cue… or @agent / @friend"
+            placeholder="Private note… @agent or @friend to share"
             onSubmit={() => {
               void postComment(text, null);
             }}
-            hint="Enter to send · Shift+Enter for a new line · @ to mention"
+            hint="Private unless you @mention someone · Enter to send · Shift+Enter for a new line"
             error={
               composerError ? (
                 createComment.isError || agentError || agentReply.isError ? (

@@ -29,6 +29,7 @@ export function useMarkNotificationsRead() {
       }),
     onSuccess: (data) => {
       queryClient.setQueryData(notificationKeys.list(), data);
+      void queryClient.invalidateQueries({ queryKey: ["comments"] });
     },
   });
 }

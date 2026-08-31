@@ -6,8 +6,10 @@ import { z } from "zod";
 
 import { getCommentById } from "@/db/repositories/comment.repository";
 import { hasUserGeminiKey } from "@/db/repositories/gemini-key.repository";
+import { getUserById } from "@/db/repositories/social.repository";
 import { getTrainerSystemPrompt } from "@/features/agent/context";
 import { persistGeneratedTrainerReply } from "@/features/agent/escalation-server";
+import { withAthleteCommentPrivacy } from "@/features/agent/prompt";
 import {
   generateUserTrainerChat,
   streamUserTrainerChat,
@@ -69,6 +71,11 @@ export async function POST(req: Request) {
 
     const modelMessages = await convertToModelMessages(messages);
     const prompt = await getTrainerSystemPrompt();
+    const athlete = await getUserById(session.user.id);
+    const system = withAthleteCommentPrivacy(
+      prompt.system,
+      athlete?.username ?? "",
+    );
     const lift = {
       exerciseId,
       workoutId,
@@ -78,7 +85,7 @@ export async function POST(req: Request) {
     if (commentId && exerciseId) {
       const generated = await generateUserTrainerChat({
         userId: session.user.id,
-        system: prompt.system,
+        system,
         promptMetadata: prompt.metadata,
         messages: modelMessages,
         lift,
@@ -99,7 +106,7 @@ export async function POST(req: Request) {
 
     const result = await streamUserTrainerChat({
       userId: session.user.id,
-      system: prompt.system,
+      system,
       promptMetadata: prompt.metadata,
       messages: modelMessages,
       lift,

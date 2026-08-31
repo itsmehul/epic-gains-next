@@ -56,8 +56,10 @@ export function useRespondToTrainerEscalation() {
         method: "POST",
         body: JSON.stringify(input),
       }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: commentKeys.all }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: commentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+    },
   });
 }
 
@@ -85,7 +87,9 @@ export function useAgentCommentReply() {
           commentId: input.commentId,
         }),
       }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: commentKeys.all }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: commentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+    },
   });
 }

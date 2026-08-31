@@ -14,6 +14,7 @@ export type Comment = {
   parentId: string | null;
   authorId: string;
   author: PublicUser;
+  unread?: boolean;
 };
 
 export type ListCommentsResult = { items: Comment[] };

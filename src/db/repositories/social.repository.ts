@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, count, eq, ilike, ne, or, sql } from "drizzle-orm";
+import { and, asc, count, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { follow, followRequest, trainerAssignment, user } from "@/db/schema";
@@ -133,6 +133,27 @@ export async function getUserByUsername(username: string) {
     .where(eq(user.username, normalizeUsername(username)))
     .limit(1);
   return row ? toPublicUser(row) : null;
+}
+
+export async function listUsersByUsernames(usernames: string[]) {
+  const unique = [
+    ...new Set(
+      usernames
+        .map((name) => normalizeUsername(name))
+        .filter((name) => name.length > 0 && name !== "agent"),
+    ),
+  ];
+  if (unique.length === 0) return [];
+
+  const rows = await db
+    .select(publicUserColumns)
+    .from(user)
+    .where(inArray(user.username, unique));
+
+  return rows.flatMap((row) => {
+    const profile = toPublicUser(row);
+    return profile ? [profile] : [];
+  });
 }
 
 export async function updateUserSocialProfile(

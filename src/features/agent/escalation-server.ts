@@ -7,14 +7,26 @@ import {
   getCommentById,
   updateCommentMeta,
 } from "@/db/repositories/comment.repository";
-import { listTrainers } from "@/db/repositories/social.repository";
+import { createMentionNotifications } from "@/db/repositories/notification.repository";
+import {
+  getUserById,
+  listTrainers,
+  listUsersByUsernames,
+} from "@/db/repositories/social.repository";
 import { getTrainerSystemPrompt } from "@/features/agent/context";
 import { redactPii, redactPiiDeep } from "@/features/agent/pii";
 import {
   escalationAskText,
   loopInTrainerApprovalRequest,
 } from "@/features/agent/escalation";
-import type { CommentMeta } from "@/db/schema/workout-schema";
+import {
+  addressCommentToUsers,
+  extractMentionHandles,
+  mergeCommentMentions,
+  resolveMentions,
+} from "@/features/agent/mentions";
+import { withAthleteCommentPrivacy } from "@/features/agent/prompt";
+import type { CommentMeta, CommentMention } from "@/db/schema/workout-schema";
 import { generateUserTrainerChat } from "@/infrastructure/ai/gemini";
 
 type GeneratedChat = Awaited<ReturnType<typeof generateUserTrainerChat>>;
@@ -28,6 +40,60 @@ function trainerRelayed(generated: GeneratedChat) {
       "ok" in result.output &&
       result.output.ok === true,
   );
+}
+
+async function persistAddressedAgentComment(options: {
+  userId: string;
+  exerciseId: string;
+  workoutId: string | null;
+  parentId: string;
+  text: string;
+  meta?: CommentMeta;
+}) {
+  const athlete = await getUserById(options.userId);
+  const extraPeople = await listUsersByUsernames(
+    extractMentionHandles(options.text),
+  );
+  const candidates = extraPeople.map((person) => ({
+    id: person.id,
+    username: person.username,
+    name: person.name,
+  }));
+  if (athlete) {
+    candidates.push({
+      id: athlete.id,
+      username: athlete.username,
+      name: athlete.name,
+    });
+  }
+
+  const addressed = athlete
+    ? addressCommentToUsers(options.text, [athlete])
+    : { text: options.text, mentions: [] as CommentMention[] };
+  const mentions = mergeCommentMentions(
+    addressed.mentions,
+    resolveMentions(addressed.text, candidates),
+  );
+
+  const item = await createComment({
+    id: crypto.randomUUID(),
+    exerciseId: options.exerciseId,
+    workoutId: options.workoutId,
+    text: addressed.text,
+    role: "agent",
+    mentions,
+    parentId: options.parentId,
+    authorId: options.userId,
+    meta: options.meta,
+  });
+  if (!item) return null;
+
+  await createMentionNotifications({
+    commentId: item.id,
+    authorId: options.userId,
+    mentions,
+  });
+  return item;
 }
 
 export async function persistGeneratedTrainerReply(options: {
@@ -50,15 +116,12 @@ export async function persistGeneratedTrainerReply(options: {
       preview,
       trainers,
     });
-    await createComment({
-      id: crypto.randomUUID(),
+    await persistAddressedAgentComment({
+      userId: options.userId,
       exerciseId: options.exerciseId,
       workoutId: options.workoutId,
-      text,
-      role: "agent",
-      mentions: [],
       parentId,
-      authorId: options.userId,
+      text,
       meta: {
         trainerEscalation: {
           approvalId: approval.approvalId,
@@ -84,15 +147,12 @@ export async function persistGeneratedTrainerReply(options: {
     return { ok: false as const, error: "Trainer reply was empty" };
   }
   if (text) {
-    await createComment({
-      id: crypto.randomUUID(),
+    await persistAddressedAgentComment({
+      userId: options.userId,
       exerciseId: options.exerciseId,
       workoutId: options.workoutId,
-      text,
-      role: "agent",
-      mentions: [],
       parentId,
-      authorId: options.userId,
+      text,
     });
   }
   return { ok: true as const, pendingApproval: false };
@@ -121,9 +181,10 @@ export async function respondToTrainerEscalation(options: {
   }
 
   const prompt = await getTrainerSystemPrompt();
+  const athlete = await getUserById(options.userId);
   const generated = await generateUserTrainerChat({
     userId: options.userId,
-    system: prompt.system,
+    system: withAthleteCommentPrivacy(prompt.system, athlete?.username ?? ""),
     promptMetadata: prompt.metadata,
     messages: [
       ...messages,
@@ -156,15 +217,12 @@ export async function respondToTrainerEscalation(options: {
 
   const text = generated.text.trim();
   if (text) {
-    await createComment({
-      id: crypto.randomUUID(),
+    await persistAddressedAgentComment({
+      userId: options.userId,
       exerciseId: comment.exerciseId,
       workoutId: comment.workoutId,
-      text,
-      role: "agent",
-      mentions: [],
       parentId: comment.parentId ?? comment.id,
-      authorId: options.userId,
+      text,
     });
   }
 

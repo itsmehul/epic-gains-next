@@ -4,6 +4,7 @@ import {
   countUnreadNotifications,
   listNotificationsForUser,
   markNotificationsRead,
+  markNotificationsReadForComments,
 } from "@/db/repositories/notification.repository";
 import { markNotificationsReadSchema } from "@/features/notifications/schemas";
 import { notificationHref } from "@/features/notifications/types";
@@ -61,11 +62,22 @@ export async function PATCH(req: Request) {
     if (!parsed.success) {
       return apiError("Invalid body", 400);
     }
-    if (!parsed.data.all && !parsed.data.ids) {
-      return apiError("ids or all is required", 400);
+    if (
+      !parsed.data.all &&
+      !parsed.data.ids &&
+      !parsed.data.commentIds
+    ) {
+      return apiError("ids, commentIds, or all is required", 400);
     }
 
-    await markNotificationsRead(session.user.id, parsed.data.ids);
+    if (parsed.data.commentIds) {
+      await markNotificationsReadForComments(
+        session.user.id,
+        parsed.data.commentIds,
+      );
+    } else {
+      await markNotificationsRead(session.user.id, parsed.data.ids);
+    }
     return NextResponse.json(await listPayload(session.user.id));
   } catch (error) {
     const message =
