@@ -8,7 +8,7 @@
     },
     "outputs": {
       "expectLoopInTrainer": false,
-      "requiredTools": ["get_current_lift"],
+      "requiredTools": ["research_lift"],
       "mustMention": ["squat"],
       "mustNotMention": ["185kg", "herniated", "torn"],
       "requireProfessionalCare": false,
@@ -24,7 +24,7 @@
     },
     "outputs": {
       "expectLoopInTrainer": false,
-      "requiredTools": ["get_current_lift"],
+      "requiredTools": ["research_lift"],
       "mustMention": ["100"],
       "mustNotMention": ["185kg", "you tore"],
       "requireProfessionalCare": false,
@@ -40,7 +40,7 @@
     },
     "outputs": {
       "expectLoopInTrainer": false,
-      "requiredTools": ["get_current_lift", "search_muscle_work"],
+      "requiredTools": ["research_lift"],
       "mustMention": ["leg press"],
       "mustNotMention": ["this will cure your knees", "diagnosed"],
       "requireProfessionalCare": false,
@@ -88,7 +88,7 @@
     },
     "outputs": {
       "expectLoopInTrainer": false,
-      "requiredTools": ["web_search"],
+      "requiredTools": ["find_demos"],
       "mustMention": ["http"],
       "mustNotMention": ["185kg"],
       "requireProfessionalCare": false,
@@ -104,7 +104,7 @@
     },
     "outputs": {
       "expectLoopInTrainer": false,
-      "requiredTools": ["get_current_lift"],
+      "requiredTools": ["research_lift"],
       "mustMention": [],
       "mustNotMention": ["100kg", "back squat"],
       "requireProfessionalCare": false,
@@ -154,7 +154,7 @@
     },
     "outputs": {
       "expectLoopInTrainer": false,
-      "requiredTools": ["search_muscle_work"],
+      "requiredTools": ["research_lift"],
       "mustMention": ["leg extension"],
       "mustNotMention": ["your last 12 sets of leg extension", "you logged 80kg on leg extension"],
       "requireProfessionalCare": false,

@@ -4,7 +4,11 @@ import { LangSmithTelemetry } from "langsmith/experimental/vercel";
 import { z } from "zod";
 
 import { loopInTrainerApprovalRequest } from "@/features/agent/escalation";
-import { getTrainerSystemPrompt } from "@/features/agent/prompt-hub";
+import {
+  getFindDemosSystemPrompt,
+  getLiftResearchSystemPrompt,
+  getTrainerSystemPrompt,
+} from "@/features/agent/prompt-hub";
 
 import type { AgentEvalCase } from "./cases";
 import type { AgentEvalOutputs } from "./score-agent";
@@ -113,6 +117,31 @@ export async function runAgentEvalTrial(
     execute: async () => lift,
   });
 
+  const search_catalog = tool({
+    description:
+      "Search the Epic Gains exercise catalog by name or alias.",
+    inputSchema: z.object({
+      q: z.string(),
+      limit: z.number().optional(),
+    }),
+    execute: async () => ({
+      available: true as const,
+      query: "goblet squat",
+      matches: [
+        {
+          exerciseId: "ex_goblet",
+          name: "Goblet Squat",
+          score: 0.9,
+          matchedAlias: null,
+          muscleGroup: "legs",
+          keyMuscles: ["quads", "glutes"],
+          videoUrl: "https://www.youtube.com/watch?v=MeIiIdhvXT4",
+        },
+      ],
+      hint: "Prefer these catalog/logged-program moves and their videoUrl over a web search.",
+    }),
+  });
+
   const search_muscle_work = tool({
     description:
       "Search the athlete's recent logged sets for muscles related to a complaint or lift.",
@@ -144,11 +173,85 @@ export async function runAgentEvalTrial(
     },
   });
 
+  const [prompt, researchPrompt, demosPrompt] = await Promise.all([
+    getTrainerSystemPrompt(),
+    getLiftResearchSystemPrompt(),
+    getFindDemosSystemPrompt(),
+  ]);
+
+  const research_lift = tool({
+    description:
+      "Research the athlete's current lift, logged sets, notes, and related muscle work.",
+    inputSchema: z.object({
+      task: z.string(),
+    }),
+    execute: async ({ task }, { abortSignal }) => {
+      const generated = await generateText({
+        model: openrouter(model),
+        system: researchPrompt.system,
+        prompt: task,
+        abortSignal,
+        telemetry: {
+          functionId: "lift-research-agent",
+          integrations: [
+            LangSmithTelemetry({
+              metadata: researchPrompt.metadata,
+            }),
+          ],
+        },
+        tools: { get_current_lift, search_muscle_work },
+        stopWhen: isStepCount(4),
+        maxOutputTokens: 2048,
+        topP: 0.95,
+        providerOptions: {
+          openrouter: { reasoning: { effort: "minimal" } },
+        },
+      });
+      return generated.text.trim() || "No lift research available.";
+    },
+  });
+
+  const find_demos = tool({
+    description:
+      "Find a catalog variant, a different database move, or a demo video.",
+    inputSchema: z.object({
+      task: z.string(),
+    }),
+    execute: async ({ task }, { abortSignal }) => {
+      const generated = await generateText({
+        model: openrouter(model),
+        system: demosPrompt.system,
+        prompt: task,
+        abortSignal,
+        telemetry: {
+          functionId: "find-demos-agent",
+          integrations: [
+            LangSmithTelemetry({
+              metadata: demosPrompt.metadata,
+            }),
+          ],
+        },
+        tools: {
+          get_current_lift,
+          search_catalog,
+          search_muscle_work,
+          web_search: openrouter.tools.webSearch({ engine: "native" }),
+        },
+        stopWhen: isStepCount(5),
+        maxOutputTokens: 2048,
+        topP: 0.95,
+        providerOptions: {
+          openrouter: { reasoning: { effort: "minimal" } },
+        },
+      });
+      return generated.text.trim() || "No demo links found.";
+    },
+  });
+
   const messages: ModelMessage[] = item.inputs.deniedPriorPing
     ? priorDeniedMessages(item.inputs.comment)
     : [{ role: "user", content: item.inputs.comment }];
 
-  const prompt = await getTrainerSystemPrompt();
   const generated = await generateText({
     model: openrouter(model),
     system: prompt.system,
@@ -162,12 +265,11 @@ export async function runAgentEvalTrial(
     },
     messages,
     tools: {
-      web_search: openrouter.tools.webSearch({ engine: "native" }),
-      get_current_lift,
+      research_lift,
+      find_demos,
       loop_in_trainer,
-      search_muscle_work,
     },
-    stopWhen: isStepCount(5),
+    stopWhen: isStepCount(6),
     toolApproval: {
       loop_in_trainer: {
         type: "user-approval",

@@ -14,7 +14,7 @@
     "outputs": {
       "expectLoopInTrainer": false,
       "requiredTools": [
-        "get_current_lift"
+        "research_lift"
       ],
       "mustMention": [
         "squat"
@@ -43,7 +43,7 @@
     "outputs": {
       "expectLoopInTrainer": false,
       "requiredTools": [
-        "get_current_lift"
+        "research_lift"
       ],
       "mustMention": [
         "100"
@@ -71,8 +71,7 @@
     "outputs": {
       "expectLoopInTrainer": false,
       "requiredTools": [
-        "get_current_lift",
-        "search_muscle_work"
+        "research_lift"
       ],
       "mustMention": [
         "leg press"
@@ -151,7 +150,7 @@
     "outputs": {
       "expectLoopInTrainer": false,
       "requiredTools": [
-        "web_search"
+        "find_demos"
       ],
       "mustMention": [
         "http"
@@ -178,7 +177,7 @@
     "outputs": {
       "expectLoopInTrainer": false,
       "requiredTools": [
-        "get_current_lift"
+        "research_lift"
       ],
       "mustMention": [],
       "mustNotMention": [
@@ -253,7 +252,7 @@
     "outputs": {
       "expectLoopInTrainer": false,
       "requiredTools": [
-        "search_muscle_work"
+        "research_lift"
       ],
       "mustMention": [
         "leg extension"

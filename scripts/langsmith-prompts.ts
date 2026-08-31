@@ -9,12 +9,18 @@ import { parseArgs } from "node:util";
 import inquirer from "inquirer";
 
 import { LANGSMITH_API_URL } from "../evals/agent/cases";
-import { TRAINER_SYSTEM_PROMPT } from "../src/features/agent/prompt";
+import {
+  FIND_DEMOS_SYSTEM_PROMPT,
+  LIFT_RESEARCH_SYSTEM_PROMPT,
+  TRAINER_SYSTEM_PROMPT,
+} from "../src/features/agent/prompt";
 import {
   chatPromptManifest,
   type PromptHubEntry,
 } from "../src/features/agent/langsmith-prompt";
 import {
+  FIND_DEMOS_PROMPT_HUB_NAME,
+  LIFT_RESEARCH_PROMPT_HUB_NAME,
   TRAINER_PROMPT_HUB_NAME,
   YOUTUBE_IMPORT_PROMPT_HUB_NAME,
 } from "../src/features/agent/prompt-hub";
@@ -34,6 +40,22 @@ const HUB_PROMPTS: PromptHubEntry[] = [
     inputVariables: [],
   },
   {
+    name: LIFT_RESEARCH_PROMPT_HUB_NAME,
+    description: "Lift research subagent system prompt",
+    tags: ["agent", "research"],
+    role: "system",
+    template: LIFT_RESEARCH_SYSTEM_PROMPT,
+    inputVariables: [],
+  },
+  {
+    name: FIND_DEMOS_PROMPT_HUB_NAME,
+    description: "Demo and alternative-move finder (catalog first, then web)",
+    tags: ["agent", "demos"],
+    role: "system",
+    template: FIND_DEMOS_SYSTEM_PROMPT,
+    inputVariables: [],
+  },
+  {
     name: YOUTUBE_IMPORT_PROMPT_HUB_NAME,
     description: "YouTube workout import extraction prompt",
     tags: ["import", "youtube"],
@@ -50,7 +72,7 @@ Pushes local prompts to the LangSmith Prompt Hub via the langsmith CLI.
 
 Options:
   --push               Skip the interactive picker and push every prompt
-  --name <handle>      Only push this repo handle (trainer-agent, youtube-import)
+  --name <handle>      Only push this repo handle (trainer-agent, lift-research-agent, find-demos-agent, youtube-import)
   --api-url <url>      Default ${LANGSMITH_API_URL}
   -h, --help
 `);

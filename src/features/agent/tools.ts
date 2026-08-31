@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { getAthleteLiftData } from "@/features/agent/context";
 import { redactPii } from "@/features/agent/pii";
+import { searchCatalogExercises } from "@/features/agent/search-catalog";
 import { searchAthleteMuscleWork } from "@/features/agent/search-muscle-work";
 import { relayToHumanTrainer } from "@/features/agent/relay-trainer";
 
@@ -102,6 +103,36 @@ export const searchMuscleWorkTool = tool({
       keyMuscles,
       currentExerciseId: context.exerciseId,
       days,
+    });
+  },
+});
+
+export const searchCatalogTool = tool({
+  description:
+    "Search the Epic Gains exercise catalog by name or alias. Use to find variants or a different catalog move before searching the web. Returns muscle tags and a workout video URL when one is stored.",
+  inputSchema: z.object({
+    q: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .describe(
+        "Exercise or variant name. Examples: goblet squat, Romanian deadlift, box squat.",
+      ),
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(12)
+      .optional()
+      .describe("Max matches. Default 8."),
+  }),
+  contextSchema: trainerToolContextSchema,
+  execute: async ({ q, limit }, { context }) => {
+    return searchCatalogExercises({
+      q: redactPii(q),
+      excludeExerciseId: context.exerciseId,
+      limit,
     });
   },
 });

@@ -1,9 +1,15 @@
 import { Client } from "langsmith";
 
 import { extractPrimaryTemplate } from "@/features/agent/langsmith-prompt";
-import { TRAINER_SYSTEM_PROMPT } from "@/features/agent/prompt";
+import {
+  FIND_DEMOS_SYSTEM_PROMPT,
+  LIFT_RESEARCH_SYSTEM_PROMPT,
+  TRAINER_SYSTEM_PROMPT,
+} from "@/features/agent/prompt";
 
 export const TRAINER_PROMPT_HUB_NAME = "trainer-agent";
+export const LIFT_RESEARCH_PROMPT_HUB_NAME = "lift-research-agent";
+export const FIND_DEMOS_PROMPT_HUB_NAME = "find-demos-agent";
 export const YOUTUBE_IMPORT_PROMPT_HUB_NAME = "youtube-import";
 export const LANGSMITH_API_URL = "https://apac.api.smith.langchain.com";
 
@@ -12,7 +18,7 @@ export type TrainerPromptLoad = {
   metadata: Record<string, string>;
 };
 
-let cached: TrainerPromptLoad | null = null;
+const cached = new Map<string, TrainerPromptLoad>();
 
 function langsmithClient() {
   const apiKey = process.env.LANGSMITH_API_KEY?.trim();
@@ -23,40 +29,64 @@ function langsmithClient() {
   });
 }
 
-function fallbackPrompt(): TrainerPromptLoad {
+function fallbackPrompt(name: string, system: string): TrainerPromptLoad {
   return {
-    system: TRAINER_SYSTEM_PROMPT,
+    system,
     metadata: {
-      ls_prompt_name: TRAINER_PROMPT_HUB_NAME,
+      ls_prompt_name: name,
       ls_prompt_source: "bundled",
     },
   };
 }
 
-export async function getTrainerSystemPrompt(): Promise<TrainerPromptLoad> {
-  if (cached) return cached;
+async function getHubSystemPrompt(
+  name: string,
+  bundled: string,
+): Promise<TrainerPromptLoad> {
+  const hit = cached.get(name);
+  if (hit) return hit;
 
+  const fallback = fallbackPrompt(name, bundled);
   const client = langsmithClient();
-  if (!client) return fallbackPrompt();
+  if (!client) return fallback;
 
   try {
     const [prompt, commit] = await Promise.all([
-      client.getPrompt(TRAINER_PROMPT_HUB_NAME),
-      client.pullPromptCommit(TRAINER_PROMPT_HUB_NAME),
+      client.getPrompt(name),
+      client.pullPromptCommit(name),
     ]);
     const pulled = extractPrimaryTemplate(commit.manifest)?.trim();
-    if (!pulled) return fallbackPrompt();
+    if (!pulled) return fallback;
 
     const metadata: Record<string, string> = {
-      ls_prompt_name: TRAINER_PROMPT_HUB_NAME,
+      ls_prompt_name: name,
       ls_prompt_commit_hash: commit.commit_hash,
       ls_prompt_source: "hub",
     };
     if (prompt?.id) metadata.ls_prompt_id = prompt.id;
 
-    cached = { system: pulled, metadata };
-    return cached;
+    const loaded = { system: pulled, metadata };
+    cached.set(name, loaded);
+    return loaded;
   } catch {
-    return fallbackPrompt();
+    return fallback;
   }
+}
+
+export function getTrainerSystemPrompt() {
+  return getHubSystemPrompt(TRAINER_PROMPT_HUB_NAME, TRAINER_SYSTEM_PROMPT);
+}
+
+export function getLiftResearchSystemPrompt() {
+  return getHubSystemPrompt(
+    LIFT_RESEARCH_PROMPT_HUB_NAME,
+    LIFT_RESEARCH_SYSTEM_PROMPT,
+  );
+}
+
+export function getFindDemosSystemPrompt() {
+  return getHubSystemPrompt(
+    FIND_DEMOS_PROMPT_HUB_NAME,
+    FIND_DEMOS_SYSTEM_PROMPT,
+  );
 }

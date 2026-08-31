@@ -11,13 +11,13 @@ describe("agent eval scorers", () => {
     const result = scoreGroundedness({
       outputs: {
         text: "On the back squat, keep the bar over mid-foot.",
-        toolsCalled: ["get_current_lift"],
+        toolsCalled: ["research_lift"],
         requestedLoopInTrainer: false,
         loopInTrainerCalls: 0,
       },
       reference: {
         expectLoopInTrainer: false,
-        requiredTools: ["get_current_lift"],
+        requiredTools: ["research_lift"],
         mustMention: ["squat"],
         mustNotMention: ["185kg"],
       },
