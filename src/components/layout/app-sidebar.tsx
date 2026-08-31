@@ -14,6 +14,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { SidebarAccountFooter } from "@/components/layout/sidebar-account-footer";
+import { SidebarNotificationsButton } from "@/components/layout/sidebar-notifications";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -129,20 +130,23 @@ function AppSidebarContent({
 
       <div className="relative flex h-16 shrink-0 items-center justify-between gap-2 border-b border-sidebar-border/70 px-3.5">
         <SidebarBrand closeOnNavigate={showCloseButton} />
-        {showCloseButton ? (
-          <SheetClose
-            render={
-              <Button
-                className="shrink-0 bg-secondary"
-                size="icon-sm"
-                variant="ghost"
-              />
-            }
-          >
-            <IconX strokeWidth={2} />
-            <span className="sr-only">Close</span>
-          </SheetClose>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-0.5">
+          <SidebarNotificationsButton closeOnNavigate={showCloseButton} />
+          {showCloseButton ? (
+            <SheetClose
+              render={
+                <Button
+                  className="shrink-0 bg-secondary"
+                  size="icon-sm"
+                  variant="ghost"
+                />
+              }
+            >
+              <IconX strokeWidth={2} />
+              <span className="sr-only">Close</span>
+            </SheetClose>
+          ) : null}
+        </div>
       </div>
 
       <div className="relative shrink-0 space-y-1.5 p-3">

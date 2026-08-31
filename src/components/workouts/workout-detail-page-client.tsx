@@ -1,7 +1,7 @@
 "use client";
 
 import { IconChevronRight, IconCircleCheckFilled } from "@/components/ui/icons";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type Ref } from "react";
 
 import {
@@ -282,6 +282,9 @@ export function WorkoutDetailPageClient() {
     string | null
   >(null);
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
+  const focusExerciseId = searchParams.get("exercise");
+  const focusComments = searchParams.get("tab") === "comments";
 
   const workoutQuery = useWorkout(workoutId);
   const workoutExercisesQuery = useWorkoutExercises({ workoutId });
@@ -352,6 +355,16 @@ export function WorkoutDetailPageClient() {
     if (!nextId || nextId === activeWorkoutExerciseId) return;
     setActiveWorkoutExerciseId(nextId);
   }
+
+  useEffect(() => {
+    const items = workoutExercisesQuery.data?.items;
+    if (!focusExerciseId || !items?.length) return;
+    const match = items.find(
+      (item) =>
+        item.exerciseId === focusExerciseId && !isRestWorkoutItem(item),
+    );
+    if (match) setActiveWorkoutExerciseId(match.id);
+  }, [focusExerciseId, workoutExercisesQuery.data]);
 
   useEffect(() => {
     activeChipRef.current?.scrollIntoView({
@@ -540,6 +553,12 @@ export function WorkoutDetailPageClient() {
                   workoutId={workoutId}
                   exerciseId={selectedItem.exerciseId}
                   workoutExerciseId={selectedItem.id}
+                  initialTab={
+                    focusComments &&
+                    selectedItem.exerciseId === focusExerciseId
+                      ? "comments"
+                      : "sets"
+                  }
                   metricProfile={
                     exerciseById.get(selectedItem.exerciseId)?.metricProfile
                   }

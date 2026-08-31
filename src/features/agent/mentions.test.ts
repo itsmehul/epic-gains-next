@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   commentMentionsAgent,
   extractMentionHandles,
+  mentionedUserIds,
   resolveMentions,
   splitCommentText,
 } from "@/features/agent/mentions";
@@ -24,6 +25,8 @@ describe("mentions", () => {
       { kind: "user", userId: "1", username: "maya" },
     ]);
     expect(commentMentionsAgent(mentions)).toBe(true);
+    expect(mentionedUserIds(mentions, "author")).toEqual(["1"]);
+    expect(mentionedUserIds(mentions, "1")).toEqual([]);
   });
 
   it("splits text into mention chips", () => {

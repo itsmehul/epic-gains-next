@@ -86,6 +86,7 @@ export const IconMilitaryTech = createIcon("military_tech");
 export const IconMessage2 = createIcon("chat");
 export const IconMinimize = createIcon("fullscreen_exit");
 export const IconMoon = createIcon("dark_mode");
+export const IconNotifications = createIcon("notifications");
 export const IconNotebook = createIcon("auto_stories");
 export const IconPlayerPauseFilled = createIcon("pause", true);
 export const IconPlayerPlay = createIcon("play_arrow");

@@ -68,6 +68,23 @@ export function commentMentionsAgent(mentions: CommentMention[] | null | undefin
   return Boolean(mentions?.some((m) => m.kind === "agent"));
 }
 
+/** User ids mentioned in a comment, excluding the author and @agent. */
+export function mentionedUserIds(
+  mentions: CommentMention[] | null | undefined,
+  excludeUserId?: string,
+): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const mention of mentions ?? []) {
+    if (mention.kind !== "user") continue;
+    if (excludeUserId && mention.userId === excludeUserId) continue;
+    if (seen.has(mention.userId)) continue;
+    seen.add(mention.userId);
+    ids.push(mention.userId);
+  }
+  return ids;
+}
+
 export type CommentTextPart =
   | { type: "text"; value: string }
   | { type: "mention"; kind: "agent" }

@@ -30,6 +30,7 @@ export function WorkoutExerciseTabs({
   readOnly,
   canResolve,
   comments,
+  initialTab = "sets",
   onExerciseResolved,
 }: {
   workoutId: string;
@@ -42,9 +43,10 @@ export function WorkoutExerciseTabs({
   readOnly?: boolean;
   canResolve?: boolean;
   comments?: Comment[];
+  initialTab?: "sets" | "comments" | "analytics";
   onExerciseResolved?: (id: string) => void;
 }) {
-  const [tab, setTab] = useState("sets");
+  const [tab, setTab] = useState(initialTab);
   const commentsQuery = useComments({
     exerciseId,
     workoutId,
@@ -57,7 +59,9 @@ export function WorkoutExerciseTabs({
     <Tabs
       value={tab}
       onValueChange={(value) => {
-        if (typeof value === "string") setTab(value);
+        if (value === "sets" || value === "comments" || value === "analytics") {
+          setTab(value);
+        }
       }}
       className="gap-4"
     >

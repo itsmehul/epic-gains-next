@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import {
   index,
+  pgEnum,
   pgTable,
   primaryKey,
   text,
@@ -9,6 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth-schema";
+import { comments } from "./workout-schema";
 
 export const follow = pgTable(
   "follow",
@@ -109,3 +111,60 @@ export const trainerAssignmentRelations = relations(
     }),
   }),
 );
+
+export const NOTIFICATION_TYPE_VALUES = ["mention"] as const;
+
+export type NotificationType = (typeof NOTIFICATION_TYPE_VALUES)[number];
+
+export const notificationTypeEnum = pgEnum(
+  "notification_type",
+  NOTIFICATION_TYPE_VALUES,
+);
+
+export const notification = pgTable(
+  "notification",
+  {
+    id: text("id").primaryKey(),
+    recipientId: text("recipient_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    actorId: text("actor_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    commentId: text("comment_id")
+      .notNull()
+      .references(() => comments.id, { onDelete: "cascade" }),
+    type: notificationTypeEnum("type").notNull().default("mention"),
+    readAt: timestamp("read_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("notification_recipient_comment_type_uidx").on(
+      table.recipientId,
+      table.commentId,
+      table.type,
+    ),
+    index("notification_recipientId_idx").on(table.recipientId),
+    index("notification_recipientId_createdAt_idx").on(
+      table.recipientId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const notificationRelations = relations(notification, ({ one }) => ({
+  recipient: one(user, {
+    fields: [notification.recipientId],
+    references: [user.id],
+    relationName: "receivedNotifications",
+  }),
+  actor: one(user, {
+    fields: [notification.actorId],
+    references: [user.id],
+    relationName: "sentNotifications",
+  }),
+  comment: one(comments, {
+    fields: [notification.commentId],
+    references: [comments.id],
+  }),
+}));

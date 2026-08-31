@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { CreateCommentInput } from "@/features/comments/schemas";
 import type { Comment, ListCommentsResult } from "@/features/comments/types";
+import { notificationKeys } from "@/features/notifications/hooks";
 import { apiFetch } from "@/shared/api";
 
 export const commentKeys = {
@@ -42,6 +43,7 @@ export function useCreateComment() {
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: commentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: notificationKeys.all });
     },
   });
 }

@@ -7,6 +7,7 @@ import {
   getCommentById,
   listVisibleComments,
 } from "@/db/repositories/comment.repository";
+import { createMentionNotifications } from "@/db/repositories/notification.repository";
 import { listFollowing } from "@/db/repositories/social.repository";
 import { resolveMentions } from "@/features/agent/mentions";
 import {
@@ -147,6 +148,12 @@ export async function POST(req: Request) {
     if (!item) {
       return apiError("Failed to create comment", 500);
     }
+
+    await createMentionNotifications({
+      commentId: item.id,
+      authorId: session.user.id,
+      mentions,
+    });
 
     return NextResponse.json(serializeComment(item), { status: 201 });
   } catch (error) {
