@@ -4,6 +4,7 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import { getAthleteLiftData } from "@/features/agent/context";
+import { redactPii } from "@/features/agent/pii";
 import { searchAthleteMuscleWork } from "@/features/agent/search-muscle-work";
 import { relayToHumanTrainer } from "@/features/agent/relay-trainer";
 
@@ -31,7 +32,7 @@ export const getCurrentLiftTool = tool({
 
 export const loopInTrainerTool = tool({
   description:
-    "Loop a human trainer into the current comment thread when a person should take over (pain or injury red flags, in-person form check, medical questions, or the athlete asks for their coach). Looks up assigned trainers and posts your relay with @mention notifications. Call at most once per request.",
+    "Loop a human trainer into the current comment thread when a person should take over (pain or injury red flags, in-person form check, medical questions, or the athlete asks for their coach). The athlete must approve before anyone is notified. Looks up assigned trainers and posts your relay with @mention notifications. Call at most once per request.",
   inputSchema: z.object({
     message: z
       .string()
@@ -96,7 +97,7 @@ export const searchMuscleWorkTool = tool({
   execute: async ({ query, muscleGroups, keyMuscles, days }, { context }) => {
     return searchAthleteMuscleWork({
       userId: context.userId,
-      query,
+      query: redactPii(query),
       muscleGroups,
       keyMuscles,
       currentExerciseId: context.exerciseId,

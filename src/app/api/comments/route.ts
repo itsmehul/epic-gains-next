@@ -10,6 +10,7 @@ import {
 import { createMentionNotifications } from "@/db/repositories/notification.repository";
 import { listFollowing } from "@/db/repositories/social.repository";
 import { resolveMentions } from "@/features/agent/mentions";
+import { publicTrainerEscalation, type PublicTrainerEscalation } from "@/features/agent/escalation";
 import {
   createCommentSchema,
   listCommentsQuerySchema,
@@ -27,6 +28,7 @@ function serializeComment(item: {
   text: string;
   role: "user" | "agent";
   mentions: unknown;
+  meta?: { trainerEscalation?: PublicTrainerEscalation & { messages?: unknown } } | null;
   createdAt: Date;
   parentId: string | null;
   authorId: string;
@@ -41,6 +43,8 @@ function serializeComment(item: {
   return {
     ...item,
     mentions: Array.isArray(item.mentions) ? item.mentions : [],
+    trainerEscalation: publicTrainerEscalation(item.meta),
+    meta: undefined,
     createdAt: item.createdAt.toISOString(),
   };
 }

@@ -44,6 +44,21 @@ export type CommentMention =
   | { kind: "agent" }
   | { kind: "user"; userId: string; username: string };
 
+export type TrainerEscalationState = "pending" | "approved" | "denied";
+
+export type TrainerEscalationMeta = {
+  approvalId: string;
+  state: TrainerEscalationState;
+  preview: string;
+  trainers: Array<{ username: string; name: string }>;
+  /** Resume payload for generateText; omit from API responses. */
+  messages?: unknown;
+};
+
+export type CommentMeta = {
+  trainerEscalation?: TrainerEscalationMeta;
+};
+
 export const commentRoleEnum = pgEnum("comment_role", COMMENT_ROLE_VALUES);
 
 export const METRIC_PROFILE_VALUES = [
@@ -264,6 +279,7 @@ export const comments = pgTable(
       .$type<CommentMention[]>()
       .notNull()
       .default([]),
+    meta: jsonb("meta").$type<CommentMeta>().notNull().default({}),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     parentId: text("parent_id"),
     authorId: text("author_id")

@@ -4,6 +4,7 @@ import { getExerciseById } from "@/db/repositories/exercise.repository";
 import { listVisibleComments } from "@/db/repositories/comment.repository";
 import { listSets } from "@/db/repositories/set.repository";
 import { listWorkoutExercises } from "@/db/repositories/workout-exercise.repository";
+import { redactPii } from "@/features/agent/pii";
 
 export type AgentLiftData =
   | { available: false; reason: string }
@@ -84,7 +85,7 @@ export async function getAthleteLiftData(options: {
     .filter((c) => c.id !== options.excludeCommentId)
     .slice(-8)
     .map((c) => ({
-      text: c.text,
+      text: redactPii(c.text),
       createdAt: c.createdAt.toISOString(),
     }));
 
@@ -105,12 +106,5 @@ export async function getAthleteLiftData(options: {
   };
 }
 
-export const TRAINER_SYSTEM_PROMPT = `You are the Epic Gains Fitness Trainer Agent.
-Be concise, practical, and encouraging. Focus on form cues, warm-ups, regressions, progressions, and variants.
-When the question is about a specific lift, logged sets, or notes, call get_current_lift first and ground your answer in that data.
-If they complain about a lift or a joint (deadlifts, knees, lower back), call search_muscle_work. Use logged sets on those target muscles; suggest pushing intensity on strengthening work they already do. Do not treat accessory work as a fix for injury red flags.
-When helpful, use Google Search to find reputable demo videos (YouTube preferred) and cite the links clearly.
-If the athlete mentions a struggle, diagnose likely causes and give 2–4 actionable tips.
-Do not invent personal medical advice; suggest seeing a professional for pain or injury red flags.
-If a human should take over (pain/injury red flags, in-person form check, medical questions, or the athlete asks for their coach), call loop_in_trainer once with a short relay and the current thread. Then tell the athlete whether their trainer was pinged. Do not repeat the @mention in your spoken reply.
-Format replies in compact Markdown (short paragraphs, **bold** cues, lists when you have 2+ tips). Keep it scannable.`;
+export { TRAINER_SYSTEM_PROMPT } from "@/features/agent/prompt";
+export { getTrainerSystemPrompt } from "@/features/agent/prompt-hub";

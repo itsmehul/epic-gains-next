@@ -7,6 +7,7 @@ import {
 import { createMentionNotifications } from "@/db/repositories/notification.repository";
 import { listTrainers } from "@/db/repositories/social.repository";
 import { buildTrainerRelayComment } from "@/features/agent/mentions";
+import { redactPii } from "@/features/agent/pii";
 
 export type RelayToTrainerResult =
   | {
@@ -57,7 +58,7 @@ export async function relayToHumanTrainer(options: {
   }
 
   const { text, mentions } = buildTrainerRelayComment(
-    options.message,
+    redactPii(options.message),
     trainers,
   );
   const item = await createComment({

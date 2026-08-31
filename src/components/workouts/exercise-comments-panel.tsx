@@ -20,6 +20,7 @@ import {
 } from "react";
 
 import { CommentMarkdown } from "@/components/workouts/comment-markdown";
+import { TrainerEscalationCard } from "@/components/agent/trainer-escalation-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -30,6 +31,7 @@ import {
   useAgentCommentReply,
   useComments,
   useCreateComment,
+  useRespondToTrainerEscalation,
 } from "@/features/comments/hooks";
 import { groupCommentsIntoThreads } from "@/features/comments/thread";
 import type { Comment } from "@/features/comments/types";
@@ -104,12 +106,18 @@ function CommentRow({
   comment,
   linkAuthor = true,
   compact = false,
+  canRespondToEscalation = false,
+  escalationPending = false,
   onReply,
+  onEscalationRespond,
 }: {
   comment: Comment;
   linkAuthor?: boolean;
   compact?: boolean;
+  canRespondToEscalation?: boolean;
+  escalationPending?: boolean;
   onReply?: () => void;
+  onEscalationRespond?: (approved: boolean) => void;
 }) {
   const when = comment.createdAt ? formatRelativeTime(comment.createdAt) : "";
   const isAgent = comment.role === "agent";
@@ -177,6 +185,14 @@ function CommentRow({
           ) : null}
         </p>
         <CommentMarkdown text={comment.text} mentions={comment.mentions} />
+        {comment.trainerEscalation ? (
+          <TrainerEscalationCard
+            escalation={comment.trainerEscalation}
+            canRespond={canRespondToEscalation}
+            pending={escalationPending}
+            onRespond={onEscalationRespond}
+          />
+        ) : null}
         {onReply ? (
           <button
             type="button"
@@ -467,6 +483,7 @@ export function ExerciseCommentsPanel({
   });
   const createComment = useCreateComment();
   const agentReply = useAgentCommentReply();
+  const respondEscalation = useRespondToTrainerEscalation();
   const me = useMeSocial();
   const following = useFollowing(me.data?.username ?? "");
   const geminiKey = useGeminiKeyStatus();
@@ -665,6 +682,14 @@ export function ExerciseCommentsPanel({
                   <CommentRow
                     comment={root}
                     linkAuthor={!readOnly}
+                    canRespondToEscalation={me.data?.id === root.authorId}
+                    escalationPending={respondEscalation.isPending}
+                    onEscalationRespond={(approved) => {
+                      void respondEscalation.mutateAsync({
+                        commentId: root.id,
+                        approved,
+                      });
+                    }}
                     onReply={
                       readOnly
                         ? undefined
@@ -681,6 +706,14 @@ export function ExerciseCommentsPanel({
                           comment={reply}
                           linkAuthor={!readOnly}
                           compact
+                          canRespondToEscalation={me.data?.id === reply.authorId}
+                          escalationPending={respondEscalation.isPending}
+                          onEscalationRespond={(approved) => {
+                            void respondEscalation.mutateAsync({
+                              commentId: reply.id,
+                              approved,
+                            });
+                          }}
                           onReply={
                             readOnly
                               ? undefined

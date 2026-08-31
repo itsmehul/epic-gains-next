@@ -1,13 +1,21 @@
 import "server-only";
 
-import { generateText, isStepCount, streamText, type ModelMessage } from "ai";
+import {
+  generateText,
+  isStepCount,
+  streamText,
+  wrapLanguageModel,
+  type ModelMessage,
+} from "ai";
 
 import { getDecryptedUserGeminiKey } from "@/db/repositories/gemini-key.repository";
+import { piiGuardMiddleware } from "@/features/agent/pii";
 import {
   getCurrentLiftTool,
   loopInTrainerTool,
   searchMuscleWorkTool,
 } from "@/features/agent/tools";
+import { getEnv } from "@/shared/env";
 
 import { createOpenRouterFromKey, GEMINI_MODEL } from "./openrouter";
 
@@ -57,7 +65,10 @@ type TrainerChatOptions = {
 async function trainerChatConfig(options: TrainerChatOptions) {
   const openrouter = await getUserGeminiProvider(options.userId);
   return {
-    model: openrouter(GEMINI_MODEL),
+    model: wrapLanguageModel({
+      model: openrouter(GEMINI_MODEL),
+      middleware: piiGuardMiddleware(),
+    }),
     system: options.system,
     messages: options.messages,
     tools: {
@@ -87,6 +98,14 @@ async function trainerChatConfig(options: TrainerChatOptions) {
       },
     },
     stopWhen: isStepCount(5),
+    toolApproval: {
+      loop_in_trainer: {
+        type: "user-approval" as const,
+        reason:
+          "Your trainer will be mentioned in this thread and notified.",
+      },
+    },
+    experimental_toolApprovalSecret: getEnv().BETTER_AUTH_SECRET,
     maxOutputTokens: 8192,
     topP: 0.95,
     providerOptions: geminiProviderOptions,

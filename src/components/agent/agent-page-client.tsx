@@ -1,8 +1,9 @@
 "use client";
 
 import { IconBrain, IconSend } from "@/components/ui/icons";
+import { TrainerEscalationCard } from "@/components/agent/trainer-escalation-card";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, lastAssistantMessageIsCompleteWithApprovalResponses } from "ai";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -29,7 +30,11 @@ function TrainerChat() {
       }),
     [],
   );
-  const { messages, sendMessage, status, error } = useChat({ transport });
+  const { messages, sendMessage, status, error, addToolApprovalResponse } =
+    useChat({
+      transport,
+      sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
+    });
   const [input, setInput] = useState("");
   const pending = status === "submitted" || status === "streaming";
   const trimmed = input.trim();
@@ -57,6 +62,27 @@ function TrainerChat() {
             {messages.map((message) => {
               const text = messageText(message.parts);
               const isUser = message.role === "user";
+              const approvals = message.parts.flatMap((part) => {
+                if (
+                  part.type !== "tool-loop_in_trainer" ||
+                  part.state !== "approval-requested" ||
+                  part.approval.isAutomatic
+                ) {
+                  return [];
+                }
+                return [
+                  {
+                    id: part.approval.id,
+                    preview: (() => {
+                      const input = part.input as { message?: unknown };
+                      return typeof input.message === "string"
+                        ? input.message
+                        : "";
+                    })(),
+                    requestReason: part.approval.requestReason,
+                  },
+                ];
+              });
               return (
                 <li
                   key={message.id}
@@ -80,7 +106,32 @@ function TrainerChat() {
                         : "bg-muted/60 ring-1 ring-foreground/5",
                     )}
                   >
-                    {text || (pending && !isUser ? <Spinner className="size-3.5" /> : null)}
+                    {text ||
+                      (pending && !isUser && approvals.length === 0 ? (
+                        <Spinner className="size-3.5" />
+                      ) : null)}
+                    {approvals.map((approval) => (
+                      <TrainerEscalationCard
+                        key={approval.id}
+                        escalation={{
+                          approvalId: approval.id,
+                          state: "pending",
+                          preview:
+                            approval.preview ||
+                            approval.requestReason ||
+                            "Notify your trainer in this chat.",
+                          trainers: [],
+                        }}
+                        canRespond
+                        pending={pending}
+                        onRespond={(approved) => {
+                          addToolApprovalResponse({
+                            id: approval.id,
+                            approved,
+                          });
+                        }}
+                      />
+                    ))}
                   </div>
                 </li>
               );

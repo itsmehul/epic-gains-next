@@ -4,9 +4,10 @@ import {
 } from "ai";
 import { z } from "zod";
 
-import { createComment, getCommentById } from "@/db/repositories/comment.repository";
+import { getCommentById } from "@/db/repositories/comment.repository";
 import { hasUserGeminiKey } from "@/db/repositories/gemini-key.repository";
-import { TRAINER_SYSTEM_PROMPT } from "@/features/agent/context";
+import { getTrainerSystemPrompt } from "@/features/agent/context";
+import { persistGeneratedTrainerReply } from "@/features/agent/escalation-server";
 import {
   generateUserTrainerChat,
   streamUserTrainerChat,
@@ -67,6 +68,7 @@ export async function POST(req: Request) {
     }
 
     const modelMessages = await convertToModelMessages(messages);
+    const system = await getTrainerSystemPrompt();
     const lift = {
       exerciseId,
       workoutId,
@@ -76,41 +78,27 @@ export async function POST(req: Request) {
     if (commentId && exerciseId) {
       const generated = await generateUserTrainerChat({
         userId: session.user.id,
-        system: TRAINER_SYSTEM_PROMPT,
+        system,
         messages: modelMessages,
         lift,
       });
-      const text = generated.text.trim();
-      const relayedTrainer = generated.toolResults.some(
-        (result) =>
-          result.toolName === "loop_in_trainer" &&
-          typeof result.output === "object" &&
-          result.output != null &&
-          "ok" in result.output &&
-          result.output.ok === true,
-      );
-      if (!text && !relayedTrainer) {
-        return apiError("Trainer reply was empty", 502);
+      const persisted = await persistGeneratedTrainerReply({
+        userId: session.user.id,
+        exerciseId,
+        workoutId,
+        commentId,
+        modelMessages,
+        generated,
+      });
+      if (!persisted.ok) {
+        return apiError(persisted.error, 502);
       }
-      if (text) {
-        const trigger = await getCommentById(commentId);
-        await createComment({
-          id: crypto.randomUUID(),
-          exerciseId,
-          workoutId,
-          text,
-          role: "agent",
-          mentions: [],
-          parentId: trigger?.parentId ?? commentId,
-          authorId: session.user.id,
-        });
-      }
-      return Response.json({ ok: true });
+      return Response.json({ ok: true, pendingApproval: persisted.pendingApproval });
     }
 
     const result = await streamUserTrainerChat({
       userId: session.user.id,
-      system: TRAINER_SYSTEM_PROMPT,
+      system,
       messages: modelMessages,
       lift,
     });

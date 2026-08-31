@@ -72,6 +72,7 @@ export async function listVisibleComments(options: {
       text: comments.text,
       role: comments.role,
       mentions: comments.mentions,
+      meta: comments.meta,
       createdAt: comments.createdAt,
       parentId: comments.parentId,
       authorId: comments.authorId,
@@ -93,6 +94,7 @@ export async function listVisibleComments(options: {
         text: row.text,
         role: row.role,
         mentions: row.mentions ?? [],
+        meta: row.meta ?? {},
         createdAt: row.createdAt,
         parentId: row.parentId,
         authorId: row.authorId,
@@ -199,6 +201,7 @@ export async function createComment(data: CommentInsert) {
     text: row.text,
     role: row.role,
     mentions: row.mentions ?? [],
+    meta: row.meta ?? {},
     createdAt: row.createdAt,
     parentId: row.parentId,
     authorId: row.authorId,
@@ -215,6 +218,7 @@ export async function getCommentById(id: string) {
       text: comments.text,
       role: comments.role,
       mentions: comments.mentions,
+      meta: comments.meta,
       createdAt: comments.createdAt,
       parentId: comments.parentId,
       authorId: comments.authorId,
@@ -222,5 +226,17 @@ export async function getCommentById(id: string) {
     .from(comments)
     .where(eq(comments.id, id))
     .limit(1);
+  return row ?? null;
+}
+
+export async function updateCommentMeta(
+  id: string,
+  meta: NonNullable<CommentInsert["meta"]>,
+) {
+  const [row] = await db
+    .update(comments)
+    .set({ meta })
+    .where(eq(comments.id, id))
+    .returning();
   return row ?? null;
 }

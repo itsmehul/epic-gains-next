@@ -20,6 +20,8 @@
     "ai:test-gemini": "tsx scripts/test-gemini.ts",
     "ai:test-mcp": "tsx scripts/test-mcp.ts",
     "ai:eval": "tsx scripts/eval.ts",
+    "ai:eval:langsmith": "tsx scripts/langsmith-agent-eval.ts",
+    "ai:prompts:langsmith": "tsx scripts/langsmith-prompts.ts",
     "db:reset-non-user": "tsx scripts/reset-non-user-data.ts",
     "db:seed-sets": "tsx scripts/seed-workout-sets.ts",
     "db:delete-sets": "tsx scripts/delete-workout-sets.ts",

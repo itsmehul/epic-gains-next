@@ -2,12 +2,10 @@ import { IMPORT_VIDEO_ELIGIBILITY_RULES } from "@/features/workouts/import-eligi
 
 export const YOUTUBE_IMPORT_URL_PLACEHOLDER = "{{YOUTUBE_URL}}";
 
-export function generateYoutubeImportPrompt(url: string) {
-  const cleanUrl = url.trim();
-  return `You are an expert fitness analyst, exercise physiologist, and workout video parser.
+export const YOUTUBE_IMPORT_PROMPT_TEMPLATE = `You are an expert fitness analyst, exercise physiologist, and workout video parser.
 
 Analyze the following YouTube workout video:
-${cleanUrl}
+${YOUTUBE_IMPORT_URL_PLACEHOLDER}
 
 Your task is to analyze the video and return a structured, exercise-by-exercise breakdown with pinpoint accurate timestamps strictly as valid JSON. Do not include any conversational intro/outro text, Markdown formatting outside the code block, or commentary.
 
@@ -120,4 +118,10 @@ If the video is eligible, return ONLY the JSON object inside a single markdown c
   ]
 }
 \`\`\``;
+
+export function generateYoutubeImportPrompt(url: string) {
+  return YOUTUBE_IMPORT_PROMPT_TEMPLATE.replaceAll(
+    YOUTUBE_IMPORT_URL_PLACEHOLDER,
+    url.trim(),
+  );
 }

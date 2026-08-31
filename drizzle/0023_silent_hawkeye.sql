@@ -1,0 +1,1 @@
+ALTER TABLE "comments" ADD COLUMN "meta" jsonb DEFAULT '{}'::jsonb NOT NULL;

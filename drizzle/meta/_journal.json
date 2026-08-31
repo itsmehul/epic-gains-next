@@ -162,6 +162,13 @@
       "when": 1788164276164,
       "tag": "0022_supreme_gunslinger",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1788183355086,
+      "tag": "0023_silent_hawkeye",
+      "breakpoints": true
     }
   ]
 }

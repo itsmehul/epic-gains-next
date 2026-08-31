@@ -28,16 +28,17 @@ import { extractJsonValue } from "../evals/parse-model-json";
 import { scoreImportOutput } from "../evals/score-import";
 import { scoreMcpTrial } from "../evals/score-mcp";
 import { generateYoutubeImportPrompt } from "../src/features/workouts/import-prompt";
+import { runAgentLangsmithEval } from "./langsmith-agent-eval";
 
-type Suite = "mcp" | "import" | "all";
+type Suite = "mcp" | "import" | "agent" | "all";
 
-const SUITES: Suite[] = ["mcp", "import", "all"];
+const SUITES: Suite[] = ["mcp", "import", "agent", "all"];
 
 function printHelp() {
   console.log(`Usage: pnpm ai:eval -- [options]
 
 Options:
-  --suite <id>             mcp | import | all
+  --suite <id>             mcp | import | agent | all
   --url <url>              MCP server URL (env MCP_URL)
   --api-key <key>          MCP API key (env MCP_API_KEY)
   --model <id>             OpenRouter Gemini model (env GEMINI_MODEL)
@@ -267,7 +268,8 @@ async function main() {
       choices: [
         { name: "MCP tool-use (test-mcp tasks)", value: "mcp" },
         { name: "YouTube import vs exercise ground truths", value: "import" },
-        { name: "Both", value: "all" },
+        { name: "Trainer agent comments (LangSmith)", value: "agent" },
+        { name: "All", value: "all" },
       ],
     },
     {
@@ -329,6 +331,16 @@ async function main() {
         model,
         caseId: fromCli.caseId,
         saveActual: fromCli.saveActual,
+      }),
+    );
+  }
+
+  if (suite === "agent" || suite === "all") {
+    results.push(
+      await runAgentLangsmithEval({
+        run: true,
+        model,
+        caseId: fromCli.caseId,
       }),
     );
   }

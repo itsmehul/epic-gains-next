@@ -48,6 +48,19 @@ export function useCreateComment() {
   });
 }
 
+export function useRespondToTrainerEscalation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { commentId: string; approved: boolean }) =>
+      apiFetch<{ ok: true; approved: boolean }>("/api/agent/escalation", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: commentKeys.all }),
+  });
+}
+
 export function useAgentCommentReply() {
   const queryClient = useQueryClient();
   return useMutation({
