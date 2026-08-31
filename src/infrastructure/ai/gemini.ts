@@ -10,6 +10,8 @@ import {
 import { LangSmithTelemetry } from "langsmith/experimental/vercel";
 
 import { getDecryptedUserGeminiKey } from "@/db/repositories/gemini-key.repository";
+import { getAthleteLiftData } from "@/features/agent/context";
+import { withAthleteLiftContext } from "@/features/agent/lift-context";
 import { piiGuardMiddleware } from "@/features/agent/pii";
 import {
   getFindDemosSystemPrompt,
@@ -80,14 +82,20 @@ async function trainerChatConfig(options: TrainerChatOptions) {
     workoutId: options.lift?.workoutId,
     commentId: options.lift?.commentId,
   };
-  const [research, demos] = await Promise.all([
+  const [research, demos, liftContext] = await Promise.all([
     getLiftResearchSystemPrompt(),
     getFindDemosSystemPrompt(),
+    getAthleteLiftData({
+      userId: lift.userId,
+      exerciseId: lift.exerciseId,
+      workoutId: lift.workoutId,
+      excludeCommentId: lift.commentId,
+    }),
   ]);
 
   return {
     model,
-    system: options.system,
+    system: withAthleteLiftContext(options.system, liftContext),
     messages: options.messages,
     tools: {
       research_lift: createResearchLiftTool({
@@ -95,6 +103,7 @@ async function trainerChatConfig(options: TrainerChatOptions) {
         system: research.system,
         promptMetadata: research.metadata,
         lift,
+        liftContext,
       }),
       find_demos: createFindDemosTool({
         model,
@@ -102,6 +111,7 @@ async function trainerChatConfig(options: TrainerChatOptions) {
         system: demos.system,
         promptMetadata: demos.metadata,
         lift,
+        liftContext,
       }),
       loop_in_trainer: loopInTrainerTool,
     },

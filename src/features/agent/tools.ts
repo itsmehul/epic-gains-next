@@ -42,7 +42,7 @@ export const loopInTrainerTool = tool({
       .min(1)
       .max(4000)
       .describe(
-        "What to tell the human trainer, including relevant lift context and why they are needed.",
+        "What to tell the human trainer, including why they are needed. The current lift is already attached; do not invent a different exercise name.",
       ),
     threadCommentId: z
       .string()
@@ -54,9 +54,18 @@ export const loopInTrainerTool = tool({
   }),
   contextSchema: trainerToolContextSchema,
   execute: async ({ message, threadCommentId }, { context }) => {
+    const lift = await getAthleteLiftData({
+      userId: context.userId,
+      exerciseId: context.exerciseId,
+      workoutId: context.workoutId,
+      excludeCommentId: context.commentId,
+    });
+    const liftLine = lift.available
+      ? `Current lift: ${lift.exercise.name} (${lift.exercise.id})`
+      : "Current lift: none selected";
     return relayToHumanTrainer({
       athleteId: context.userId,
-      message,
+      message: `${liftLine}\n${message}`,
       exerciseId: context.exerciseId,
       workoutId: context.workoutId,
       commentId: context.commentId,

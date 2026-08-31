@@ -10,6 +10,10 @@ import { LangSmithTelemetry } from "langsmith/experimental/vercel";
 import { z } from "zod";
 
 import {
+  subagentTaskPrompt,
+  type AthleteLiftContext,
+} from "@/features/agent/lift-context";
+import {
   getCurrentLiftTool,
   searchCatalogTool,
   searchMuscleWorkTool,
@@ -49,10 +53,11 @@ export function createResearchLiftTool(options: {
   system: string;
   promptMetadata?: Record<string, string>;
   lift: TrainerLiftContext;
+  liftContext: AthleteLiftContext;
 }) {
   return tool({
     description:
-      "Research the athlete's current lift, logged sets, notes, and related muscle work. Use before coaching a specific exercise, load, or lift/joint complaint.",
+      "Research the athlete's current lift, logged sets, notes, and related muscle work. Use before coaching a specific exercise, load, or lift/joint complaint. Do not pass a guessed exercise name; current lift is already in context.",
     inputSchema: z.object({
       task: z
         .string()
@@ -60,14 +65,14 @@ export function createResearchLiftTool(options: {
         .min(1)
         .max(500)
         .describe(
-          "What to look up. Examples: current squat sets and notes; knee complaint related work.",
+          "What to look up (sets, notes, a joint complaint). Do not invent or rename the current lift.",
         ),
     }),
     execute: async ({ task }, { abortSignal }) => {
       const generated = await generateText({
         model: options.model,
         system: options.system,
-        prompt: task,
+        prompt: subagentTaskPrompt(task, options.liftContext),
         abortSignal,
         tools: {
           get_current_lift: getCurrentLiftTool,
@@ -101,10 +106,11 @@ export function createFindDemosTool(options: {
   system: string;
   promptMetadata?: Record<string, string>;
   lift: TrainerLiftContext;
+  liftContext: AthleteLiftContext;
 }) {
   return tool({
     description:
-      "Find a catalog variant, a different database move, or a demo video. Prefers Epic Gains exercises and stored videos before web search. Does not recommend the current lift's attached video.",
+      "Find a catalog variant, a different database move, or a demo video for the current lift. Prefers Epic Gains exercises and stored videos before web search. Does not recommend the current lift's attached video. Do not pass a guessed exercise name.",
     inputSchema: z.object({
       task: z
         .string()
@@ -112,14 +118,14 @@ export function createFindDemosTool(options: {
         .min(1)
         .max(500)
         .describe(
-          "What to find: a demo, a variant of the current lift, or a different move. Include the exercise name when you know it.",
+          "What to find: a demo, a variant, or a different move. Do not invent or rename the current lift.",
         ),
     }),
     execute: async ({ task }, { abortSignal }) => {
       const generated = await generateText({
         model: options.model,
         system: options.system,
-        prompt: task,
+        prompt: subagentTaskPrompt(task, options.liftContext),
         abortSignal,
         tools: {
           get_current_lift: getCurrentLiftTool,

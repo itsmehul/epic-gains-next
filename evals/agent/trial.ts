@@ -8,6 +8,10 @@ import {
   loopInTrainerApprovalRequest,
 } from "@/features/agent/escalation";
 import {
+  subagentTaskPrompt,
+  withAthleteLiftContext,
+} from "@/features/agent/lift-context";
+import {
   FIND_DEMOS_SYSTEM_PROMPT,
   LIFT_RESEARCH_SYSTEM_PROMPT,
   TRAINER_SYSTEM_PROMPT,
@@ -149,14 +153,18 @@ export async function runAgentEvalTrial(
       threadCommentId: z.string().optional(),
     }),
     execute: async ({ message }) => {
+      const liftLine = lift.available
+        ? `Current lift: ${lift.exercise.name} (${lift.exercise.id})`
+        : "Current lift: none selected";
+      const relay = `${liftLine}\n${message}`;
       if (trainers.length === 0) {
         return {
           ok: false,
           reason: "No trainer assigned.",
-          message,
+          message: relay,
         };
       }
-      return { ok: true, trainers, message };
+      return { ok: true, trainers, message: relay };
     },
   });
 
@@ -176,7 +184,7 @@ export async function runAgentEvalTrial(
       const generated = await generateText({
         model: openrouter(model),
         system: LIFT_RESEARCH_SYSTEM_PROMPT,
-        prompt: task,
+        prompt: subagentTaskPrompt(task, lift),
         abortSignal,
         telemetry: {
           functionId: "lift-research-agent",
@@ -208,7 +216,7 @@ export async function runAgentEvalTrial(
       const generated = await generateText({
         model: openrouter(model),
         system: FIND_DEMOS_SYSTEM_PROMPT,
-        prompt: task,
+        prompt: subagentTaskPrompt(task, lift),
         abortSignal,
         telemetry: {
           functionId: "find-demos-agent",
@@ -239,7 +247,7 @@ export async function runAgentEvalTrial(
 
   const generated = await generateText({
     model: openrouter(model),
-    system: TRAINER_SYSTEM_PROMPT,
+    system: withAthleteLiftContext(TRAINER_SYSTEM_PROMPT, lift),
     telemetry: {
       functionId: "trainer-agent",
       integrations: [

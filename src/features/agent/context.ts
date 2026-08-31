@@ -6,32 +6,9 @@ import { listSets } from "@/db/repositories/set.repository";
 import { listWorkoutExercises } from "@/db/repositories/workout-exercise.repository";
 import { redactPii } from "@/features/agent/pii";
 
-export type AgentLiftData =
-  | { available: false; reason: string }
-  | {
-      available: true;
-      exercise: {
-        id: string;
-        name: string;
-        muscleGroup: string | null;
-        keyMuscles: string[];
-        tags: string[];
-        chapter: string | null;
-        targets: unknown;
-        videoUrl: string | null;
-      };
-      recentSets: Array<{
-        reps: number | null;
-        weight: number | null;
-        time: number | null;
-        distance: number | null;
-        updatedAt: string;
-      }>;
-      recentNotes: Array<{
-        text: string;
-        createdAt: string;
-      }>;
-    };
+import type { AgentLiftData } from "@/features/agent/lift-context";
+
+export type { AgentLiftData };
 
 /** Load the athlete's current lift, recent sets, and notes. */
 export async function getAthleteLiftData(options: {
